@@ -199,15 +199,28 @@ export const route = async (
     if (!result) continue
     const meta = edgeMeta.get(e.id)!
 
-    const raw: { x: number; y: number }[] = [
-      { x: result.sourcePoint.x, y: result.sourcePoint.y },
-      ...result.bendPoints.map((p) => ({ x: p.x, y: p.y })),
-      { x: result.targetPoint.x, y: result.targetPoint.y },
-    ]
-    const points = raw.map((p) => ({
+    const srcNode = layout.nodes[meta.source]!
+    const tgtNode = layout.nodes[meta.target]!
+    const { sourceAnchor, targetAnchor } = alignAnchors(
+      srcNode,
+      meta.sourceSide,
+      tgtNode,
+      meta.targetSide,
+      gridSize,
+    )
+
+    const bends = result.bendPoints.map((p) => ({
       x: snap(p.x, gridSize),
       y: snap(p.y, gridSize),
     }))
+
+    const points = buildOrthogonalPath(
+      sourceAnchor,
+      targetAnchor,
+      meta.sourceSide,
+      meta.targetSide,
+      bends,
+    )
 
     const labelAnchor =
       longestHorizontalMidpoint(points) ?? pathMidpoint(points)
@@ -240,6 +253,122 @@ const anchorPoint = (
 ): { x: number; y: number } => {
   const { x, y } = portOffset(side, rect.w, rect.h)
   return { x: rect.x + x, y: rect.y + y }
+}
+
+const isHorizontalSide = (side: Side) => side === 'E' || side === 'W'
+
+type Pt = { x: number; y: number }
+type Rect = { x: number; y: number; w: number; h: number }
+
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, v))
+
+// When two nodes are connected via parallel sides (both E/W or both N/S) and
+// their faces overlap on the perpendicular axis, slide both anchors to a
+// common coordinate inside the overlap so the resulting edge can be a single
+// straight line instead of an L/Z. Nothing changes when the sides are
+// perpendicular or the faces don't overlap.
+const alignAnchors = (
+  src: Rect,
+  srcSide: Side,
+  tgt: Rect,
+  tgtSide: Side,
+  gridSize: number,
+): { sourceAnchor: Pt; targetAnchor: Pt } => {
+  const defaultSrc = anchorPoint(src, srcSide)
+  const defaultTgt = anchorPoint(tgt, tgtSide)
+
+  const srcHoriz = isHorizontalSide(srcSide)
+  const tgtHoriz = isHorizontalSide(tgtSide)
+  if (srcHoriz !== tgtHoriz) {
+    return { sourceAnchor: defaultSrc, targetAnchor: defaultTgt }
+  }
+
+  if (srcHoriz) {
+    const lo = Math.max(src.y, tgt.y)
+    const hi = Math.min(src.y + src.h, tgt.y + tgt.h)
+    if (hi <= lo) return { sourceAnchor: defaultSrc, targetAnchor: defaultTgt }
+    const preferred = (defaultSrc.y + defaultTgt.y) / 2
+    const y = clamp(Math.round(preferred / gridSize) * gridSize, lo, hi)
+    return {
+      sourceAnchor: { x: defaultSrc.x, y },
+      targetAnchor: { x: defaultTgt.x, y },
+    }
+  }
+  const lo = Math.max(src.x, tgt.x)
+  const hi = Math.min(src.x + src.w, tgt.x + tgt.w)
+  if (hi <= lo) return { sourceAnchor: defaultSrc, targetAnchor: defaultTgt }
+  const preferred = (defaultSrc.x + defaultTgt.x) / 2
+  const x = clamp(Math.round(preferred / gridSize) * gridSize, lo, hi)
+  return {
+    sourceAnchor: { x, y: defaultSrc.y },
+    targetAnchor: { x, y: defaultTgt.y },
+  }
+}
+
+// Synthesize a fully-orthogonal polyline from the two anchors and the bend
+// points libavoid produced. Cases that libavoid handled well (4+ points with
+// already-orthogonal middle segments) only need their first/last bends
+// projected onto the side's axis. Cases where libavoid returned 0 or 1
+// bend points but the sides are parallel and non-collinear get a Z elbow.
+// Mixed-axis sides get a single L corner.
+const buildOrthogonalPath = (
+  A: Pt,
+  C: Pt,
+  sourceSide: Side,
+  targetSide: Side,
+  bends: Pt[],
+): Pt[] => {
+  const srcHoriz = isHorizontalSide(sourceSide)
+  const tgtHoriz = isHorizontalSide(targetSide)
+  const out: Pt[] = [{ x: A.x, y: A.y }]
+
+  if (bends.length >= 2) {
+    // Trust libavoid's interior routing; only force the first and last bend
+    // onto the side's perpendicular axis so the entry/exit segments are
+    // strictly orthogonal.
+    const first = { ...bends[0]! }
+    const last = { ...bends[bends.length - 1]! }
+    if (srcHoriz) first.y = A.y
+    else first.x = A.x
+    if (tgtHoriz) last.y = C.y
+    else last.x = C.x
+    out.push(first)
+    for (let i = 1; i < bends.length - 1; i += 1) {
+      out.push({ ...bends[i]! })
+    }
+    out.push(last)
+  } else if (srcHoriz === tgtHoriz) {
+    // Parallel sides. Direct line works iff anchors are collinear on the
+    // perpendicular axis; otherwise insert a Z elbow.
+    if (srcHoriz) {
+      if (A.y !== C.y) {
+        const hintX = bends[0]?.x ?? (A.x + C.x) / 2
+        out.push({ x: hintX, y: A.y }, { x: hintX, y: C.y })
+      }
+    } else if (A.x !== C.x) {
+      const hintY = bends[0]?.y ?? (A.y + C.y) / 2
+      out.push({ x: A.x, y: hintY }, { x: C.x, y: hintY })
+    }
+  } else {
+    // Mixed-axis sides: one corner.
+    const corner: Pt = srcHoriz
+      ? { x: C.x, y: A.y }
+      : { x: A.x, y: C.y }
+    out.push(corner)
+  }
+
+  out.push({ x: C.x, y: C.y })
+
+  // Drop consecutive duplicates so the SVG marker always has a non-zero
+  // final segment to orient against.
+  const deduped: Pt[] = []
+  for (const p of out) {
+    const tail = deduped[deduped.length - 1]
+    if (tail && tail.x === p.x && tail.y === p.y) continue
+    deduped.push(p)
+  }
+  return deduped
 }
 
 const connectionSideFromSide = (side: Side): ConnectionSide => {
