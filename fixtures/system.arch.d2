@@ -1,0 +1,25 @@
+# system.arch.d2 — sample diagram used by the dev page
+
+user: User { shape: person }
+
+frontend: Web App { shape: rectangle }
+
+api: API { shape: rectangle }
+queue: Job Queue { shape: queue }
+db: Postgres { shape: cylinder }
+
+user -> frontend: "uses"
+frontend -> api: "https"
+api -> db: "writes" { style.stroke-dash: 3 }
+api -> queue: "enqueue"
+queue -> api: "callback" { style.stroke-dash: 1 }
+
+Frontend: "Frontend" {
+  frontend
+}
+
+Backend: "Backend" {
+  api
+  queue
+  db
+}

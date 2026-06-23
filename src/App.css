@@ -1,0 +1,111 @@
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #1e1e1e;
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-filename {
+  margin-left: auto;
+}
+
+.toolbar button,
+.toolbar select,
+.toolbar input[type='number'],
+.toolbar input[type='text'] {
+  background: #353535;
+  color: #f0f0f0;
+  border: 1px solid #4a4a4a;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.toolbar button {
+  cursor: pointer;
+}
+
+.toolbar button:hover:not(:disabled) {
+  background: #424242;
+}
+
+.toolbar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toolbar input[type='number'] {
+  width: 60px;
+}
+
+.toolbar input[type='text'] {
+  width: 180px;
+}
+
+.toolbar-check,
+.toolbar-num {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  user-select: none;
+}
+
+.pane {
+  height: 100%;
+  overflow: hidden;
+  background: #1e1e1e;
+}
+
+.pane-editor {
+  border-right: 1px solid #2e2e2e;
+}
+
+.pane-canvas {
+  background: #ffffff;
+}
+
+.cm-host {
+  height: 100%;
+  width: 100%;
+}
+
+.cm-host .cm-editor {
+  height: 100%;
+}
+
+.resize-handle {
+  width: 4px;
+  background: #2e2e2e;
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle[data-resize-handle-active] {
+  background: #4a90e2;
+}

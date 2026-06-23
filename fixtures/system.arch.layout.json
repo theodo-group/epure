@@ -1,0 +1,37 @@
+{
+  "gridSize": 16,
+  "nodes": {
+    "user":     { "x": 64,  "y": 192, "w": 96,  "h": 96 },
+    "frontend": { "x": 240, "y": 192, "w": 176, "h": 80 },
+    "api":      { "x": 512, "y": 112, "w": 176, "h": 80 },
+    "queue":    { "x": 512, "y": 272, "w": 176, "h": 80 },
+    "db":       { "x": 768, "y": 192, "w": 176, "h": 96 }
+  },
+  "edges": {
+    "user->frontend":  { "sourceSide": "E", "targetSide": "W" },
+    "frontend->api":   { "sourceSide": "E", "targetSide": "W" },
+    "api->db":         { "sourceSide": "E", "targetSide": "W" },
+    "api->queue":      { "sourceSide": "S", "targetSide": "N" },
+    "queue->api":      { "sourceSide": "N", "targetSide": "S" }
+  },
+  "areas": [
+    {
+      "id": "Frontend",
+      "label": "Frontend",
+      "members": ["frontend"],
+      "x": 224,
+      "y": 80,
+      "w": 208,
+      "h": 304
+    },
+    {
+      "id": "Backend",
+      "label": "Backend",
+      "members": ["api", "queue", "db"],
+      "x": 480,
+      "y": 80,
+      "w": 480,
+      "h": 304
+    }
+  ]
+}
