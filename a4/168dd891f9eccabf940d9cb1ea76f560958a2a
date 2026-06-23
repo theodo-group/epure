@@ -1,0 +1,51 @@
+src/export/png.ts
+  s_846865764e4214::t_f1e3dc745a4db4 8
+package.json
+  s_846865764e4214::t_ba0d67d9886296 13,15
+  s_846865764e4214::t_0d492bd00a925e 41
+vite.config.ts
+  s_846865764e4214::t_6708a8698e4831 1,4-6
+src/editor/Toolbar.tsx
+  s_846865764e4214::t_19288e8f5c8164 15-18,21,71,76-79,81,86,88,93-96,98,103,120,134
+src/App.tsx
+  s_846865764e4214::t_4f7a27f470074c 1,5,15-16,53-55,62,65,86-110,113-114,116,118-119,131-132,137-138,144,146,154,171-182,185-208,221-229
+src/export/standalone-html.ts
+  s_846865764e4214::t_2390dfc09bbbd3 1,3-4,6-28,35,70-76
+src/parser/visitor.ts
+  s_846865764e4214::t_8494119ba84fa2 227-228
+  s_846865764e4214::t_29624919e57488 326
+  s_846865764e4214::t_12d1d06cba5801 203
+  s_846865764e4214::t_8e533746090e29 340,344,347
+  s_846865764e4214::t_8d0fd8e995de9b 258
+  s_846865764e4214::t_5886ebd4b5977d 121,131
+  s_846865764e4214::t_8246edd6762ad8 425,430
+  s_846865764e4214::t_5f2bd259fdd903 306-307,313
+src/editor/d2-language.ts
+  s_846865764e4214::t_eba2d64d776f20 35
+.conductor/settings.toml
+  s_846865764e4214::t_84e768b708bbe0 1-6
+tsconfig.json
+  s_846865764e4214::t_cc9e116def12cd 30
+src/store/diagramStore.ts
+  s_846865764e4214::t_cf39a72bebea1d 154
+.gitignore
+  s_846865764e4214::t_a5abc9ac3064a9 9
+src/layout/elk.ts
+  s_846865764e4214::t_dbffcaa3357693 1-9,28-34,52,56,67-69,80-81,99-100,108,137,142,147-152,155-158,162,168-173,175-200,202-206,215-218,221-222,224-227,236-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "a4168dd891f9eccabf940d9cb1ea76f560958a2a",
+  "prompts": {},
+  "sessions": {
+    "s_846865764e4214": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b006037-0712-44c4-962e-dbae7a157381",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
