@@ -32,7 +32,7 @@ export const d2Language = StreamLanguage.define<D2State>({
   name: 'd2',
   startState: () => ({ inBlockComment: false }),
 
-  token(stream: StringStream, state: D2State): string | null {
+  token(stream: StringStream, _state: D2State): string | null {
     // Whitespace
     if (stream.eatSpace()) return null
 

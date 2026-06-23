@@ -5,7 +5,7 @@ const parseViewBox = (vb: string | null) => {
   if (!vb) return null
   const parts = vb.trim().split(/\s+|,/).map(Number)
   if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return null
-  return { x: parts[0], y: parts[1], w: parts[2], h: parts[3] }
+  return { x: parts[0]!, y: parts[1]!, w: parts[2]!, h: parts[3]! }
 }
 
 const measure = (svgEl: SVGSVGElement) => {

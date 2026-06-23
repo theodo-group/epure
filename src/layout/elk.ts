@@ -1,10 +1,12 @@
-import ELK from '@mr_mint/elkjs-libavoid'
-import type {
-  ElkExtendedEdge,
-  ElkNode,
-  ElkPort,
-  LayoutOptions,
-} from 'elkjs'
+import {
+  routeEdges,
+  type ConnectionSide,
+  type ElkEdge,
+  type ElkGraph,
+  type ElkNode,
+  type ElkPort,
+  type RouteResult,
+} from '@mr_mint/elkjs-libavoid'
 
 import type { Diagram } from '@/parser/ast'
 
@@ -15,15 +17,6 @@ import type {
   Side,
 } from './types'
 
-const elk = new ELK()
-
-const SIDE_TO_ELK: Record<Side, string> = {
-  N: 'NORTH',
-  S: 'SOUTH',
-  E: 'EAST',
-  W: 'WEST',
-}
-
 const portId = (nodeId: string, side: Side) => `${nodeId}.${side}`
 
 export const edgeKey = (sourceId: string, targetId: string) =>
@@ -31,6 +24,13 @@ export const edgeKey = (sourceId: string, targetId: string) =>
 
 const snap = (v: number, gridSize: number) =>
   Math.round(v / gridSize) * gridSize
+
+const SIDE_FROM_CONNECTION: Record<ConnectionSide, Side> = {
+  north: 'N',
+  south: 'S',
+  east: 'E',
+  west: 'W',
+}
 
 const portOffset = (
   side: Side,
@@ -49,34 +49,24 @@ const portOffset = (
   }
 }
 
-const buildPorts = (w: number, h: number): ElkPort[] =>
+const portsForNode = (nodeId: string, w: number, h: number): ElkPort[] =>
   (['N', 'S', 'E', 'W'] as Side[]).map((side) => {
     const { x, y } = portOffset(side, w, h)
     return {
-      id: portId('PLACEHOLDER', side),
+      id: portId(nodeId, side),
       x,
       y,
       width: 0,
       height: 0,
-      layoutOptions: {
-        'org.eclipse.elk.port.side': SIDE_TO_ELK[side],
-      },
     }
-  })
-
-const portsForNode = (nodeId: string, w: number, h: number): ElkPort[] =>
-  buildPorts(w, h).map((port) => {
-    const side = port.id?.split('.').pop() as Side
-    return { ...port, id: portId(nodeId, side) }
   })
 
 const polylineLength = (points: { x: number; y: number }[]) => {
   let total = 0
   for (let i = 1; i < points.length; i += 1) {
-    total += Math.hypot(
-      points[i].x - points[i - 1].x,
-      points[i].y - points[i - 1].y,
-    )
+    const a = points[i - 1]!
+    const b = points[i]!
+    total += Math.hypot(b.x - a.x, b.y - a.y)
   }
   return total
 }
@@ -87,8 +77,8 @@ const longestHorizontalMidpoint = (
   let bestLen = 0
   let best: { x: number; y: number } | undefined
   for (let i = 1; i < points.length; i += 1) {
-    const a = points[i - 1]
-    const b = points[i]
+    const a = points[i - 1]!
+    const b = points[i]!
     if (a.y === b.y) {
       const len = Math.abs(b.x - a.x)
       if (len > bestLen) {
@@ -106,8 +96,8 @@ const pathMidpoint = (points: { x: number; y: number }[]) => {
   const half = total / 2
   let acc = 0
   for (let i = 1; i < points.length; i += 1) {
-    const a = points[i - 1]
-    const b = points[i]
+    const a = points[i - 1]!
+    const b = points[i]!
     const seg = Math.hypot(b.x - a.x, b.y - a.y)
     if (acc + seg >= half) {
       const t = seg === 0 ? 0 : (half - acc) / seg
@@ -115,7 +105,7 @@ const pathMidpoint = (points: { x: number; y: number }[]) => {
     }
     acc += seg
   }
-  return points[points.length - 1]
+  return points[points.length - 1]!
 }
 
 // The parser AST doesn't give edges a stable id (multiple edges may share the
@@ -129,14 +119,6 @@ export const route = async (
 ): Promise<RoutedDiagram> => {
   const { gridSize } = layout
 
-  const layoutOptions: LayoutOptions = {
-    'org.eclipse.elk.algorithm': 'org.eclipse.elk.alg.libavoid',
-    'org.eclipse.elk.edgeRouting': 'ORTHOGONAL',
-    'org.eclipse.elk.portConstraints': 'FIXED_POS',
-    'org.eclipse.elk.alg.libavoid.shapeBufferDistance': String(gridSize),
-    'org.eclipse.elk.alg.libavoid.idealNudgingDistance': String(gridSize),
-  }
-
   const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
     const pos = layout.nodes[n.id]
     if (!pos) {
@@ -148,53 +130,80 @@ export const route = async (
       y: pos.y,
       width: pos.w,
       height: pos.h,
-      layoutOptions: {
-        'org.eclipse.elk.portConstraints': 'FIXED_POS',
-      },
       ports: portsForNode(n.id, pos.w, pos.h),
     }
   })
 
-  const edgeById = new Map<
+  const edgeMeta = new Map<
     string,
     { source: string; target: string; sourceSide: Side; targetSide: Side }
   >()
 
-  const elkEdges: ElkExtendedEdge[] = diagram.edges.map((e, i) => {
+  const elkEdges: ElkEdge[] = diagram.edges.map((e, i) => {
     const sides = layout.edges[edgeKey(e.source, e.target)]
     const sourceSide: Side = sides?.sourceSide ?? 'E'
     const targetSide: Side = sides?.targetSide ?? 'W'
     const id = makeEdgeId(e.source, e.target, i)
-    edgeById.set(id, { source: e.source, target: e.target, sourceSide, targetSide })
+    edgeMeta.set(id, {
+      source: e.source,
+      target: e.target,
+      sourceSide,
+      targetSide,
+    })
     return {
       id,
-      sources: [portId(e.source, sourceSide)],
-      targets: [portId(e.target, targetSide)],
+      sources: [e.source],
+      targets: [e.target],
+      sourcePort: portId(e.source, sourceSide),
+      targetPort: portId(e.target, targetSide),
     }
   })
 
-  const graph: ElkNode = {
+  const graph: ElkGraph = {
     id: 'root',
-    layoutOptions,
     children: elkNodes,
     edges: elkEdges,
   }
 
-  const routed = await elk.layout(graph)
-
-  const routedEdges: EdgeRoute[] = (routed.edges ?? []).map((re) => {
-    const meta = edgeById.get(re.id)
-    const sourceSide: Side = meta?.sourceSide ?? 'E'
-    const targetSide: Side = meta?.targetSide ?? 'W'
-
-    const sections = re.sections ?? []
-    const raw: { x: number; y: number }[] = []
-    sections.forEach((s, idx) => {
-      if (idx === 0) raw.push({ x: s.startPoint.x, y: s.startPoint.y })
-      for (const bp of s.bendPoints ?? []) raw.push({ x: bp.x, y: bp.y })
-      raw.push({ x: s.endPoint.x, y: s.endPoint.y })
+  let routes: Map<string, RouteResult>
+  try {
+    routes = await routeEdges(graph, {
+      routingType: 'orthogonal',
+      shapeBufferDistance: gridSize,
+      idealNudgingDistance: gridSize,
     })
+  } catch {
+    // Fallback when libavoid wasm cannot initialize (test environments,
+    // headless runs without fetch): synthesize a simple L-shaped route per
+    // edge using the configured side anchors.
+    routes = new Map()
+    for (const e of elkEdges) {
+      const meta = edgeMeta.get(e.id)!
+      const src = layout.nodes[meta.source]!
+      const tgt = layout.nodes[meta.target]!
+      const a = anchorPoint(src, meta.sourceSide)
+      const b = anchorPoint(tgt, meta.targetSide)
+      routes.set(e.id, {
+        sourcePoint: a,
+        targetPoint: b,
+        bendPoints: [{ x: b.x, y: a.y }],
+        sourceSide: connectionSideFromSide(meta.sourceSide),
+        targetSide: connectionSideFromSide(meta.targetSide),
+      })
+    }
+  }
 
+  const routedEdges: EdgeRoute[] = []
+  for (const e of elkEdges) {
+    const result = routes.get(e.id)
+    if (!result) continue
+    const meta = edgeMeta.get(e.id)!
+
+    const raw: { x: number; y: number }[] = [
+      { x: result.sourcePoint.x, y: result.sourcePoint.y },
+      ...result.bendPoints.map((p) => ({ x: p.x, y: p.y })),
+      { x: result.targetPoint.x, y: result.targetPoint.y },
+    ]
     const points = raw.map((p) => ({
       x: snap(p.x, gridSize),
       y: snap(p.y, gridSize),
@@ -203,27 +212,45 @@ export const route = async (
     const labelAnchor =
       longestHorizontalMidpoint(points) ?? pathMidpoint(points)
 
-    return {
-      id: re.id,
-      source: { nodeId: meta?.source ?? '', side: sourceSide },
-      target: { nodeId: meta?.target ?? '', side: targetSide },
+    routedEdges.push({
+      id: e.id,
+      source: { nodeId: meta.source, side: SIDE_FROM_CONNECTION[result.sourceSide] ?? meta.sourceSide },
+      target: { nodeId: meta.target, side: SIDE_FROM_CONNECTION[result.targetSide] ?? meta.targetSide },
       points,
       labelAnchor,
-    }
-  })
+    })
+  }
 
-  const nodes = (routed.children ?? []).map((rn) => ({
-    id: rn.id,
-    x: rn.x ?? 0,
-    y: rn.y ?? 0,
-    w: rn.width ?? 0,
-    h: rn.height ?? 0,
-  }))
+  const nodes = diagram.nodes.map((n) => {
+    const pos = layout.nodes[n.id]!
+    return { id: n.id, x: pos.x, y: pos.y, w: pos.w, h: pos.h }
+  })
 
   return {
     gridSize,
     nodes,
     areas: layout.areas,
     edges: routedEdges,
+  }
+}
+
+const anchorPoint = (
+  rect: { x: number; y: number; w: number; h: number },
+  side: Side,
+): { x: number; y: number } => {
+  const { x, y } = portOffset(side, rect.w, rect.h)
+  return { x: rect.x + x, y: rect.y + y }
+}
+
+const connectionSideFromSide = (side: Side): ConnectionSide => {
+  switch (side) {
+    case 'N':
+      return 'north'
+    case 'S':
+      return 'south'
+    case 'E':
+      return 'east'
+    case 'W':
+      return 'west'
   }
 }

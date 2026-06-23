@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Toolbar } from '@/editor/Toolbar'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
-import { Canvas } from '@/renderer/Canvas'
+import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
 import {
   useDiagramStore,
   useTemporalStore,
@@ -12,7 +12,8 @@ import {
   saveWithFileSystemAccess,
 } from '@/file/zip'
 import { exportPng } from '@/export/png'
-import type { LayoutSidecar } from '@/layout/types'
+import { exportStandaloneHtml } from '@/export/standalone-html'
+import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 
 import fixtureSource from '../fixtures/system.arch.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.arch.layout.json?raw'
@@ -49,14 +50,19 @@ export const App = () => {
   const source = useDiagramStore((s) => s.source)
   const parseResult = useDiagramStore((s) => s.parseResult)
   const layout = useDiagramStore((s) => s.layout)
+  const routed = useDiagramStore((s) => s.routed)
+  const showGrid = useDiagramStore((s) => s.showGrid)
+  const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
 
   const setSource = useDiagramStore((s) => s.setSource)
   const reparse = useDiagramStore((s) => s.reparse)
   const reroute = useDiagramStore((s) => s.reroute)
   const loadDocument = useDiagramStore((s) => s.loadDocument)
   const markClean = useDiagramStore((s) => s.markClean)
+  const selectNode = useDiagramStore((s) => s.selectNode)
 
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
+  const svgRef = useRef<SVGSVGElement | null>(null)
   const handleRef = useRef<FileSystemFileHandle | undefined>(undefined)
 
   // Bootstrap fixture on mount.
@@ -77,15 +83,40 @@ export const App = () => {
     }
   }, [parseResult, layout, reroute])
 
+  const { nodesMeta, edgesMeta } = useMemo(() => {
+    const n: Record<string, NodeMeta> = {}
+    const e: Record<string, EdgeMeta> = {}
+    if (parseResult.ok) {
+      for (const node of parseResult.diagram.nodes) {
+        n[node.id] = { shape: node.shape, label: node.label }
+      }
+      parseResult.diagram.edges.forEach((edge, i) => {
+        const id = `${edge.source}->${edge.target}#${i}`
+        e[id] = { label: edge.label, style: edge.style, marker: edge.direction }
+      })
+    }
+    return { nodesMeta: n, edgesMeta: e }
+  }, [parseResult])
+
+  const getSvg = (): SVGSVGElement | null => svgRef.current
+
+  const onExportPng = async () => {
+    const svg = svgRef.current
+    if (!svg) return
+    const { exportScale, filename } = useDiagramStore.getState()
+    const blob = await exportPng(svg, exportScale)
+    downloadBlob(blob, `${filename}.png`)
+  }
+
   // Global keyboard shortcuts.
   useEffect(() => {
-    const onKeyDown = async (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
+    const onKeyDown = async (ev: KeyboardEvent) => {
+      const mod = ev.metaKey || ev.ctrlKey
       if (!mod) return
-      const key = e.key.toLowerCase()
+      const key = ev.key.toLowerCase()
 
-      if (key === 's' && !e.shiftKey) {
-        e.preventDefault()
+      if (key === 's' && !ev.shiftKey) {
+        ev.preventDefault()
         const { source: s, layout: l, filename: f } = useDiagramStore.getState()
         try {
           const handle = await saveWithFileSystemAccess(handleRef.current, s, l, f)
@@ -97,25 +128,22 @@ export const App = () => {
         return
       }
 
-      if (key === 'z' && !e.shiftKey) {
-        e.preventDefault()
+      if (key === 'z' && !ev.shiftKey) {
+        ev.preventDefault()
         useTemporalStore.getState().undo()
         return
       }
 
-      if ((key === 'z' && e.shiftKey) || key === 'y') {
-        e.preventDefault()
+      if ((key === 'z' && ev.shiftKey) || key === 'y') {
+        ev.preventDefault()
         useTemporalStore.getState().redo()
         return
       }
 
       if (key === 'e') {
-        e.preventDefault()
-        const current = useDiagramStore.getState()
-        if (!current.routed) return
+        ev.preventDefault()
         try {
-          const blob = await exportPng(current.routed, current.exportScale)
-          downloadBlob(blob, `${current.filename}.png`)
+          await onExportPng()
         } catch (err) {
           console.error('export png failed', err)
         }
@@ -123,7 +151,7 @@ export const App = () => {
       }
 
       if (key === 'o') {
-        e.preventDefault()
+        ev.preventDefault()
         try {
           const doc = await openWithFileSystemAccess()
           if (!doc) return
@@ -140,9 +168,44 @@ export const App = () => {
 
   const parseErrors = parseResult.ok ? [] : parseResult.errors
 
+  const placeholderDiagram: RoutedDiagram = useMemo(
+    () => ({
+      gridSize: layout.gridSize,
+      nodes: [],
+      areas: layout.areas,
+      edges: [],
+    }),
+    [layout],
+  )
+
+  const renderDiagram = routed ?? placeholderDiagram
+
   return (
     <div className="app-root">
-      <Toolbar />
+      <Toolbar
+        onExportPng={async () => {
+          try {
+            await onExportPng()
+          } catch (err) {
+            console.error('export png failed', err)
+          }
+        }}
+        onExportHtml={async () => {
+          const svg = svgRef.current
+          if (!svg) return
+          const { filename } = useDiagramStore.getState()
+          try {
+            const html = await exportStandaloneHtml(svg, { title: filename })
+            downloadBlob(
+              new Blob([html], { type: 'text/html' }),
+              `${filename}.html`,
+            )
+          } catch (err) {
+            console.error('export html failed', err)
+          }
+        }}
+        getSvg={getSvg}
+      />
       <div className="app-body">
         <PanelGroup direction="horizontal" autoSaveId="archgrid:panels">
           <Panel defaultSize={40} minSize={20} className="pane pane-editor">
@@ -155,7 +218,15 @@ export const App = () => {
           </Panel>
           <PanelResizeHandle className="resize-handle" />
           <Panel defaultSize={60} minSize={30} className="pane pane-canvas">
-            <Canvas />
+            <Canvas
+              ref={svgRef}
+              diagram={renderDiagram}
+              showGrid={showGrid}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={(id) => selectNode(id || undefined)}
+              nodes={nodesMeta}
+              edges={edgesMeta}
+            />
           </Panel>
         </PanelGroup>
       </div>

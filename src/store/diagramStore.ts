@@ -151,19 +151,7 @@ export const useDiagramStore = create<DiagramStore>()(
           return
         }
         try {
-          // Adapt the parser AST to what route() needs: edges with an `id`.
-          const adapted = {
-            nodes: parseResult.diagram.nodes.map((n) => ({ id: n.id })),
-            edges: parseResult.diagram.edges.map((e) => ({
-              id: `${e.source}->${e.target}`,
-              source: e.source,
-              target: e.target,
-              label: e.label,
-              style: e.style,
-              marker: e.direction,
-            })),
-          }
-          const routed = await route(adapted, layout)
+          const routed = await route(parseResult.diagram, layout)
           set((s) => ({ ...s, routed }))
         } catch (err) {
           console.error('route failed', err)

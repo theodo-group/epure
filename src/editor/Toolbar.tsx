@@ -9,23 +9,16 @@ import {
   openWithFileSystemAccess,
   saveWithFileSystemAccess,
 } from '@/file/zip'
-import { exportPng } from '@/export/png'
-import { exportStandaloneHtml } from '@/export/standalone-html'
 
 const SCALES: ExportScale[] = [1, 2, 4]
 
-const downloadBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+interface ToolbarProps {
+  onExportPng: () => Promise<void> | void
+  onExportHtml: () => Promise<void> | void
+  getSvg: () => SVGSVGElement | null
 }
 
-export const Toolbar = () => {
+export const Toolbar = ({ onExportPng, onExportHtml, getSvg }: ToolbarProps) => {
   const source = useDiagramStore((s) => s.source)
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
@@ -75,33 +68,39 @@ export const Toolbar = () => {
     }
   }, [source, layout, filename, markClean])
 
-  const onExportPng = useCallback(async () => {
+  const onPng = useCallback(async () => {
     if (!routed) {
       alert('Nothing to export yet — fix parse errors first.')
       return
     }
+    if (!getSvg()) {
+      alert('Canvas is not ready.')
+      return
+    }
     try {
-      const blob = await exportPng(routed, exportScale)
-      downloadBlob(blob, `${filename}.png`)
+      await onExportPng()
     } catch (err) {
       console.error('export png failed', err)
       alert(`PNG export failed: ${(err as Error).message}`)
     }
-  }, [routed, exportScale, filename])
+  }, [routed, onExportPng, getSvg])
 
-  const onExportHtml = useCallback(async () => {
+  const onHtml = useCallback(async () => {
     if (!routed) {
       alert('Nothing to export yet — fix parse errors first.')
       return
     }
+    if (!getSvg()) {
+      alert('Canvas is not ready.')
+      return
+    }
     try {
-      const html = await exportStandaloneHtml(routed, { title: filename })
-      downloadBlob(new Blob([html], { type: 'text/html' }), `${filename}.html`)
+      await onExportHtml()
     } catch (err) {
       console.error('export html failed', err)
       alert(`HTML export failed: ${(err as Error).message}`)
     }
-  }, [routed, filename])
+  }, [routed, onExportHtml, getSvg])
 
   const onUndo = useCallback(() => useTemporalStore.getState().undo(), [])
   const onRedo = useCallback(() => useTemporalStore.getState().redo(), [])
@@ -118,7 +117,7 @@ export const Toolbar = () => {
       </div>
 
       <div className="toolbar-group">
-        <button type="button" onClick={onExportPng}>
+        <button type="button" onClick={onPng}>
           Export PNG
         </button>
         <select
@@ -132,7 +131,7 @@ export const Toolbar = () => {
             </option>
           ))}
         </select>
-        <button type="button" onClick={onExportHtml}>
+        <button type="button" onClick={onHtml}>
           Export HTML
         </button>
       </div>
