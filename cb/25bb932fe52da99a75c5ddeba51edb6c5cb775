@@ -1,0 +1,79 @@
+src/editor/Header.tsx
+  s_4d60e6ed344c34::t_9961338986433a 1-243
+src/style/palette.ts
+  s_6b61b22fcdf68a::t_416984642a5acc 1-65
+src/layout/elk.ts
+  s_6b61b22fcdf68a::t_907a5c37ee176c 268-280,286,297,307-309
+  s_6b61b22fcdf68a::t_6f6b645e5e7fbd 492-511,517-576
+  s_6b61b22fcdf68a::t_1caabab242789f 251,258-262
+src/App.css
+  s_6b61b22fcdf68a::t_9221e0e752ecbb 416-424
+  s_4d60e6ed344c34::t_cec357c0f3ebaa 1-54,58-65,74-80,83-84,87-96,99,102-105,108-111,114-175,178-188,191,196-229,232-235,238-262,265-266,269-286,293-296,299-305,308-372,384-385,387-388,390-391,397-415,425-672
+src/renderer/Edge.tsx
+  s_6b61b22fcdf68a::t_a058497b5c479c 5-6,15,24-98,102,105-121,128-129,131-132,134-135,137
+src/renderer/shapes/cylinder.tsx
+  s_6b61b22fcdf68a::t_88aa59d304ba0f 5-14,33-36,43-46,54-55
+src/renderer/shapes/rectangle.tsx
+  s_6b61b22fcdf68a::t_fc506c5681740d 8-11,14-23,31-34
+src/editor/CodeMirrorPane.tsx
+  s_6b61b22fcdf68a::t_e1865d16b72c8c 132
+  s_4d60e6ed344c34::t_8d600985b93f23 66-71,73-78,81-82,84-100
+  s_6b61b22fcdf68a::t_311fc9e2fecd3e 111
+  s_6b61b22fcdf68a::t_64e5a103bbef12 19-23
+  s_6b61b22fcdf68a::t_5ba08fbfd96b3c 35
+fixtures/system.arch.layout.json
+  s_6b61b22fcdf68a::t_7577597f5932d8 5-17,20-38
+src/index.css
+  s_4d60e6ed344c34::t_ce211090fa97b1 1-2,22,29-30,41-46
+package.json
+  s_6b61b22fcdf68a::t_51b2215726e595 23
+src/renderer/Grid.tsx
+  s_6b61b22fcdf68a::t_be4442b71a0bb3 28
+src/renderer/Node.tsx
+  s_6b61b22fcdf68a::t_386a00f1878fbe 5-11,34-38
+  s_6b61b22fcdf68a::t_a12211dfa65bdf 225-226
+  s_6b61b22fcdf68a::t_095cdf9f9e0912 85-89,96-100
+  s_6b61b22fcdf68a::t_7deec93171c2fc 194-202
+src/editor/Footer.tsx
+  s_4d60e6ed344c34::t_b419562ddb3e57 1-55
+src/layout/types.ts
+  s_6b61b22fcdf68a::t_12be0c5db477c5 1-7,10-32,40,55,63,70-74,78-80
+src/renderer/Area.tsx
+  s_6b61b22fcdf68a::t_b45f25b2a88baa 84-91,93
+  s_6b61b22fcdf68a::t_aca0af370ba5f3 4
+src/App.tsx
+  s_4d60e6ed344c34::t_5e3ae4b12bf95e 4-6,57-58,67,128,130-138,213-216,220,229,253,256,261,345,352
+  s_6b61b22fcdf68a::t_75b4293e5b5c53 3
+  s_6b61b22fcdf68a::t_9128f2a1fd24d8 76-81
+  s_6b61b22fcdf68a::t_1a2cfa0fbb1347 221-227,230-252
+src/editor/EditorTabBar.tsx
+  s_4d60e6ed344c34::t_3f4f068d33fdae 7,11-12,14,42-77
+  s_6b61b22fcdf68a::t_50cf059476d248 1-6,8-10,13,15-41
+src/renderer/Canvas.tsx
+  s_6b61b22fcdf68a::t_1a13c6bfef00b8 440-444
+  s_4d60e6ed344c34::t_f65ac23f35d587 34,50,55-56,91,98,109,122-125,171-204,231-232,236-264,323,365-383,385-402,405-439,445-586
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "cb25bb932fe52da99a75c5ddeba51edb6c5cb775",
+  "prompts": {},
+  "sessions": {
+    "s_4d60e6ed344c34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d272b43-1283-4844-bfd5-1a06f31d9a35",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_6b61b22fcdf68a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da9cc837-5f92-4a3b-a348-0e7afe86f75d",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
