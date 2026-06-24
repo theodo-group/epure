@@ -82,16 +82,25 @@ export const Area: FC<AreaProps> = ({
         rx={12}
         ry={12}
         fill={area.fillColor ? fillOf(area.fillColor) : '#f4f5f9'}
-        stroke={
-          selected
-            ? '#3b82f6'
-            : area.borderColor
-              ? solidOf(area.borderColor)
-              : '#cdd2dd'
-        }
-        strokeWidth={selected ? 1.5 : 1}
+        stroke={area.borderColor ? solidOf(area.borderColor) : '#cdd2dd'}
+        strokeWidth={1}
         strokeDasharray={dashArrayFor(area.borderStyle ?? 'dashed', 1)}
       />
+      {selected ? (
+        <rect
+          x={area.x - 4}
+          y={area.y - 4}
+          width={area.w + 8}
+          height={area.h + 8}
+          rx={16}
+          ry={16}
+          fill='none'
+          stroke='#3b82f6'
+          strokeWidth={1.5}
+          strokeDasharray='4 3'
+          pointerEvents='none'
+        />
+      ) : null}
       {area.label ? (
         <text
           x={area.x + 12}
