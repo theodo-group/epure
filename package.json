@@ -24,6 +24,7 @@
     "@codemirror/lint": "^6.8.5",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.2",
+    "@lezer/highlight": "^1.2.3",
     "@mr_mint/elkjs-libavoid": "^0.3.0",
     "chevrotain": "^11.0.3",
     "codemirror": "^6.0.1",

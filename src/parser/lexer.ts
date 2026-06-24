@@ -59,9 +59,15 @@ export const NumberLit = createToken({
 
 // Identifier: starts with a letter or underscore, then alnum/underscore, with
 // optional internal single hyphens (`stroke-dash` ok, `a--b` not, `-x` not).
+// Includes Latin-1 Supplement + Latin Extended ranges so accented characters
+// (`Café`, `Niño`, `Müller`) work as either ids or unquoted labels.
+const LETTER = 'A-Za-zÀ-ÿĀ-ɏ'
+const DIGIT = '0-9'
 export const Identifier = createToken({
   name: 'Identifier',
-  pattern: /[A-Za-z_][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)*/,
+  pattern: new RegExp(
+    `[${LETTER}_][${LETTER}${DIGIT}_]*(?:-[${LETTER}${DIGIT}_]+)*`,
+  ),
 })
 
 // Token order matters: longer / more specific patterns come first.

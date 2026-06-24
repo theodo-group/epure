@@ -1,6 +1,9 @@
 import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { ShapeName } from '@/parser/ast'
+import type { Side } from '@/layout/types'
+
+import { beginDrag, endDrag } from './dragState'
 
 import {
   Cylinder,
@@ -21,8 +24,9 @@ interface NodeProps {
   w: number
   h: number
   selected?: boolean
-  onSelect?: (id: string) => void
-  onMove?: (id: string, centerX: number, centerY: number) => void
+  onSelect?: (id: string, additive: boolean) => void
+  onMove?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
+  onResize?: (id: string, side: Side, pxX: number, pxY: number) => void
   gridSize: number
 }
 
@@ -37,6 +41,7 @@ const SHAPE_COMPONENTS: Record<ShapeName, FC<ShapeProps>> = {
 }
 
 const AVG_CHAR_PX = 6.6
+const RESIZE_HANDLE = 8
 
 const wrapLabel = (label: string, w: number): string[] => {
   const maxChars = Math.max(4, Math.floor((w - 16) / AVG_CHAR_PX))
@@ -67,13 +72,19 @@ export const Node: FC<NodeProps> = ({
   selected,
   onSelect,
   onMove,
+  onResize,
   gridSize,
 }) => {
   const Shape = SHAPE_COMPONENTS[shape] ?? Rectangle
-  const lines = label ? wrapLabel(label, w) : []
+  // Person shape fills its whole bounding box with a figure; render the
+  // label below the figure instead of overlaying it.
+  const labelBelow = shape === 'person'
+  const labels = label ? wrapLabel(label, labelBelow ? w * 2 : w) : []
   const lineHeight = 14
-  const blockH = lines.length * lineHeight
-  const startY = y + h / 2 - blockH / 2 + lineHeight * 0.8
+  const blockH = labels.length * lineHeight
+  const startY = labelBelow
+    ? y + h + lineHeight
+    : y + h / 2 - blockH / 2 + lineHeight * 0.8
 
   const dragging = useRef(false)
   const dragStart = useRef({ mx: 0, my: 0, cx: 0, cy: 0 })
@@ -81,13 +92,15 @@ export const Node: FC<NodeProps> = ({
   const handlePointerDown = useCallback(
     (event: MouseEvent<SVGGElement>) => {
       event.stopPropagation()
-      onSelect?.(id)
+      const shift = event.shiftKey
+      onSelect?.(id, shift)
       if (!onMove) return
 
       const svg = (event.target as SVGElement).ownerSVGElement
       if (!svg) return
 
       dragging.current = true
+      beginDrag()
       const pt = svg.createSVGPoint()
       pt.x = event.clientX
       pt.y = event.clientY
@@ -102,13 +115,12 @@ export const Node: FC<NodeProps> = ({
         const sp = mp.matrixTransform(svg.getScreenCTM()?.inverse())
         const dx = sp.x - dragStart.current.mx
         const dy = sp.y - dragStart.current.my
-        const newCx = dragStart.current.cx + dx
-        const newCy = dragStart.current.cy + dy
-        onMove(id, newCx, newCy)
+        onMove(id, dragStart.current.cx + dx, dragStart.current.cy + dy, shift)
       }
 
       const onPointerUp = () => {
         dragging.current = false
+        endDrag()
         window.removeEventListener('mousemove', onPointerMove)
         window.removeEventListener('mouseup', onPointerUp)
       }
@@ -117,6 +129,38 @@ export const Node: FC<NodeProps> = ({
       window.addEventListener('mouseup', onPointerUp)
     },
     [id, x, y, w, h, onSelect, onMove, gridSize],
+  )
+
+  const handleResizeDown = useCallback(
+    (side: Side) => (event: MouseEvent<SVGRectElement>) => {
+      event.stopPropagation()
+      onSelect?.(id, false)
+      if (!onResize) return
+
+      const svg = (event.target as SVGElement).ownerSVGElement
+      if (!svg) return
+
+      beginDrag()
+      const onMouseMove = (e: globalThis.MouseEvent) => {
+        const pt = svg.createSVGPoint()
+        pt.x = e.clientX
+        pt.y = e.clientY
+        const inv = svg.getScreenCTM()?.inverse()
+        if (!inv) return
+        const sp = pt.matrixTransform(inv)
+        onResize(id, side, sp.x, sp.y)
+      }
+
+      const onMouseUp = () => {
+        endDrag()
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+      }
+
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+    },
+    [id, onSelect, onResize],
   )
 
   return (
@@ -141,7 +185,7 @@ export const Node: FC<NodeProps> = ({
           pointerEvents='none'
         />
       ) : null}
-      {lines.map((line, i) => (
+      {labels.map((line, i) => (
         <text
           key={i}
           x={x + w / 2}
@@ -150,10 +194,51 @@ export const Node: FC<NodeProps> = ({
           fontFamily='Inter, system-ui, sans-serif'
           fontSize={12}
           fill='#1f2430'
+          pointerEvents='none'
         >
           {line}
         </text>
       ))}
+      {onResize ? (
+        <>
+          <rect
+            x={x - RESIZE_HANDLE / 2}
+            y={y + RESIZE_HANDLE}
+            width={RESIZE_HANDLE}
+            height={h - RESIZE_HANDLE * 2}
+            fill='transparent'
+            style={{ cursor: 'ew-resize' }}
+            onMouseDown={handleResizeDown('W')}
+          />
+          <rect
+            x={x + w - RESIZE_HANDLE / 2}
+            y={y + RESIZE_HANDLE}
+            width={RESIZE_HANDLE}
+            height={h - RESIZE_HANDLE * 2}
+            fill='transparent'
+            style={{ cursor: 'ew-resize' }}
+            onMouseDown={handleResizeDown('E')}
+          />
+          <rect
+            x={x + RESIZE_HANDLE}
+            y={y - RESIZE_HANDLE / 2}
+            width={w - RESIZE_HANDLE * 2}
+            height={RESIZE_HANDLE}
+            fill='transparent'
+            style={{ cursor: 'ns-resize' }}
+            onMouseDown={handleResizeDown('N')}
+          />
+          <rect
+            x={x + RESIZE_HANDLE}
+            y={y + h - RESIZE_HANDLE / 2}
+            width={w - RESIZE_HANDLE * 2}
+            height={RESIZE_HANDLE}
+            fill='transparent'
+            style={{ cursor: 'ns-resize' }}
+            onMouseDown={handleResizeDown('S')}
+          />
+        </>
+      ) : null}
     </g>
   )
 }

@@ -26,6 +26,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.36.2
         version: 6.43.1
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       '@mr_mint/elkjs-libavoid':
         specifier: ^0.3.0
         version: 0.3.0(elkjs@0.10.2)

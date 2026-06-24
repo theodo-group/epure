@@ -15,10 +15,11 @@ const SCALES: ExportScale[] = [1, 2, 4]
 interface ToolbarProps {
   onExportPng: () => Promise<void> | void
   onExportHtml: () => Promise<void> | void
+  onFitView: () => void
   getSvg: () => SVGSVGElement | null
 }
 
-export const Toolbar = ({ onExportPng, onExportHtml, getSvg }: ToolbarProps) => {
+export const Toolbar = ({ onExportPng, onExportHtml, onFitView, getSvg }: ToolbarProps) => {
   const source = useDiagramStore((s) => s.source)
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
@@ -142,6 +143,12 @@ export const Toolbar = ({ onExportPng, onExportHtml, getSvg }: ToolbarProps) => 
         </button>
         <button type="button" onClick={onRedo} disabled={!canRedo}>
           Redo
+        </button>
+      </div>
+
+      <div className="toolbar-group">
+        <button type="button" onClick={onFitView}>
+          Fit
         </button>
       </div>
 

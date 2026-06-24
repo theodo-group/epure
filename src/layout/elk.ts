@@ -154,9 +154,27 @@ export const route = async (
   >()
 
   const elkEdges: ElkEdge[] = diagram.edges.map((e, i) => {
-    const sides = layout.edges[edgeKey(e.source, e.target)]
-    const sourceSide: Side = sides?.sourceSide ?? 'E'
-    const targetSide: Side = sides?.targetSide ?? 'W'
+    // Auto-pick the most logical sides based on relative position. Whichever
+    // axis (x or y) separates the two nodes more dictates the side; the
+    // target gets the opposite side. The layout's stored sides are no
+    // longer authoritative — geometry is.
+    const src = pixelNodes[e.source]!
+    const tgt = pixelNodes[e.target]!
+    const srcCx = src.x + src.w / 2
+    const srcCy = src.y + src.h / 2
+    const tgtCx = tgt.x + tgt.w / 2
+    const tgtCy = tgt.y + tgt.h / 2
+    const dx = tgtCx - srcCx
+    const dy = tgtCy - srcCy
+    let sourceSide: Side
+    let targetSide: Side
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      sourceSide = dx >= 0 ? 'E' : 'W'
+      targetSide = dx >= 0 ? 'W' : 'E'
+    } else {
+      sourceSide = dy >= 0 ? 'S' : 'N'
+      targetSide = dy >= 0 ? 'N' : 'S'
+    }
     const id = makeEdgeId(e.source, e.target, i)
     edgeMeta.set(id, {
       source: e.source,
@@ -216,20 +234,15 @@ export const route = async (
     if (!result) continue
     const meta = edgeMeta.get(e.id)!
 
-    const { sourceAnchor, targetAnchor } = edgeAnchors.get(e.id)!
-
-    const bends = result.bendPoints.map((p) => ({
-      x: snap(p.x, gridSize),
-      y: snap(p.y, gridSize),
-    }))
+    const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(e.id)!
 
     const points = buildOrthogonalPath(
       sourceAnchor,
       targetAnchor,
       meta.sourceSide,
       meta.targetSide,
-      bends,
       gridSize,
+      bendCoord,
     )
 
     const labelAnchor =
@@ -296,9 +309,6 @@ const isHorizontalSide = (side: Side) => side === 'E' || side === 'W'
 type Pt = { x: number; y: number }
 type Rect = { x: number; y: number; w: number; h: number }
 
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v))
-
 const FACE_MARGIN = 12
 
 const faceCoord = (node: Rect, side: Side): number =>
@@ -313,15 +323,25 @@ const faceRange = (node: Rect, side: Side): [number, number] => {
   return [origin + margin, origin + size - margin]
 }
 
+interface EdgeRoutingHints {
+  sourceAnchor: Pt
+  targetAnchor: Pt
+  // Perpendicular coordinate for the Z-jog leg, set when this edge is in a
+  // multi-edge fan and needs to be staggered to avoid overlapping its peers.
+  bendCoord?: number
+}
+
 // Pre-compute anchor positions for all edges. Multi-edge faces (fan-out /
 // fan-in) get evenly distributed ports. Single-edge faces match the
 // distributed position on the other end of the edge, or fall back to the
-// smaller-node-midpoint heuristic for straight lines.
+// smaller-node-midpoint heuristic for straight lines. Edges in a fan also
+// get a staggered bend coordinate so their vertical legs don't overlap —
+// inside arrows turn earlier, outside arrows turn later.
 const computeEdgeAnchors = (
   elkEdges: ElkEdge[],
   edgeMeta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
   nodes: Record<string, Rect>,
-): Map<string, { sourceAnchor: Pt; targetAnchor: Pt }> => {
+): Map<string, EdgeRoutingHints> => {
   // Group edges by face (nodeId:side)
   const faceGroups = new Map<string, Array<{ edgeId: string; connectedId: string }>>()
 
@@ -341,14 +361,15 @@ const computeEdgeAnchors = (
   // Distribute ports on multi-edge faces. Key: "edgeId:nodeId" → position.
   const distributed = new Map<string, number>()
   const multiFaces = new Set<string>()
+  const bendCoords = new Map<string, number>()
 
   for (const [key, group] of faceGroups) {
     if (group.length < 2) continue
     const [nodeId, sideStr] = key.split(':') as [string, string]
-    const side = sideStr as Side
-    const node = nodes[nodeId!]!
-    const horiz = isHorizontalSide(side)
-    const [lo, hi] = faceRange(node, side)
+    const fanSide = sideStr as Side
+    const fanNode = nodes[nodeId!]!
+    const horiz = isHorizontalSide(fanSide)
+    const [lo, hi] = faceRange(fanNode, fanSide)
     const n = group.length
 
     const sorted = [...group].sort((a, b) => {
@@ -362,11 +383,50 @@ const computeEdgeAnchors = (
     for (let i = 0; i < n; i++) {
       distributed.set(`${sorted[i]!.edgeId}:${nodeId}`, lo + step * (i + 0.5))
     }
-    for (const g of group) multiFaces.add(`${g.edgeId}:${nodeId}`)
+    for (const g of group) multiFaces.add(`${g.edgeId}:${nodeId!}`)
+
+    // Stagger bend coordinates so vertical legs don't cross horizontal
+    // exit/entry segments. Group arrows by perpendicular distance from the
+    // fan center — arrows at the same distance share the same depth and
+    // therefore the same bend coordinate (so top and bottom symmetric pairs
+    // bend at the same x and look symmetric). Outer depths (largest dist)
+    // bend closest to the fan face; inner depths bend closer to the other
+    // end. Their vertical legs are in disjoint y ranges (one above, one
+    // below the fan center) so sharing a bend column doesn't cause overlap.
+    const fanFC = faceCoord(fanNode, fanSide)
+    const fanCenterPerp = horiz
+      ? fanNode.y + fanNode.h / 2
+      : fanNode.x + fanNode.w / 2
+    const distOf = new Map<string, number>()
+    for (const item of sorted) {
+      const otherNode = nodes[item.connectedId]!
+      const otherPerp = horiz
+        ? otherNode.y + otherNode.h / 2
+        : otherNode.x + otherNode.w / 2
+      distOf.set(item.edgeId, Math.abs(otherPerp - fanCenterPerp))
+    }
+    const uniqueDists = [...new Set(distOf.values())].sort((a, b) => b - a)
+    const numDepths = uniqueDists.length
+    for (const item of sorted) {
+      const m = edgeMeta.get(item.edgeId)!
+      const isSource = m.source === nodeId
+      const otherSide = isSource ? m.targetSide : m.sourceSide
+      const otherNode = nodes[item.connectedId]
+      if (!otherNode) continue
+      const otherFC = faceCoord(otherNode, otherSide)
+      const depth = uniqueDists.indexOf(distOf.get(item.edgeId)!)
+      // depth 0 (most distant) → smallest offset → bend near fan face.
+      // depth numDepths-1 (least distant, often a straight line) → largest
+      // offset → bend near the other end (rarely used since centered).
+      const offset = ((otherFC - fanFC) * (depth + 1)) / (numDepths + 1)
+      if (!bendCoords.has(item.edgeId)) {
+        bendCoords.set(item.edgeId, fanFC + offset)
+      }
+    }
   }
 
   // Build final anchors per edge
-  const result = new Map<string, { sourceAnchor: Pt; targetAnchor: Pt }>()
+  const result = new Map<string, EdgeRoutingHints>()
 
   for (const e of elkEdges) {
     const m = edgeMeta.get(e.id)!
@@ -392,105 +452,64 @@ const computeEdgeAnchors = (
       tgtPerp = distributed.get(`${e.id}:${m.target}`)!
       srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
     } else {
-      // Both single-edge: prefer smaller node's midpoint for straight lines
-      if (srcHoriz !== tgtHoriz) {
-        srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
-        tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
-      } else if (srcHoriz) {
-        const [sLo, sHi] = faceRange(src, m.sourceSide)
-        const [tLo, tHi] = faceRange(tgt, m.targetSide)
-        const lo = Math.max(sLo, tLo)
-        const hi = Math.min(sHi, tHi)
-        if (lo <= hi) {
-          const preferred = src.h <= tgt.h ? src.y + src.h / 2 : tgt.y + tgt.h / 2
-          const y = clamp(preferred, lo, hi)
-          srcPerp = y; tgtPerp = y
-        } else {
-          srcPerp = clamp(tgt.y + tgt.h / 2, sLo, sHi)
-          tgtPerp = clamp(src.y + src.h / 2, tLo, tHi)
-        }
-      } else {
-        const [sLo, sHi] = faceRange(src, m.sourceSide)
-        const [tLo, tHi] = faceRange(tgt, m.targetSide)
-        const lo = Math.max(sLo, tLo)
-        const hi = Math.min(sHi, tHi)
-        if (lo <= hi) {
-          const preferred = src.w <= tgt.w ? src.x + src.w / 2 : tgt.x + tgt.w / 2
-          const x = clamp(preferred, lo, hi)
-          srcPerp = x; tgtPerp = x
-        } else {
-          srcPerp = clamp(tgt.x + tgt.w / 2, sLo, sHi)
-          tgtPerp = clamp(src.x + src.w / 2, tLo, tHi)
-        }
-      }
+      // Both single-edge: always exit/enter at face centers. If centers
+      // happen to be equal it's a straight line; otherwise buildOrthogonalPath
+      // inserts a Z-bend.
+      srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
+      tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
     }
 
-    // If the two faces overlap, force a straight line by picking a shared
-    // coordinate. Prefer the single-edge node's midpoint (face center).
-    if (srcHoriz === tgtHoriz && srcPerp !== tgtPerp) {
-      const [sLo, sHi] = faceRange(src, m.sourceSide)
-      const [tLo, tHi] = faceRange(tgt, m.targetSide)
-      const lo = Math.max(sLo, tLo)
-      const hi = Math.min(sHi, tHi)
-      if (lo <= hi) {
-        const preferred = srcMulti ? tgtPerp : tgtMulti ? srcPerp : (srcPerp + tgtPerp) / 2
-        const shared = clamp(preferred, lo, hi)
-        srcPerp = shared
-        tgtPerp = shared
-      }
-    }
+    // Note: we don't try to "snap to straight line" by forcing one end's
+    // anchor to match the other's center. Doing so can collide with another
+    // fan member whose distributed port happens to land at the same y. The
+    // distribution itself naturally produces a straight line when the
+    // source y matches the assigned port y.
 
     const sourceAnchor: Pt = srcHoriz ? { x: srcFC, y: srcPerp } : { x: srcPerp, y: srcFC }
     const targetAnchor: Pt = tgtHoriz ? { x: tgtFC, y: tgtPerp } : { x: tgtPerp, y: tgtFC }
-    result.set(e.id, { sourceAnchor, targetAnchor })
+    result.set(e.id, { sourceAnchor, targetAnchor, bendCoord: bendCoords.get(e.id) })
   }
 
   return result
 }
 
-// Synthesize a fully-orthogonal polyline from the two anchors and the bend
-// points libavoid produced. The first segment always leaves perpendicular to
-// the source side and the last segment always arrives perpendicular to the
-// target side (matching diagram-v3 style). Z-jogs use the midpoint between
-// the two anchors so the route never degenerates into an L where the arrow
-// enters the target from the wrong direction.
+// Pick the coordinate for the perpendicular leg of a Z-bend. Prefer a
+// snapped grid value, but if it would coincide with either endpoint
+// (and therefore eliminate the entry or exit segment), fall back to the
+// unsnapped midpoint.
+const zJogCoord = (a: number, c: number, gridSize: number): number => {
+  const snapped = snap((a + c) / 2, gridSize)
+  if (snapped !== a && snapped !== c) return snapped
+  return (a + c) / 2
+}
+
+// Synthesize a fully-orthogonal polyline from the two anchors. The first
+// segment always leaves perpendicular to the source side and the last
+// segment always arrives perpendicular to the target side. Z-jogs use the
+// midpoint between the two anchors.
 const buildOrthogonalPath = (
   A: Pt,
   C: Pt,
   sourceSide: Side,
   targetSide: Side,
-  bends: Pt[],
   gridSize: number,
+  bendCoord?: number,
 ): Pt[] => {
   const srcHoriz = isHorizontalSide(sourceSide)
   const tgtHoriz = isHorizontalSide(targetSide)
   const out: Pt[] = [{ x: A.x, y: A.y }]
 
-  if (bends.length >= 2) {
-    const first = { ...bends[0]! }
-    const last = { ...bends[bends.length - 1]! }
-    if (srcHoriz) first.y = A.y
-    else first.x = A.x
-    if (tgtHoriz) last.y = C.y
-    else last.x = C.x
-    out.push(first)
-    for (let i = 1; i < bends.length - 1; i += 1) {
-      out.push({ ...bends[i]! })
-    }
-    out.push(last)
-  } else if (srcHoriz === tgtHoriz) {
+  if (srcHoriz === tgtHoriz) {
     if (srcHoriz) {
       if (A.y !== C.y) {
-        const midX = snap((A.x + C.x) / 2, gridSize)
+        const midX = bendCoord ?? zJogCoord(A.x, C.x, gridSize)
         out.push({ x: midX, y: A.y }, { x: midX, y: C.y })
       }
     } else if (A.x !== C.x) {
-      const midY = snap((A.y + C.y) / 2, gridSize)
+      const midY = bendCoord ?? zJogCoord(A.y, C.y, gridSize)
       out.push({ x: A.x, y: midY }, { x: C.x, y: midY })
     }
   } else {
-    // Mixed-axis sides: L-corner oriented so first segment matches source
-    // direction and last segment matches target direction.
     const corner: Pt = srcHoriz
       ? { x: C.x, y: A.y }
       : { x: A.x, y: C.y }

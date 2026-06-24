@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Toolbar } from '@/editor/Toolbar'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
@@ -51,7 +51,8 @@ export const App = () => {
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
   const showGrid = useDiagramStore((s) => s.showGrid)
-  const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
+  const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
+  const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
 
   const setSource = useDiagramStore((s) => s.setSource)
   const reparse = useDiagramStore((s) => s.reparse)
@@ -59,7 +60,18 @@ export const App = () => {
   const loadDocument = useDiagramStore((s) => s.loadDocument)
   const markClean = useDiagramStore((s) => s.markClean)
   const selectNode = useDiagramStore((s) => s.selectNode)
+  const selectArea = useDiagramStore((s) => s.selectArea)
+  const setSelection = useDiagramStore((s) => s.setSelection)
   const moveNode = useDiagramStore((s) => s.moveNode)
+  const moveNodes = useDiagramStore((s) => s.moveNodes)
+  const resizeNode = useDiagramStore((s) => s.resizeNode)
+  const areaDragStartRef = useRef<Record<string, { cx: number; cy: number }>>({})
+  const [fitVersion, setFitVersion] = useState(0)
+  const multiDragRef = useRef<{
+    leaderId: string
+    leaderStart: { cx: number; cy: number }
+    members: Record<string, { cx: number; cy: number }>
+  } | null>(null)
 
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -204,6 +216,7 @@ export const App = () => {
             console.error('export html failed', err)
           }
         }}
+        onFitView={() => setFitVersion((v) => v + 1)}
         getSvg={getSvg}
       />
       <div className="app-body">
@@ -222,9 +235,93 @@ export const App = () => {
               ref={svgRef}
               diagram={renderDiagram}
               showGrid={showGrid}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={(id) => selectNode(id || undefined)}
-              onMoveNode={(id, cx, cy) => moveNode(id, cx, cy)}
+              selectedNodeIds={selectedNodeIds}
+              selectedAreaIds={selectedAreaIds}
+              onSelectArea={(id, additive) => selectArea(id, additive)}
+              onSelectNode={(id, additive) => {
+                if (!id) {
+                  if (!additive) selectNode(undefined)
+                  return
+                }
+                // Shift-click toggles in the set. Plain click on an already-
+                // selected node keeps the multi-selection (so a subsequent
+                // drag moves the whole group). Plain click on a different
+                // node replaces the selection.
+                if (additive) {
+                  selectNode(id, true)
+                } else if (!selectedNodeIds.includes(id)) {
+                  selectNode(id, false)
+                }
+              }}
+              onMoveNode={(id, cx, cy) => {
+                const sel = useDiagramStore.getState().selectedNodeIds
+                if (sel.length <= 1 || !sel.includes(id)) {
+                  multiDragRef.current = null
+                  moveNode(id, cx, cy)
+                  return
+                }
+                const grid = useDiagramStore.getState().layout.gridSize
+                const nodes = useDiagramStore.getState().layout.nodes
+                let drag = multiDragRef.current
+                if (!drag || drag.leaderId !== id) {
+                  const leader = nodes[id]
+                  if (!leader) return
+                  const members: Record<string, { cx: number; cy: number }> = {}
+                  for (const sid of sel) {
+                    const n = nodes[sid]
+                    if (n) members[sid] = { cx: n.cx, cy: n.cy }
+                  }
+                  drag = {
+                    leaderId: id,
+                    leaderStart: { cx: leader.cx, cy: leader.cy },
+                    members,
+                  }
+                  multiDragRef.current = drag
+                }
+                const newLeaderCx = Math.round(cx / grid)
+                const newLeaderCy = Math.round(cy / grid)
+                const dgx = newLeaderCx - drag.leaderStart.cx
+                const dgy = newLeaderCy - drag.leaderStart.cy
+                const moves: Record<string, { cx: number; cy: number }> = {}
+                for (const [sid, start] of Object.entries(drag.members)) {
+                  moves[sid] = { cx: start.cx + dgx, cy: start.cy + dgy }
+                }
+                moveNodes(moves)
+              }}
+              onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
+              onMarqueeSelect={(nodeIds, areaIds, additive) => {
+                if (additive) {
+                  const st = useDiagramStore.getState()
+                  setSelection(
+                    [...st.selectedNodeIds, ...nodeIds],
+                    [...st.selectedAreaIds, ...areaIds],
+                  )
+                } else {
+                  setSelection(nodeIds, areaIds)
+                }
+              }}
+              onAreaDragStart={(areaId) => {
+                if (!parseResult.ok) return
+                const area = parseResult.diagram.areas.find((a) => a.id === areaId)
+                if (!area) return
+                const starts: Record<string, { cx: number; cy: number }> = {}
+                for (const memberId of area.members) {
+                  const ln = useDiagramStore.getState().layout.nodes[memberId]
+                  if (ln) starts[memberId] = { cx: ln.cx, cy: ln.cy }
+                }
+                areaDragStartRef.current = starts
+              }}
+              onAreaDragMove={(_areaId, dx, dy) => {
+                const { gridSize } = useDiagramStore.getState().layout
+                const dgx = Math.round(dx / gridSize)
+                const dgy = Math.round(dy / gridSize)
+                const moves: Record<string, { cx: number; cy: number }> = {}
+                for (const [id, start] of Object.entries(areaDragStartRef.current)) {
+                  moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy }
+                }
+                moveNodes(moves)
+              }}
+              fitVersion={fitVersion}
               nodes={nodesMeta}
               edges={edgesMeta}
             />

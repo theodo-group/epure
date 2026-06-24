@@ -1,5 +1,11 @@
-import { StreamLanguage, LanguageSupport } from '@codemirror/language'
+import {
+  HighlightStyle,
+  LanguageSupport,
+  StreamLanguage,
+  syntaxHighlighting,
+} from '@codemirror/language'
 import type { StringStream } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 
 interface D2State {
   inBlockComment: boolean
@@ -101,4 +107,19 @@ export const d2Language = StreamLanguage.define<D2State>({
   },
 })
 
-export const d2Support = new LanguageSupport(d2Language)
+// Dark-palette highlight style, matching the editor's dark theme.
+const d2HighlightStyle = HighlightStyle.define([
+  { tag: t.comment, color: '#6a7280', fontStyle: 'italic' },
+  { tag: t.string, color: '#a3e2a7' },
+  { tag: t.number, color: '#f3c969' },
+  { tag: t.keyword, color: '#c792ea', fontWeight: '600' },
+  { tag: t.atom, color: '#82aaff' },
+  { tag: t.operator, color: '#ff9d6f' },
+  { tag: t.bracket, color: '#9ca3af' },
+  { tag: t.punctuation, color: '#9ca3af' },
+  { tag: t.variableName, color: '#e6edf3' },
+])
+
+export const d2Support = new LanguageSupport(d2Language, [
+  syntaxHighlighting(d2HighlightStyle),
+])
