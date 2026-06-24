@@ -1,0 +1,70 @@
+src/layout/types.ts
+  s_6b61b22fcdf68a::t_968b4dbf9172f3 34-40,43
+src/App.tsx
+  s_6b61b22fcdf68a::t_8f235cb4af25f6 23
+  s_6b61b22fcdf68a::t_beb985101024b9 175
+  s_6b61b22fcdf68a::t_5a113a2086bc90 227
+  s_6b61b22fcdf68a::t_a5a4c2f92aa1ac 62
+src/file/zip.ts
+  s_6b61b22fcdf68a::t_9d0613f8e5bac7 32
+  s_6b61b22fcdf68a::t_32d8493d5b3624 14
+src/renderer/Canvas.tsx
+  s_6b61b22fcdf68a::t_69cf06f1994016 27
+  s_6b61b22fcdf68a::t_5eb6a6f7074f05 76
+  s_6b61b22fcdf68a::t_6029b5bd4b71bd 145-146
+src/layout/elk.ts
+  s_6b61b22fcdf68a::t_23c8bf69c4ebfb 252-277,281
+  s_6b61b22fcdf68a::t_3686629bb8909b 184,192-193,204
+  s_6b61b22fcdf68a::t_9626754d3cc791 338,353
+  s_6b61b22fcdf68a::t_8d3d4e80b2510f 428-442
+  s_6b61b22fcdf68a::t_fcfd0f18a1a625 118,123-124,131-135,137
+  s_6b61b22fcdf68a::t_629333c90205f7 390,393
+  s_6b61b22fcdf68a::t_7cb26ccb0bd896 211
+  s_6b61b22fcdf68a::t_7be20fe8c843e0 2
+  s_6b61b22fcdf68a::t_7b24a5d1468959 302-337,341-352,354-363,365,367-389,391-392,394-427,443-445,447-448
+  s_6b61b22fcdf68a::t_193edf34e47176 248
+  s_6b61b22fcdf68a::t_9b4def6a8b3103 232
+  s_6b61b22fcdf68a::t_bbb6e73e2e8c29 119-122
+  s_6b61b22fcdf68a::t_c3a730a5766435 197-198
+  s_6b61b22fcdf68a::t_0e9dad40955dce 16
+  s_6b61b22fcdf68a::t_aaee22ab2357d6 187-188
+  s_6b61b22fcdf68a::t_55105a46aeffce 212,219
+  s_6b61b22fcdf68a::t_2e0d73954741af 452-456,463,484-485,488-489,492-493
+src/renderer/Grid.tsx
+  s_6b61b22fcdf68a::t_fa87bbe548b1a2 28
+src/parser/parser.test.ts
+  s_6b61b22fcdf68a::t_3ddf40a6409815 172-173
+src/store/diagramStore.ts
+  s_6b61b22fcdf68a::t_068c6f465b0cf4 85
+  s_6b61b22fcdf68a::t_762800debf4767 80-81,84
+  s_6b61b22fcdf68a::t_804269a0c18088 113
+  s_6b61b22fcdf68a::t_8a6059be3b26a2 44
+fixtures/system.arch.d2
+  s_6b61b22fcdf68a::t_9bb35ae5f50a76 1,13-17,20,37-40
+  s_6b61b22fcdf68a::t_07e90ba24e465d 3,5,7-11,19,21-36,41-47,50-55
+src/renderer/Node.tsx
+  s_6b61b22fcdf68a::t_cb09b16a6acc63 1,25-26,69-70,78-120,123-127
+  s_6b61b22fcdf68a::t_903c0ec7d14866 32
+fixtures/system.arch.layout.json
+  s_6b61b22fcdf68a::t_c974199151cd7a 2
+  s_6b61b22fcdf68a::t_94f839538e156b 4-17
+  s_6b61b22fcdf68a::t_5cf51da4e0efe7 20-30
+  s_6b61b22fcdf68a::t_6699338e740636 31-34
+  s_6b61b22fcdf68a::t_ad360520cd34cc 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "b76d41fae24f6a6f161362f003a9c84f2e7ab97a",
+  "prompts": {},
+  "sessions": {
+    "s_6b61b22fcdf68a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da9cc837-5f92-4a3b-a348-0e7afe86f75d",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
