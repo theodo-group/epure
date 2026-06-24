@@ -228,6 +228,7 @@ export const App = () => {
               ]}
               activeTabId={activeTab}
               onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
+              onSearch={() => editorRef.current?.openSearch()}
             />
             <div className="ag-cm-wrap">
               {activeTab === 'd2' ? (
@@ -241,6 +242,7 @@ export const App = () => {
               ) : (
                 <CodeMirrorPane
                   key="layout"
+                  ref={editorRef}
                   value={layoutJsonText}
                   onChange={(text) => {
                     try {
