@@ -1,0 +1,46 @@
+src/file/zip.ts
+  s_71a9f86e264f94::t_6075ea1adafc5d 1
+src/file/localStore.ts
+  s_71a9f86e264f94::t_615b1a42b35eaa 1-42
+src/App.tsx
+  s_71a9f86e264f94::t_efa4dda362b456 210
+  s_71a9f86e264f94::t_90b858b1239c62 140,142,148-149,186,194
+  s_71a9f86e264f94::t_d09e4a6d7bb91a 14-15,24-25
+  s_71a9f86e264f94::t_12777f0a09e38f 216-217
+  s_71a9f86e264f94::t_f2f970e28152f6 92,94-99,102-108
+src/editor/CodeMirrorPane.tsx
+  s_623678ffa17747::t_d031fb44e9e56d 19
+  s_623678ffa17747::t_21c65e521137c9 305
+src/editor/Header.tsx
+  s_71a9f86e264f94::t_c4a0eb96e5965e 8,29,60,64
+src/store/diagramStore.ts
+  s_71a9f86e264f94::t_59be3bfc7e93ca 59
+  s_623678ffa17747::t_246c6889095aa7 350-355,364-367,377-383,385-386,388-394
+  s_623678ffa17747::t_a70c28a5044475 384,387
+  s_71a9f86e264f94::t_3f84e29367577c 274,285,295
+  s_71a9f86e264f94::t_e086ecca14273a 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "d1f906dc2a27444ec9073f51f05fbc70e9c74e18",
+  "prompts": {},
+  "sessions": {
+    "s_623678ffa17747": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5ef69e0-a657-464c-9535-a0a436cc205a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_71a9f86e264f94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "30906c6e-6135-4ca4-b533-3c0ea4ef4a49",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
