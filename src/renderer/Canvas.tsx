@@ -34,8 +34,10 @@ interface CanvasProps {
   onToggleGrid?: () => void
   selectedNodeIds?: string[]
   selectedAreaIds?: string[]
+  selectedEdgeIds?: string[]
   onSelectNode?: (id: string, additive: boolean) => void
   onSelectArea?: (id: string, additive: boolean) => void
+  onSelectEdge?: (id: string, additive: boolean) => void
   onMarqueeSelect?: (
     nodeIds: string[],
     areaIds: string[],
@@ -98,8 +100,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onToggleGrid,
       selectedNodeIds,
       selectedAreaIds,
+      selectedEdgeIds,
       onSelectNode,
       onSelectArea,
+      onSelectEdge,
       onMarqueeSelect,
       onMoveNode,
       onResizeNode,
@@ -422,6 +426,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   label={meta.label}
                   style={meta.style}
                   marker={meta.marker}
+                  selected={selectedEdgeIds?.includes(edge.id) ?? false}
+                  onSelect={onSelectEdge}
                 />
               )
             })}

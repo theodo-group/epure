@@ -10,6 +10,8 @@ interface EdgeProps {
   label?: string
   style?: EdgeStyle
   marker?: EdgeDirection
+  selected?: boolean
+  onSelect?: (id: string, additive: boolean) => void
 }
 
 export const EdgeDefs: FC = () => null
@@ -101,6 +103,8 @@ export const Edge: FC<EdgeProps> = ({
   label,
   style: parserStyle = 'solid',
   marker = 'forward',
+  selected = false,
+  onSelect,
 }) => {
   const color = solidOf(edge.color)
   const width = STROKE_WIDTH[(edge.width ?? 'M') as Size]
@@ -119,20 +123,50 @@ export const Edge: FC<EdgeProps> = ({
   const endDir = directionAt(edge.points, 'end')
   const startPt = edge.points[0] ?? { x: 0, y: 0 }
   const endPt = edge.points[edge.points.length - 1] ?? { x: 0, y: 0 }
+  const path = pointsToPath(edge.points)
 
   return (
     <g data-edge-id={edge.id}>
+      {selected ? (
+        <path
+          d={path}
+          fill='none'
+          stroke='#3b82f6'
+          strokeOpacity={0.28}
+          strokeWidth={width + 6}
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          pointerEvents='none'
+        />
+      ) : null}
       <path
-        d={pointsToPath(edge.points)}
+        d={path}
         fill='none'
         stroke={color}
         strokeWidth={width}
         strokeDasharray={dash}
         strokeLinecap='round'
         strokeLinejoin='round'
+        pointerEvents='none'
       />
       {renderCap(startCap, startPt, startDir, color, width)}
       {renderCap(endCap, endPt, endDir, color, width)}
+      {onSelect ? (
+        <path
+          d={path}
+          fill='none'
+          stroke='transparent'
+          strokeWidth={Math.max(16, width * 3)}
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          pointerEvents='stroke'
+          style={{ cursor: 'pointer' }}
+          onMouseDown={(event) => {
+            event.stopPropagation()
+            onSelect(edge.id, event.shiftKey)
+          }}
+        />
+      ) : null}
       {label && edge.labelAnchor ? (
         <g transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}>
           <text
@@ -144,6 +178,7 @@ export const Edge: FC<EdgeProps> = ({
             strokeWidth={3}
             paintOrder='stroke'
             fill='#1f2430'
+            pointerEvents='none'
           >
             {label}
           </text>

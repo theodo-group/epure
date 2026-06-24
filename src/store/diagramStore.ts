@@ -2,8 +2,19 @@ import { create } from 'zustand'
 import { temporal } from 'zundo'
 import type { ParseResult } from '@/parser/ast'
 import { parse } from '@/parser'
-import type { LayoutSidecar, RoutedDiagram, Side } from '@/layout/types'
-import { route } from '@/layout/elk'
+import type {
+  AreaStyleSpec,
+  EdgeStyleSpec,
+  LayoutSidecar,
+  NodeStyle,
+  RoutedDiagram,
+  Side,
+} from '@/layout/types'
+import { makeEdgeId, route } from '@/layout/elk'
+
+// A routed edge id is `source->target#index`; the style sidecar keys edges by
+// `source->target` (shared across parallel edges), so strip the ordinal.
+const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0]!
 
 export type ExportScale = 1 | 2 | 4
 
@@ -14,6 +25,7 @@ export interface DiagramState {
   routed: RoutedDiagram | null
   selectedNodeIds: string[]
   selectedAreaIds: string[]
+  selectedEdgeIds: string[]
   showGrid: boolean
   gridSize: number
   exportScale: ExportScale
@@ -32,10 +44,16 @@ export interface DiagramActions {
   setNodeSize: (id: string, w: number, h: number) => void
   selectNode: (id: string | undefined, additive?: boolean) => void
   selectArea: (id: string | undefined, additive?: boolean) => void
+  selectEdge: (id: string | undefined, additive?: boolean) => void
   setSelectedNodeIds: (ids: string[]) => void
   setSelectedAreaIds: (ids: string[]) => void
-  setSelection: (nodeIds: string[], areaIds: string[]) => void
+  setSelectedEdgeIds: (ids: string[]) => void
+  setSelection: (nodeIds: string[], areaIds: string[], edgeIds?: string[]) => void
   clearSelection: () => void
+  /** Merge a style patch into every selected node / edge / area. */
+  setNodeStyle: (patch: Partial<NodeStyle>) => void
+  setEdgeStyle: (patch: Partial<EdgeStyleSpec>) => void
+  setAreaStyle: (patch: Partial<AreaStyleSpec>) => void
   toggleGrid: () => void
   setGridSize: (n: number) => void
   setExportScale: (s: ExportScale) => void
@@ -64,6 +82,7 @@ export const useDiagramStore = create<DiagramStore>()(
       routed: null,
       selectedNodeIds: [],
       selectedAreaIds: [],
+      selectedEdgeIds: [],
       showGrid: true,
       gridSize: 16,
       exportScale: 2,
@@ -185,8 +204,10 @@ export const useDiagramStore = create<DiagramStore>()(
 
       selectNode: (id, additive) =>
         set((s) => {
-          if (!id) return { ...s, selectedNodeIds: [], selectedAreaIds: [] }
-          if (!additive) return { ...s, selectedNodeIds: [id], selectedAreaIds: [] }
+          if (!id)
+            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          if (!additive)
+            return { ...s, selectedNodeIds: [id], selectedAreaIds: [], selectedEdgeIds: [] }
           const cur = s.selectedNodeIds
           const idx = cur.indexOf(id)
           const next = idx >= 0
@@ -197,8 +218,10 @@ export const useDiagramStore = create<DiagramStore>()(
 
       selectArea: (id, additive) =>
         set((s) => {
-          if (!id) return { ...s, selectedNodeIds: [], selectedAreaIds: [] }
-          if (!additive) return { ...s, selectedNodeIds: [], selectedAreaIds: [id] }
+          if (!id)
+            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          if (!additive)
+            return { ...s, selectedNodeIds: [], selectedAreaIds: [id], selectedEdgeIds: [] }
           const cur = s.selectedAreaIds
           const idx = cur.indexOf(id)
           const next = idx >= 0
@@ -207,21 +230,85 @@ export const useDiagramStore = create<DiagramStore>()(
           return { ...s, selectedAreaIds: next }
         }),
 
+      selectEdge: (id, additive) =>
+        set((s) => {
+          if (!id)
+            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          // Edge styles are keyed by source->target (shared across parallel
+          // edges), so selecting one edge selects every sibling that shares its
+          // style key — what you select then matches what a style edit writes.
+          const key = edgeStyleKey(id)
+          const siblings = (s.routed?.edges ?? [])
+            .map((e) => e.id)
+            .filter((eid) => edgeStyleKey(eid) === key)
+          const group = siblings.length > 0 ? siblings : [id]
+          if (!additive)
+            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: group }
+          const cur = s.selectedEdgeIds
+          const allSelected = group.every((g) => cur.includes(g))
+          const next = allSelected
+            ? cur.filter((g) => !group.includes(g))
+            : Array.from(new Set([...cur, ...group]))
+          return { ...s, selectedEdgeIds: next }
+        }),
+
       setSelectedNodeIds: (ids) =>
         set((s) => ({ ...s, selectedNodeIds: Array.from(new Set(ids)) })),
 
       setSelectedAreaIds: (ids) =>
         set((s) => ({ ...s, selectedAreaIds: Array.from(new Set(ids)) })),
 
-      setSelection: (nodeIds, areaIds) =>
+      setSelectedEdgeIds: (ids) =>
+        set((s) => ({ ...s, selectedEdgeIds: Array.from(new Set(ids)) })),
+
+      setSelection: (nodeIds, areaIds, edgeIds = []) =>
         set((s) => ({
           ...s,
           selectedNodeIds: Array.from(new Set(nodeIds)),
           selectedAreaIds: Array.from(new Set(areaIds)),
+          selectedEdgeIds: Array.from(new Set(edgeIds)),
         })),
 
       clearSelection: () =>
-        set((s) => ({ ...s, selectedNodeIds: [], selectedAreaIds: [] })),
+        set((s) => ({
+          ...s,
+          selectedNodeIds: [],
+          selectedAreaIds: [],
+          selectedEdgeIds: [],
+        })),
+
+      setNodeStyle: (patch) =>
+        set((s) => {
+          if (s.selectedNodeIds.length === 0) return s
+          const nodes = { ...s.layout.nodes }
+          for (const id of s.selectedNodeIds) {
+            const existing = nodes[id]
+            if (!existing) continue
+            nodes[id] = { ...existing, ...patch }
+          }
+          return { ...s, layout: { ...s.layout, nodes }, dirty: true }
+        }),
+
+      setEdgeStyle: (patch) =>
+        set((s) => {
+          if (s.selectedEdgeIds.length === 0) return s
+          const edges = { ...s.layout.edges }
+          for (const edgeId of s.selectedEdgeIds) {
+            const key = edgeStyleKey(edgeId)
+            edges[key] = { ...edges[key], ...patch }
+          }
+          return { ...s, layout: { ...s.layout, edges }, dirty: true }
+        }),
+
+      setAreaStyle: (patch) =>
+        set((s) => {
+          if (s.selectedAreaIds.length === 0) return s
+          const areas = { ...(s.layout.areas ?? {}) }
+          for (const id of s.selectedAreaIds) {
+            areas[id] = { ...areas[id], ...patch }
+          }
+          return { ...s, layout: { ...s.layout, areas }, dirty: true }
+        }),
 
       toggleGrid: () => set((s) => ({ ...s, showGrid: !s.showGrid })),
 
@@ -241,7 +328,24 @@ export const useDiagramStore = create<DiagramStore>()(
       reparse: () => {
         const { source } = get()
         const result = parse(source)
-        set((s) => ({ ...s, parseResult: result }))
+        set((s) => {
+          if (!result.ok) return { ...s, parseResult: result }
+          // Drop selection ids whose underlying element no longer exists, so a
+          // later style edit can't write an orphan sidecar entry and the panel
+          // doesn't linger over vanished elements.
+          const nodeIds = new Set(result.diagram.nodes.map((n) => n.id))
+          const areaIds = new Set(result.diagram.areas.map((a) => a.id))
+          const edgeIds = new Set(
+            result.diagram.edges.map((e, i) => makeEdgeId(e.source, e.target, i)),
+          )
+          return {
+            ...s,
+            parseResult: result,
+            selectedNodeIds: s.selectedNodeIds.filter((id) => nodeIds.has(id)),
+            selectedAreaIds: s.selectedAreaIds.filter((id) => areaIds.has(id)),
+            selectedEdgeIds: s.selectedEdgeIds.filter((id) => edgeIds.has(id)),
+          }
+        })
       },
 
       reroute: async () => {
@@ -268,7 +372,8 @@ export const useDiagramStore = create<DiagramStore>()(
           filename,
           dirty: false,
           selectedNodeIds: [],
-      selectedAreaIds: [],
+          selectedAreaIds: [],
+          selectedEdgeIds: [],
         })),
 
       markClean: () => set((s) => ({ ...s, dirty: false })),

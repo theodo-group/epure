@@ -6,6 +6,7 @@ import { Footer } from '@/editor/Footer'
 import { EditorTabBar } from '@/editor/EditorTabBar'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
 import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
+import { StylePanel } from '@/style/StylePanel'
 import {
   useDiagramStore,
   useTemporalStore,
@@ -58,6 +59,7 @@ export const App = () => {
   const dirty = useDiagramStore((s) => s.dirty)
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
+  const selectedEdgeIds = useDiagramStore((s) => s.selectedEdgeIds)
 
   const setSource = useDiagramStore((s) => s.setSource)
   const reparse = useDiagramStore((s) => s.reparse)
@@ -67,6 +69,7 @@ export const App = () => {
   const toggleGrid = useDiagramStore((s) => s.toggleGrid)
   const selectNode = useDiagramStore((s) => s.selectNode)
   const selectArea = useDiagramStore((s) => s.selectArea)
+  const selectEdge = useDiagramStore((s) => s.selectEdge)
   const setSelection = useDiagramStore((s) => s.setSelection)
   const moveNode = useDiagramStore((s) => s.moveNode)
   const moveNodes = useDiagramStore((s) => s.moveNodes)
@@ -261,7 +264,9 @@ export const App = () => {
               onToggleGrid={toggleGrid}
               selectedNodeIds={selectedNodeIds}
               selectedAreaIds={selectedAreaIds}
+              selectedEdgeIds={selectedEdgeIds}
               onSelectArea={(id, additive) => selectArea(id, additive)}
+              onSelectEdge={(id, additive) => selectEdge(id, additive)}
               onSelectNode={(id, additive) => {
                 if (!id) {
                   if (!additive) selectNode(undefined)
@@ -271,6 +276,10 @@ export const App = () => {
                   selectNode(id, true)
                 } else if (!selectedNodeIds.includes(id)) {
                   selectNode(id, false)
+                } else if (selectedAreaIds.length > 0 || selectedEdgeIds.length > 0) {
+                  // Already-selected node: keep the (possibly multi-) node
+                  // selection for dragging, but drop stale cross-kind selection.
+                  setSelection(selectedNodeIds, [], [])
                 }
               }}
               onMoveNode={(id, cx, cy) => {
@@ -315,6 +324,7 @@ export const App = () => {
                   setSelection(
                     [...st.selectedNodeIds, ...nodeIds],
                     [...st.selectedAreaIds, ...areaIds],
+                    st.selectedEdgeIds,
                   )
                 } else {
                   setSelection(nodeIds, areaIds)
@@ -346,6 +356,7 @@ export const App = () => {
               nodes={nodesMeta}
               edges={edgesMeta}
             />
+            <StylePanel />
           </Panel>
         </PanelGroup>
       </div>
