@@ -1,0 +1,50 @@
+src/style/StylePanel.tsx
+  s_623678ffa17747::t_f58d29c9957f53 94,111,113-115
+  s_623678ffa17747::t_6c3c12e9290925 1-59,61-93,95-110,112,116-348
+  s_623678ffa17747::t_06281c19f1de09 60
+src/renderer/Canvas.tsx
+  s_623678ffa17747::t_aa4762b8db19bb 37,40
+  s_623678ffa17747::t_27945570168e12 429-430
+  s_623678ffa17747::t_c1fe2a1236b16c 103,106
+src/renderer/Edge.tsx
+  s_623678ffa17747::t_0bf7b920b07fb3 106-107
+  s_623678ffa17747::t_f9ac0f1a6da865 13-14
+  s_623678ffa17747::t_73ab111536d5fa 126,130-141,143,150,154-169,181
+src/App.tsx
+  s_623678ffa17747::t_824307e4120841 327
+  s_623678ffa17747::t_211d2dc0b76092 267,269
+  s_623678ffa17747::t_ce56e21ec90130 62
+  s_623678ffa17747::t_f44e0df1744ab1 9
+  s_623678ffa17747::t_198e31daf536ab 279-282
+  s_623678ffa17747::t_9e427555422d86 72
+  s_623678ffa17747::t_f9406e8ab3be08 359
+src/store/diagramStore.ts
+  s_623678ffa17747::t_9fbc62db91eeac 375-376
+  s_623678ffa17747::t_d8a6b31863595e 14-17
+  s_623678ffa17747::t_33c4504d01080b 5-12
+  s_623678ffa17747::t_88e131413b8d7b 13
+  s_623678ffa17747::t_35076e51f87563 28
+  s_623678ffa17747::t_3bede7bc1fdf43 47,50-51,53-56
+  s_623678ffa17747::t_9fc77823b3e2ad 237-244,246,248-251
+  s_623678ffa17747::t_61207554d00424 85
+  s_623678ffa17747::t_a84422a3e02a7e 207-210,221-224,233-236,245,247,252-254,261-264,269,273-311
+  s_623678ffa17747::t_839ea5216c15e7 331-348
+src/App.css
+  s_623678ffa17747::t_38ee16288cd892 618-747
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "448918c41a2230f87737f072ca95c4ec8063c17c",
+  "prompts": {},
+  "sessions": {
+    "s_623678ffa17747": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5ef69e0-a657-464c-9535-a0a436cc205a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
