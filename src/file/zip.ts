@@ -11,11 +11,10 @@ export interface LoadedDocument {
   handle?: FileSystemFileHandle
 }
 
-const emptyLayout = (gridSize = 16): LayoutSidecar => ({
+const emptyLayout = (gridSize = 40): LayoutSidecar => ({
   gridSize,
   nodes: {},
   edges: {},
-  areas: [],
 })
 
 const stripArchExt = (name: string): string =>
@@ -30,8 +29,7 @@ const isLayoutSidecar = (value: unknown): value is LayoutSidecar => {
   return (
     typeof v.gridSize === 'number' &&
     typeof v.nodes === 'object' &&
-    typeof v.edges === 'object' &&
-    Array.isArray(v.areas)
+    typeof v.edges === 'object'
   )
 }
 

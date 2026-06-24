@@ -39,14 +39,11 @@ export interface DiagramActions {
 
 export type DiagramStore = DiagramState & DiagramActions
 
-const snap = (v: number, grid: number) => Math.round(v / grid) * grid
-
 const initialSource = ''
 const initialLayout: LayoutSidecar = {
-  gridSize: 16,
+  gridSize: 40,
   nodes: {},
   edges: {},
-  areas: [],
 }
 const initialParse: ParseResult = { ok: false, errors: [] }
 
@@ -80,12 +77,12 @@ export const useDiagramStore = create<DiagramStore>()(
       moveNode: (id, x, y) =>
         set((s) => {
           const grid = s.layout.gridSize || s.gridSize
-          const sx = snap(x, grid)
-          const sy = snap(y, grid)
+          const cx = Math.round(x / grid)
+          const cy = Math.round(y / grid)
           const existing = s.layout.nodes[id]
           const nextNode = existing
-            ? { ...existing, x: sx, y: sy }
-            : { x: sx, y: sy, w: 160, h: 64 }
+            ? { ...existing, cx, cy }
+            : { cx, cy, w: 4, h: 2 }
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },
@@ -113,7 +110,7 @@ export const useDiagramStore = create<DiagramStore>()(
       setNodeSize: (id, w, h) =>
         set((s) => {
           const existing = s.layout.nodes[id]
-          const nextNode = existing ? { ...existing, w, h } : { x: 0, y: 0, w, h }
+          const nextNode = existing ? { ...existing, w, h } : { cx: 0, cy: 0, w, h }
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },

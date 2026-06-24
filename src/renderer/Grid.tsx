@@ -25,7 +25,7 @@ export const Grid: FC<GridProps> = ({
         height={gridSize}
         patternUnits='userSpaceOnUse'
       >
-        <circle cx={0} cy={0} r={1} fill='#d8dce3' />
+        <circle cx={0} cy={0} r={2} fill='#bfc5d0' />
       </pattern>
     </defs>
     <rect

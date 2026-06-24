@@ -169,8 +169,8 @@ describe('parser — fixture smoke test', () => {
     const r = parse(src)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.diagram.nodes).toHaveLength(5)
-    expect(r.diagram.edges).toHaveLength(5)
+    expect(r.diagram.nodes).toHaveLength(14)
+    expect(r.diagram.edges).toHaveLength(15)
     expect(r.diagram.areas).toHaveLength(2)
   })
 })

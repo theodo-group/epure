@@ -20,10 +20,9 @@ import fixtureLayoutRaw from '../fixtures/system.arch.layout.json?raw'
 import './App.css'
 
 const fallbackLayout = (): LayoutSidecar => ({
-  gridSize: 16,
+  gridSize: 40,
   nodes: {},
   edges: {},
-  areas: [],
 })
 
 const parseFixtureLayout = (raw: string): LayoutSidecar => {
@@ -60,6 +59,7 @@ export const App = () => {
   const loadDocument = useDiagramStore((s) => s.loadDocument)
   const markClean = useDiagramStore((s) => s.markClean)
   const selectNode = useDiagramStore((s) => s.selectNode)
+  const moveNode = useDiagramStore((s) => s.moveNode)
 
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -172,7 +172,7 @@ export const App = () => {
     () => ({
       gridSize: layout.gridSize,
       nodes: [],
-      areas: layout.areas,
+      areas: [],
       edges: [],
     }),
     [layout],
@@ -224,6 +224,7 @@ export const App = () => {
               showGrid={showGrid}
               selectedNodeId={selectedNodeId}
               onSelectNode={(id) => selectNode(id || undefined)}
+              onMoveNode={(id, cx, cy) => moveNode(id, cx, cy)}
               nodes={nodesMeta}
               edges={edgesMeta}
             />

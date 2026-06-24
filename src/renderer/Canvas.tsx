@@ -24,6 +24,7 @@ interface CanvasProps {
   showGrid: boolean
   selectedNodeId?: string
   onSelectNode?: (id: string) => void
+  onMoveNode?: (id: string, centerX: number, centerY: number) => void
   /** Per-node visual metadata (shape, label). Falls back to rectangle. */
   nodes?: Record<string, NodeMeta>
   /** Per-edge visual metadata (label, style, marker). */
@@ -72,6 +73,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       showGrid,
       selectedNodeId,
       onSelectNode,
+      onMoveNode,
       nodes = {},
       edges = {},
       padding = 32,
@@ -140,6 +142,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 h={node.h}
                 selected={selectedNodeId === node.id}
                 onSelect={onSelectNode}
+                onMove={onMoveNode}
+                gridSize={diagram.gridSize}
               />
             )
           })}

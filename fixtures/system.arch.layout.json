@@ -1,37 +1,36 @@
 {
-  "gridSize": 16,
+  "gridSize": 40,
   "nodes": {
-    "user":     { "x": 64,  "y": 192, "w": 96,  "h": 96 },
-    "frontend": { "x": 240, "y": 192, "w": 176, "h": 80 },
-    "api":      { "x": 512, "y": 112, "w": 176, "h": 80 },
-    "queue":    { "x": 512, "y": 272, "w": 176, "h": 80 },
-    "db":       { "x": 768, "y": 192, "w": 176, "h": 96 }
+    "user":        { "cx": 2,  "cy": 8,  "w": 2,  "h": 2 },
+    "agent":       { "cx": 6,  "cy": 8,  "w": 4,  "h": 14 },
+    "slack_tool":  { "cx": 11, "cy": 2,  "w": 4,  "h": 2 },
+    "gmail_tool":  { "cx": 11, "cy": 5,  "w": 4,  "h": 2 },
+    "cal_tool":    { "cx": 11, "cy": 8,  "w": 4,  "h": 2 },
+    "drive_tool":  { "cx": 11, "cy": 11, "w": 4,  "h": 2 },
+    "search_tool": { "cx": 11, "cy": 14, "w": 4,  "h": 2 },
+    "slack":       { "cx": 16, "cy": 2,  "w": 4,  "h": 2 },
+    "gmail":       { "cx": 16, "cy": 5,  "w": 4,  "h": 2 },
+    "calendar":    { "cx": 16, "cy": 8,  "w": 4,  "h": 2 },
+    "drive":       { "cx": 16, "cy": 11, "w": 4,  "h": 2 },
+    "web":         { "cx": 16, "cy": 14, "w": 4,  "h": 2 },
+    "memory":      { "cx": 6,  "cy": 17, "w": 4,  "h": 2 },
+    "log":         { "cx": 21, "cy": 5,  "w": 4,  "h": 2 }
   },
   "edges": {
-    "user->frontend":  { "sourceSide": "E", "targetSide": "W" },
-    "frontend->api":   { "sourceSide": "E", "targetSide": "W" },
-    "api->db":         { "sourceSide": "E", "targetSide": "W" },
-    "api->queue":      { "sourceSide": "S", "targetSide": "N" },
-    "queue->api":      { "sourceSide": "N", "targetSide": "S" }
-  },
-  "areas": [
-    {
-      "id": "Frontend",
-      "label": "Frontend",
-      "members": ["frontend"],
-      "x": 224,
-      "y": 80,
-      "w": 208,
-      "h": 304
-    },
-    {
-      "id": "Backend",
-      "label": "Backend",
-      "members": ["api", "queue", "db"],
-      "x": 480,
-      "y": 80,
-      "w": 480,
-      "h": 304
-    }
-  ]
+    "user->agent":        { "sourceSide": "E", "targetSide": "W" },
+    "agent->slack_tool":  { "sourceSide": "E", "targetSide": "W" },
+    "agent->gmail_tool":  { "sourceSide": "E", "targetSide": "W" },
+    "agent->cal_tool":    { "sourceSide": "E", "targetSide": "W" },
+    "agent->drive_tool":  { "sourceSide": "E", "targetSide": "W" },
+    "agent->search_tool": { "sourceSide": "E", "targetSide": "W" },
+    "slack_tool->slack":       { "sourceSide": "E", "targetSide": "W" },
+    "gmail_tool->gmail":       { "sourceSide": "E", "targetSide": "W" },
+    "cal_tool->calendar":      { "sourceSide": "E", "targetSide": "W" },
+    "drive_tool->drive":       { "sourceSide": "E", "targetSide": "W" },
+    "search_tool->web":        { "sourceSide": "E", "targetSide": "W" },
+    "agent->memory":      { "sourceSide": "S", "targetSide": "N" },
+    "slack->log":         { "sourceSide": "E", "targetSide": "W" },
+    "gmail->log":         { "sourceSide": "E", "targetSide": "W" },
+    "drive->log":         { "sourceSide": "E", "targetSide": "W" }
+  }
 }

@@ -1,9 +1,8 @@
-import type { FC, MouseEvent } from 'react'
+import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { ShapeName } from '@/parser/ast'
 
 import {
-  Cloud,
   Cylinder,
   Document,
   Page,
@@ -23,12 +22,14 @@ interface NodeProps {
   h: number
   selected?: boolean
   onSelect?: (id: string) => void
+  onMove?: (id: string, centerX: number, centerY: number) => void
+  gridSize: number
 }
 
 const SHAPE_COMPONENTS: Record<ShapeName, FC<ShapeProps>> = {
   rectangle: Rectangle,
   cylinder: Cylinder,
-  cloud: Cloud,
+  cloud: Rectangle,
   person: Person,
   queue: Queue,
   document: Document,
@@ -65,6 +66,8 @@ export const Node: FC<NodeProps> = ({
   h,
   selected,
   onSelect,
+  onMove,
+  gridSize,
 }) => {
   const Shape = SHAPE_COMPONENTS[shape] ?? Rectangle
   const lines = label ? wrapLabel(label, w) : []
@@ -72,13 +75,56 @@ export const Node: FC<NodeProps> = ({
   const blockH = lines.length * lineHeight
   const startY = y + h / 2 - blockH / 2 + lineHeight * 0.8
 
-  const handleClick = (event: MouseEvent<SVGGElement>) => {
-    event.stopPropagation()
-    onSelect?.(id)
-  }
+  const dragging = useRef(false)
+  const dragStart = useRef({ mx: 0, my: 0, cx: 0, cy: 0 })
+
+  const handlePointerDown = useCallback(
+    (event: MouseEvent<SVGGElement>) => {
+      event.stopPropagation()
+      onSelect?.(id)
+      if (!onMove) return
+
+      const svg = (event.target as SVGElement).ownerSVGElement
+      if (!svg) return
+
+      dragging.current = true
+      const pt = svg.createSVGPoint()
+      pt.x = event.clientX
+      pt.y = event.clientY
+      const svgPt = pt.matrixTransform(svg.getScreenCTM()?.inverse())
+      dragStart.current = { mx: svgPt.x, my: svgPt.y, cx: x + w / 2, cy: y + h / 2 }
+
+      const onPointerMove = (e: globalThis.MouseEvent) => {
+        if (!dragging.current) return
+        const mp = svg.createSVGPoint()
+        mp.x = e.clientX
+        mp.y = e.clientY
+        const sp = mp.matrixTransform(svg.getScreenCTM()?.inverse())
+        const dx = sp.x - dragStart.current.mx
+        const dy = sp.y - dragStart.current.my
+        const newCx = dragStart.current.cx + dx
+        const newCy = dragStart.current.cy + dy
+        onMove(id, newCx, newCy)
+      }
+
+      const onPointerUp = () => {
+        dragging.current = false
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+      }
+
+      window.addEventListener('mousemove', onPointerMove)
+      window.addEventListener('mouseup', onPointerUp)
+    },
+    [id, x, y, w, h, onSelect, onMove, gridSize],
+  )
 
   return (
-    <g data-node-id={id} onClick={handleClick} style={{ cursor: 'pointer' }}>
+    <g
+      data-node-id={id}
+      onMouseDown={handlePointerDown}
+      style={{ cursor: onMove ? 'grab' : 'pointer' }}
+    >
       <Shape x={x} y={y} w={w} h={h} />
       {selected ? (
         <rect

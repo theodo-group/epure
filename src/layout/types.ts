@@ -31,10 +31,16 @@ export interface EdgeRoute {
   labelAnchor?: { x: number; y: number }
 }
 
+export interface LayoutNode {
+  cx: number
+  cy: number
+  w: number
+  h: number
+}
+
 export interface LayoutSidecar {
   gridSize: number
-  nodes: Record<string, { x: number; y: number; w: number; h: number }>
-  areas: AreaLayout[]
+  nodes: Record<string, LayoutNode>
   edges: Record<string, { sourceSide: Side; targetSide: Side }>
 }
 

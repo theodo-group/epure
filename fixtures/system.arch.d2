@@ -1,25 +1,56 @@
-# system.arch.d2 — sample diagram used by the dev page
+# system.arch.d2 — fan-out / fan-in fixture
 
-user: User { shape: person }
+user: End User { shape: person }
 
-frontend: Web App { shape: rectangle }
+agent: Jarvis { shape: rectangle }
 
-api: API { shape: rectangle }
-queue: Job Queue { shape: queue }
-db: Postgres { shape: cylinder }
+slack_tool: Slack Tool { shape: rectangle }
+gmail_tool: Gmail Tool { shape: rectangle }
+cal_tool: Calendar Tool { shape: rectangle }
+drive_tool: Drive Tool { shape: rectangle }
+search_tool: Browse Web { shape: rectangle }
 
-user -> frontend: "uses"
-frontend -> api: "https"
-api -> db: "writes" { style.stroke-dash: 3 }
-api -> queue: "enqueue"
-queue -> api: "callback" { style.stroke-dash: 1 }
+slack: Slack { shape: rectangle }
+gmail: Gmail { shape: rectangle }
+calendar: Calendar { shape: rectangle }
+drive: Google Drive { shape: rectangle }
+web: Web { shape: rectangle }
 
-Frontend: "Frontend" {
-  frontend
+memory: Memory { shape: cylinder }
+log: Activity Log { shape: cylinder }
+
+user -> agent: "chats"
+
+agent -> slack_tool
+agent -> gmail_tool
+agent -> cal_tool
+agent -> drive_tool
+agent -> search_tool
+
+slack_tool -> slack: "API"
+gmail_tool -> gmail: "API"
+cal_tool -> calendar: "API"
+drive_tool -> drive: "API"
+search_tool -> web: "fetch"
+
+agent -> memory: "reads"
+
+slack -> log: "events"
+gmail -> log: "events"
+drive -> log: "events"
+
+Tools: "Agent Tools" {
+  slack_tool
+  gmail_tool
+  cal_tool
+  drive_tool
+  search_tool
 }
 
-Backend: "Backend" {
-  api
-  queue
-  db
+Services: "External Services" {
+  slack
+  gmail
+  calendar
+  drive
+  web
 }
