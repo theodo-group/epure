@@ -1,4 +1,4 @@
-import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
+import { strFromU8, unzipSync } from 'fflate'
 import type { LayoutSidecar } from '@/layout/types'
 
 const D2_NAME = 'diagram.d2'
@@ -61,21 +61,6 @@ export const readArchZip = async (
   }
 }
 
-export const writeArchZip = async (
-  source: string,
-  layout: LayoutSidecar,
-): Promise<Blob> => {
-  const zipped = zipSync({
-    [D2_NAME]: strToU8(source),
-    [LAYOUT_NAME]: strToU8(JSON.stringify(layout, null, 2)),
-  })
-  // Copy into a fresh ArrayBuffer so the Blob constructor doesn't get a
-  // SharedArrayBuffer-typed view.
-  const out = new Uint8Array(zipped.length)
-  out.set(zipped)
-  return new Blob([out], { type: 'application/zip' })
-}
-
 interface OpenFilePickerWindow extends Window {
   showOpenFilePicker?: (options?: {
     types?: Array<{
@@ -84,13 +69,6 @@ interface OpenFilePickerWindow extends Window {
     }>
     multiple?: boolean
   }) => Promise<FileSystemFileHandle[]>
-  showSaveFilePicker?: (options?: {
-    suggestedName?: string
-    types?: Array<{
-      description?: string
-      accept: Record<string, string[]>
-    }>
-  }) => Promise<FileSystemFileHandle>
 }
 
 const supportsFileSystemAccess = (): boolean =>
@@ -142,55 +120,3 @@ export const openWithFileSystemAccess = async (): Promise<LoadedDocument | null>
   })
 }
 
-const triggerDownload = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-export const saveWithFileSystemAccess = async (
-  handle: FileSystemFileHandle | undefined,
-  source: string,
-  layout: LayoutSidecar,
-  filename = 'system.arch',
-): Promise<FileSystemFileHandle | undefined> => {
-  const blob = await writeArchZip(source, layout)
-  const suggested = `${stripArchExt(filename)}.arch.zip`
-
-  if (handle && typeof handle.createWritable === 'function') {
-    const writable = await handle.createWritable()
-    await writable.write(blob)
-    await writable.close()
-    return handle
-  }
-
-  if (supportsFileSystemAccess()) {
-    const w = window as OpenFilePickerWindow
-    try {
-      const fresh = await w.showSaveFilePicker!({
-        suggestedName: suggested,
-        types: [
-          {
-            description: 'archgrid diagram',
-            accept: { 'application/zip': ['.zip', '.arch.zip'] },
-          },
-        ],
-      })
-      const writable = await fresh.createWritable()
-      await writable.write(blob)
-      await writable.close()
-      return fresh
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return undefined
-      throw err
-    }
-  }
-
-  triggerDownload(blob, suggested)
-  return undefined
-}

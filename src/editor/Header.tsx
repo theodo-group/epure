@@ -5,15 +5,11 @@ import {
   useTemporalStore,
   type ExportScale,
 } from '@/store/diagramStore'
-import {
-  openWithFileSystemAccess,
-  saveWithFileSystemAccess,
-} from '@/file/zip'
+import { openWithFileSystemAccess } from '@/file/zip'
 
 interface HeaderProps {
   onExportPng: () => Promise<void> | void
   onExportHtml: () => Promise<void> | void
-  saveHandleRef: React.MutableRefObject<FileSystemFileHandle | undefined>
 }
 
 const SCALES: ExportScale[] = [1, 2, 4]
@@ -30,16 +26,10 @@ const ChevronDown = () => (
   </svg>
 )
 
-export const Header = ({ onExportPng, onExportHtml, saveHandleRef }: HeaderProps) => {
-  const filename = useDiagramStore((s) => s.filename)
-  const dirty = useDiagramStore((s) => s.dirty)
+export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
   const exportScale = useDiagramStore((s) => s.exportScale)
-  const source = useDiagramStore((s) => s.source)
-  const layout = useDiagramStore((s) => s.layout)
-  const setFilename = useDiagramStore((s) => s.setFilename)
   const setExportScale = useDiagramStore((s) => s.setExportScale)
   const loadDocument = useDiagramStore((s) => s.loadDocument)
-  const markClean = useDiagramStore((s) => s.markClean)
 
   const canUndo = useStore(useTemporalStore, (t) => t.pastStates.length > 0)
   const canRedo = useStore(useTemporalStore, (t) => t.futureStates.length > 0)
@@ -67,27 +57,11 @@ export const Header = ({ onExportPng, onExportHtml, saveHandleRef }: HeaderProps
     try {
       const doc = await openWithFileSystemAccess()
       if (!doc) return
-      saveHandleRef.current = doc.handle
-      loadDocument(doc.source, doc.layout, doc.filename)
+      loadDocument(doc.source, doc.layout)
     } catch (err) {
       console.error('open failed', err)
     }
-  }, [loadDocument, saveHandleRef])
-
-  const onSave = useCallback(async () => {
-    try {
-      const handle = await saveWithFileSystemAccess(
-        saveHandleRef.current,
-        source,
-        layout,
-        filename,
-      )
-      if (handle) saveHandleRef.current = handle
-      markClean()
-    } catch (err) {
-      console.error('save failed', err)
-    }
-  }, [source, layout, filename, markClean, saveHandleRef])
+  }, [loadDocument])
 
   const handleExportPng = async () => {
     setExportOpen(false)
@@ -111,28 +85,6 @@ export const Header = ({ onExportPng, onExportHtml, saveHandleRef }: HeaderProps
     <header className="ag-header">
       <div className="ag-logo" aria-label="archgrid">
         d2
-      </div>
-
-      <div className="ag-vrule" />
-
-      <div className="ag-crumb">
-        <span className="ag-crumb-root">arch</span>
-        <span className="ag-crumb-sep">/</span>
-        <input
-          className="ag-crumb-name"
-          value={`${filename}.d2`}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\.d2$/, '')
-            setFilename(v || 'untitled')
-          }}
-          spellCheck={false}
-          size={Math.max(8, filename.length + 3)}
-          aria-label="filename"
-        />
-        <span className={`ag-pill ${dirty ? 'ag-pill-unsaved' : 'ag-pill-saved'}`}>
-          <span className="ag-pill-dot" />
-          {dirty ? 'Unsaved' : 'Saved'}
-        </span>
       </div>
 
       <div className="ag-spacer" />
@@ -176,9 +128,6 @@ export const Header = ({ onExportPng, onExportHtml, saveHandleRef }: HeaderProps
 
       <button className="ag-btn ag-btn-ghost" onClick={onOpen} type="button">
         Open
-      </button>
-      <button className="ag-btn ag-btn-ghost" onClick={onSave} type="button">
-        {dirty ? 'Save*' : 'Share'}
       </button>
 
       <div className="ag-menu-wrap" ref={exportRef}>

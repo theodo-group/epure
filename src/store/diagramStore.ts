@@ -29,14 +29,11 @@ export interface DiagramState {
   showGrid: boolean
   gridSize: number
   exportScale: ExportScale
-  filename: string
-  dirty: boolean
 }
 
 export interface DiagramActions {
   setSource: (source: string) => void
   setLayout: (layout: LayoutSidecar) => void
-  setFilename: (name: string) => void
   moveNode: (id: string, x: number, y: number) => void
   moveNodes: (positions: Record<string, { cx: number; cy: number }>) => void
   resizeNode: (id: string, side: Side, pxX: number, pxY: number) => void
@@ -59,8 +56,7 @@ export interface DiagramActions {
   setExportScale: (s: ExportScale) => void
   reparse: () => void
   reroute: () => Promise<void>
-  loadDocument: (source: string, layout: LayoutSidecar, filename: string) => void
-  markClean: () => void
+  loadDocument: (source: string, layout: LayoutSidecar) => void
 }
 
 export type DiagramStore = DiagramState & DiagramActions
@@ -86,21 +82,15 @@ export const useDiagramStore = create<DiagramStore>()(
       showGrid: true,
       gridSize: 16,
       exportScale: 2,
-      filename: 'system.arch',
-      dirty: false,
 
-      setSource: (source) =>
-        set((s) => ({ ...s, source, dirty: true })),
+      setSource: (source) => set((s) => ({ ...s, source })),
 
       setLayout: (layout) =>
         set((s) => ({
           ...s,
           layout,
           gridSize: layout.gridSize,
-          dirty: true,
         })),
-
-      setFilename: (name) => set((s) => ({ ...s, filename: name })),
 
       moveNode: (id, x, y) =>
         set((s) => {
@@ -114,7 +104,6 @@ export const useDiagramStore = create<DiagramStore>()(
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },
-            dirty: true,
           }
         }),
 
@@ -129,7 +118,6 @@ export const useDiagramStore = create<DiagramStore>()(
           return {
             ...s,
             layout: { ...s.layout, nodes: nextNodes },
-            dirty: true,
           }
         }),
 
@@ -170,7 +158,6 @@ export const useDiagramStore = create<DiagramStore>()(
               ...s.layout,
               nodes: { ...s.layout.nodes, [id]: { ...node, cx, cy, w, h } },
             },
-            dirty: true,
           }
         }),
 
@@ -187,7 +174,6 @@ export const useDiagramStore = create<DiagramStore>()(
           return {
             ...s,
             layout: { ...s.layout, edges: { ...s.layout.edges, [edgeKey]: next } },
-            dirty: true,
           }
         }),
 
@@ -198,7 +184,6 @@ export const useDiagramStore = create<DiagramStore>()(
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },
-            dirty: true,
           }
         }),
 
@@ -286,7 +271,7 @@ export const useDiagramStore = create<DiagramStore>()(
             if (!existing) continue
             nodes[id] = { ...existing, ...patch }
           }
-          return { ...s, layout: { ...s.layout, nodes }, dirty: true }
+          return { ...s, layout: { ...s.layout, nodes } }
         }),
 
       setEdgeStyle: (patch) =>
@@ -297,7 +282,7 @@ export const useDiagramStore = create<DiagramStore>()(
             const key = edgeStyleKey(edgeId)
             edges[key] = { ...edges[key], ...patch }
           }
-          return { ...s, layout: { ...s.layout, edges }, dirty: true }
+          return { ...s, layout: { ...s.layout, edges } }
         }),
 
       setAreaStyle: (patch) =>
@@ -307,7 +292,7 @@ export const useDiagramStore = create<DiagramStore>()(
           for (const id of s.selectedAreaIds) {
             areas[id] = { ...areas[id], ...patch }
           }
-          return { ...s, layout: { ...s.layout, areas }, dirty: true }
+          return { ...s, layout: { ...s.layout, areas } }
         }),
 
       toggleGrid: () => set((s) => ({ ...s, showGrid: !s.showGrid })),
@@ -319,7 +304,6 @@ export const useDiagramStore = create<DiagramStore>()(
             ...s,
             gridSize: clean,
             layout: { ...s.layout, gridSize: clean },
-            dirty: true,
           }
         }),
 
@@ -363,20 +347,24 @@ export const useDiagramStore = create<DiagramStore>()(
         }
       },
 
-      loadDocument: (source, layout, filename) =>
+      loadDocument: (source, layout) => {
+        // Loading a document (bootstrap / open) is a fresh baseline, not an
+        // undoable edit: pause tracking around the swap and clear history so
+        // the user can't undo back into the previous (or empty) document.
+        const temporal = useDiagramStore.temporal.getState()
+        temporal.pause()
         set((s) => ({
           ...s,
           source,
           layout,
           gridSize: layout.gridSize,
-          filename,
-          dirty: false,
           selectedNodeIds: [],
           selectedAreaIds: [],
           selectedEdgeIds: [],
-        })),
-
-      markClean: () => set((s) => ({ ...s, dirty: false })),
+        }))
+        temporal.clear()
+        temporal.resume()
+      },
     }),
     {
       limit: 100,
@@ -386,6 +374,24 @@ export const useDiagramStore = create<DiagramStore>()(
         layout: state.layout,
       }),
       equality: (a, b) => a.source === b.source && a.layout === b.layout,
+      // Group rapid edits (a burst of keystrokes, a drag) into one undo step:
+      // record the state before the first change of a burst, then suppress
+      // further snapshots until ~350ms of quiet. Without this, undo steps
+      // through every keystroke and every intermediate drag position.
+      handleSet: (handleSet) => {
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        let bursting = false
+        return (pastState, replace) => {
+          if (!bursting) {
+            bursting = true
+            handleSet(pastState, replace)
+          }
+          if (timeout) clearTimeout(timeout)
+          timeout = setTimeout(() => {
+            bursting = false
+          }, 350)
+        }
+      },
     },
   ),
 )

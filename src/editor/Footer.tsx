@@ -1,7 +1,6 @@
 import { useDiagramStore } from '@/store/diagramStore'
 
 export const Footer = () => {
-  const dirty = useDiagramStore((s) => s.dirty)
   const parseResult = useDiagramStore((s) => s.parseResult)
   const routed = useDiagramStore((s) => s.routed)
   const gridSize = useDiagramStore((s) => s.gridSize)
@@ -13,13 +12,6 @@ export const Footer = () => {
 
   return (
     <footer className="ag-footer">
-      <span className={`ag-footer-sync ${dirty ? 'dirty' : ''}`}>
-        <span className="ag-footer-sync-dot" />
-        <span className="ag-footer-sync-text">
-          {dirty ? 'Editing' : 'Synced'}
-        </span>
-      </span>
-      <span className="ag-footer-sep">·</span>
       <span>
         {nodeCount} nodes · {edgeCount} edges · {areaCount}{' '}
         {areaCount === 1 ? 'group' : 'groups'}

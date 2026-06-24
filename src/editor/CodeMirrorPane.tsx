@@ -16,7 +16,7 @@ import {
   WidgetType,
   type DecorationSet,
 } from '@codemirror/view'
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap } from '@codemirror/commands'
 import {
   bracketMatching,
   indentOnInput,
@@ -299,11 +299,10 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           lineNumbers(),
           highlightActiveLine(),
           highlightActiveLineGutter(),
-          history(),
           bracketMatching(),
           indentOnInput(),
           search({ top: true }),
-          keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+          keymap.of([...defaultKeymap, ...searchKeymap]),
           language ?? d2Support,
           baseTheme,
           errorField,

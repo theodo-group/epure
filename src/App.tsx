@@ -11,10 +11,8 @@ import {
   useDiagramStore,
   useTemporalStore,
 } from '@/store/diagramStore'
-import {
-  openWithFileSystemAccess,
-  saveWithFileSystemAccess,
-} from '@/file/zip'
+import { openWithFileSystemAccess } from '@/file/zip'
+import { loadStoredDoc, saveStoredDoc } from '@/file/localStore'
 import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
@@ -22,6 +20,9 @@ import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import fixtureSource from '../fixtures/system.arch.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.arch.layout.json?raw'
 import './App.css'
+
+const EXPORT_STEM = 'diagram'
+const PERSIST_DEBOUNCE_MS = 250
 
 const fallbackLayout = (): LayoutSidecar => ({
   gridSize: 40,
@@ -55,8 +56,6 @@ export const App = () => {
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
   const showGrid = useDiagramStore((s) => s.showGrid)
-  const filename = useDiagramStore((s) => s.filename)
-  const dirty = useDiagramStore((s) => s.dirty)
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
   const selectedEdgeIds = useDiagramStore((s) => s.selectedEdgeIds)
@@ -65,7 +64,6 @@ export const App = () => {
   const reparse = useDiagramStore((s) => s.reparse)
   const reroute = useDiagramStore((s) => s.reroute)
   const loadDocument = useDiagramStore((s) => s.loadDocument)
-  const markClean = useDiagramStore((s) => s.markClean)
   const toggleGrid = useDiagramStore((s) => s.toggleGrid)
   const selectNode = useDiagramStore((s) => s.selectNode)
   const selectArea = useDiagramStore((s) => s.selectArea)
@@ -90,13 +88,24 @@ export const App = () => {
 
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const handleRef = useRef<FileSystemFileHandle | undefined>(undefined)
 
-  // Bootstrap fixture on mount.
+  // Hydrate from localStorage on mount, falling back to the bundled fixture.
   useEffect(() => {
-    const fixtureLayout = parseFixtureLayout(fixtureLayoutRaw)
-    loadDocument(fixtureSource, fixtureLayout, 'system.arch')
+    const stored = loadStoredDoc()
+    if (stored) {
+      loadDocument(stored.source, stored.layout)
+    } else {
+      loadDocument(fixtureSource, parseFixtureLayout(fixtureLayoutRaw))
+    }
   }, [loadDocument])
+
+  // Persist source + layout to localStorage (debounced).
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      saveStoredDoc({ source, layout })
+    }, PERSIST_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [source, layout])
 
   // Reparse whenever the source changes.
   useEffect(() => {
@@ -128,17 +137,16 @@ export const App = () => {
   const onExportPng = async () => {
     const svg = svgRef.current
     if (!svg) return
-    const { exportScale, filename: f } = useDiagramStore.getState()
+    const { exportScale } = useDiagramStore.getState()
     const blob = await exportPng(svg, exportScale)
-    downloadBlob(blob, `${f}.png`)
+    downloadBlob(blob, `${EXPORT_STEM}.png`)
   }
 
   const onExportHtml = async () => {
     const svg = svgRef.current
     if (!svg) return
-    const { filename: f } = useDiagramStore.getState()
-    const html = await exportStandaloneHtml(svg, { title: f })
-    downloadBlob(new Blob([html], { type: 'text/html' }), `${f}.html`)
+    const html = await exportStandaloneHtml(svg, { title: EXPORT_STEM })
+    downloadBlob(new Blob([html], { type: 'text/html' }), `${EXPORT_STEM}.html`)
   }
 
   // Global keyboard shortcuts.
@@ -147,19 +155,6 @@ export const App = () => {
       const mod = ev.metaKey || ev.ctrlKey
       if (!mod) return
       const key = ev.key.toLowerCase()
-
-      if (key === 's' && !ev.shiftKey) {
-        ev.preventDefault()
-        const { source: s, layout: l, filename: f } = useDiagramStore.getState()
-        try {
-          const handle = await saveWithFileSystemAccess(handleRef.current, s, l, f)
-          if (handle) handleRef.current = handle
-          markClean()
-        } catch (err) {
-          console.error('save failed', err)
-        }
-        return
-      }
 
       if (key === 'z' && !ev.shiftKey) {
         ev.preventDefault()
@@ -188,8 +183,7 @@ export const App = () => {
         try {
           const doc = await openWithFileSystemAccess()
           if (!doc) return
-          handleRef.current = doc.handle
-          loadDocument(doc.source, doc.layout, doc.filename)
+          loadDocument(doc.source, doc.layout)
         } catch (err) {
           console.error('open failed', err)
         }
@@ -197,7 +191,7 @@ export const App = () => {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [loadDocument, markClean])
+  }, [loadDocument])
 
   const placeholderDiagram: RoutedDiagram = useMemo(
     () => ({
@@ -213,18 +207,14 @@ export const App = () => {
 
   return (
     <div className="app-root">
-      <Header
-        onExportPng={onExportPng}
-        onExportHtml={onExportHtml}
-        saveHandleRef={handleRef}
-      />
+      <Header onExportPng={onExportPng} onExportHtml={onExportHtml} />
       <div className="app-body">
         <PanelGroup direction="horizontal" autoSaveId="archgrid:panels">
           <Panel defaultSize={36} minSize={20} className="pane pane-editor">
             <EditorTabBar
               tabs={[
-                { id: 'd2', label: `${filename}.d2`, dirty },
-                { id: 'layout', label: `${filename}.layout.json` },
+                { id: 'd2', label: 'diagram.d2' },
+                { id: 'layout', label: 'diagram.layout.json' },
               ]}
               activeTabId={activeTab}
               onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}

@@ -1,7 +1,6 @@
 interface Tab {
   id: string
   label: string
-  dirty?: boolean
 }
 
 interface EditorTabBarProps {
@@ -39,9 +38,6 @@ export const EditorTabBar = ({
             <path d="M10 2 V5 H13" stroke="currentColor" strokeWidth="1.3" />
           </svg>
           <span>{tab.label}</span>
-          {tab.dirty ? (
-            <span className="ag-tab-dirty" aria-label="unsaved changes" />
-          ) : null}
         </button>
       )
     })}
