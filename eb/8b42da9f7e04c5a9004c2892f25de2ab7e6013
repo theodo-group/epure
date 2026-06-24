@@ -1,0 +1,19 @@
+src/renderer/Area.tsx
+  s_623678ffa17747::t_510a7692240438 85-86,89-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "eb8b42da9f7e04c5a9004c2892f25de2ab7e6013",
+  "prompts": {},
+  "sessions": {
+    "s_623678ffa17747": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5ef69e0-a657-464c-9535-a0a436cc205a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
