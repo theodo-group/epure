@@ -1,0 +1,42 @@
+src/App.tsx
+  s_90e564f2cafa6f::t_89c09d18c5cfbf 231,245
+src/editor/EditorTabBar.tsx
+  s_90e564f2cafa6f::t_2d466110aee03c 11,14-19
+  s_90e564f2cafa6f::t_ca74a9d07a6cb1 70-75
+package.json
+  s_90e564f2cafa6f::t_e16da7623d7390 26
+src/editor/CodeMirrorPane.tsx
+  s_623678ffa17747::t_63276ce11c90b2 41-45,51-70,76-104
+  s_90e564f2cafa6f::t_a6c75e0fe8a659 357-362
+  s_90e564f2cafa6f::t_96cbcbe52f9a21 25,31
+  s_90e564f2cafa6f::t_f325b6f9114664 124-144
+  s_623678ffa17747::t_e7a24e5a7c505a 16
+  s_623678ffa17747::t_d3ea7f5b980354 176-189
+  s_90e564f2cafa6f::t_38497d8b55a474 190-279
+  s_90e564f2cafa6f::t_db3b6906cc7031 305-306
+  s_623678ffa17747::t_a7d63a971893c1 338,342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "bb5d3f35dfa5cdcdb62443181400f3ce59b5a37f",
+  "prompts": {},
+  "sessions": {
+    "s_623678ffa17747": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f5ef69e0-a657-464c-9535-a0a436cc205a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_90e564f2cafa6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f04dde96-f068-46f6-b547-a3c60d4afa63",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
