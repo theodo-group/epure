@@ -168,7 +168,7 @@ export const useDiagramStore = create<DiagramStore>()(
             ...s,
             layout: {
               ...s.layout,
-              nodes: { ...s.layout.nodes, [id]: { cx, cy, w, h } },
+              nodes: { ...s.layout.nodes, [id]: { ...node, cx, cy, w, h } },
             },
             dirty: true,
           }
