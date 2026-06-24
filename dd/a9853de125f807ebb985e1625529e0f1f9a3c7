@@ -1,0 +1,124 @@
+src/App.css
+  s_6b61b22fcdf68a::t_b616eaa9975675 92-96
+src/parser/lexer.ts
+  s_6b61b22fcdf68a::t_29c4d787e45d6d 62-65,68-70
+src/layout/elk.ts
+  s_6b61b22fcdf68a::t_a6731e80295602 502
+  s_6b61b22fcdf68a::t_a20966f36b92e7 237,245
+  s_6b61b22fcdf68a::t_73b7aa880f5150 364,369-372,386-387,396,411-416,422-425
+  s_6b61b22fcdf68a::t_117a29323e5a41 470
+  s_6b61b22fcdf68a::t_c1fa364617508c 157-177
+  s_6b61b22fcdf68a::t_be79476755dea9 326-333,337-339,344
+  s_6b61b22fcdf68a::t_6296632aa3559d 389-395,400-410,417-421
+  s_6b61b22fcdf68a::t_2d2a6f76ac12a7 388,397-399
+  s_6b61b22fcdf68a::t_083871d65bb50c 462-466
+  s_6b61b22fcdf68a::t_9d4126cea4c266 429
+  s_6b61b22fcdf68a::t_f5c0abd89ae159 455-459
+  s_6b61b22fcdf68a::t_46421c5009164a 476-489
+  s_6b61b22fcdf68a::t_e564daf2111638 496,505,509
+package.json
+  s_6b61b22fcdf68a::t_f881cd8055f2fc 27
+src/editor/d2-language.ts
+  s_6b61b22fcdf68a::t_d084f492108607 110-125
+  s_6b61b22fcdf68a::t_20ed7ea3fa2f8d 1-6,8
+src/App.tsx
+  s_6b61b22fcdf68a::t_0c123a7d89dd7c 292,294-298,300
+  s_6b61b22fcdf68a::t_5bfda3642baf57 239-240
+  s_6b61b22fcdf68a::t_d777e9233ce156 291
+  s_6b61b22fcdf68a::t_ec0ecac6e11b9f 293,299,301-302
+  s_6b61b22fcdf68a::t_f7bb095e648b68 70-74
+  s_6b61b22fcdf68a::t_4154793521078f 69
+  s_6b61b22fcdf68a::t_32daf3c46a3c39 238,241-290
+  s_6b61b22fcdf68a::t_c4e649460c1ba5 1
+  s_6b61b22fcdf68a::t_06f797013d9aa2 55
+  s_6b61b22fcdf68a::t_7f4dd9a9b9be21 324
+  s_6b61b22fcdf68a::t_ae5887bba0df29 63-64
+  s_6b61b22fcdf68a::t_42682d6193dabb 303-323
+  s_6b61b22fcdf68a::t_b3e17270dd84e6 54
+  s_6b61b22fcdf68a::t_f2b4afe65f74fc 66,68
+  s_6b61b22fcdf68a::t_374207e0c3dd51 219
+  s_6b61b22fcdf68a::t_f099a916874c05 67
+src/store/diagramStore.ts
+  s_6b61b22fcdf68a::t_6811dec906c47e 117-157
+  s_6b61b22fcdf68a::t_ced1b71eba6549 186-187,190-197
+  s_6b61b22fcdf68a::t_518e2e571b67c9 188-189,198-209,212-221,223-224
+  s_6b61b22fcdf68a::t_d727fa633c5559 30
+  s_6b61b22fcdf68a::t_a9d50a828160d7 210-211,222
+  s_6b61b22fcdf68a::t_c8d250b524f5f6 16
+  s_6b61b22fcdf68a::t_3dfe8b5eb2028c 35
+  s_6b61b22fcdf68a::t_1b6c4306ce252e 15
+  s_6b61b22fcdf68a::t_4c5cf0b98606bc 29
+  s_6b61b22fcdf68a::t_da6378f4addc0e 65,270
+  s_6b61b22fcdf68a::t_c73d5bf15ea1b8 33,38
+  s_6b61b22fcdf68a::t_a6e3d12a2fa74a 34,36-37
+  s_6b61b22fcdf68a::t_16ec9c31ef7284 66,271
+  s_6b61b22fcdf68a::t_c3637989ef4638 102-116
+src/editor/Toolbar.tsx
+  s_6b61b22fcdf68a::t_fe3e0325de7a67 150-154
+  s_6b61b22fcdf68a::t_691953252a0dd1 18,22
+src/renderer/Node.tsx
+  s_6b61b22fcdf68a::t_90080c23e753b4 95-96,118
+  s_6b61b22fcdf68a::t_1ccf02aa0993e1 6
+  s_6b61b22fcdf68a::t_59579bbfaf45e4 79-82,84-87
+  s_6b61b22fcdf68a::t_74d408be5192bf 188
+  s_6b61b22fcdf68a::t_6d2fe2a3aa169b 27-28
+  s_6b61b22fcdf68a::t_2e9a7f59073543 4,29,44,75,134-136,138-142,144-154,156-165,197,202-241
+  s_6b61b22fcdf68a::t_702b502e918eaf 123
+  s_6b61b22fcdf68a::t_493670ab0619dc 137
+  s_6b61b22fcdf68a::t_765c4e838bc8a1 103
+  s_6b61b22fcdf68a::t_b383f7368a185f 143,155
+src/renderer/Area.tsx
+  s_6b61b22fcdf68a::t_d781c1bcd4dc7c 9-10,15-21,28-29,67,84-85
+  s_6b61b22fcdf68a::t_852cde78aed215 1,11-12,22-27,30-34,36-58,60-66,68-83,86-102
+  s_6b61b22fcdf68a::t_03595f445d06dd 5-6
+  s_6b61b22fcdf68a::t_9fd748d7059b04 35
+  s_6b61b22fcdf68a::t_2d8c59fbdfcb14 59
+src/renderer/dragState.ts
+  s_6b61b22fcdf68a::t_cdf606ce57a6e9 1-15
+src/renderer/Canvas.tsx
+  s_6b61b22fcdf68a::t_7ddea1be814674 320-322,325-327
+  s_6b61b22fcdf68a::t_71fc8b98bc308b 323-324
+  s_6b61b22fcdf68a::t_71737acc283a1f 353
+  s_6b61b22fcdf68a::t_822d6fa08fb323 229,233,239
+  s_6b61b22fcdf68a::t_2ffc7bea7ac9fc 12
+  s_6b61b22fcdf68a::t_4652e747c83572 44
+  s_6b61b22fcdf68a::t_dc86641e0f1225 93
+  s_6b61b22fcdf68a::t_ab865f22d82bb3 356
+  s_6b61b22fcdf68a::t_8a330b6ebf5693 35,37-42
+  s_6b61b22fcdf68a::t_f6af3b5fb30908 251-254,262-279,292
+  s_6b61b22fcdf68a::t_81bc20e93a050a 100-101
+  s_6b61b22fcdf68a::t_c976e52ae84fd9 306
+  s_6b61b22fcdf68a::t_44de04113b8983 97
+  s_6b61b22fcdf68a::t_f4e40be20f3174 102
+  s_6b61b22fcdf68a::t_44c9439c66f512 197
+  s_6b61b22fcdf68a::t_2c0c6388f0a12f 361-373
+  s_6b61b22fcdf68a::t_9c7026dc74be6a 15
+  s_6b61b22fcdf68a::t_874ca23b34c66b 208,255-261,293-297
+  s_6b61b22fcdf68a::t_661cdc9db68ad5 280-291
+  s_6b61b22fcdf68a::t_ae9745132d21db 211
+  s_6b61b22fcdf68a::t_25a3bdd416ae8e 45-46
+  s_6b61b22fcdf68a::t_f3595dab70fbe1 34,36,43
+  s_6b61b22fcdf68a::t_55446a7748d9e6 132,140-147,149-158
+  s_6b61b22fcdf68a::t_5c32c04b599b04 47-48
+  s_6b61b22fcdf68a::t_c92d8e128232c7 230,236-238,240-242
+  s_6b61b22fcdf68a::t_554ea33fbb347c 1-9,80,84-87,108-131,134-139,148,159-167,188-190,198-199,209-210,212-213,247-248,301,303,305,312-315
+  s_6b61b22fcdf68a::t_445b0475ecbdca 99
+  s_6b61b22fcdf68a::t_3e1624ce9e05d9 168-179,181-187,191-196,200-207,214-228,231-232,234-235,243-244
+  s_6b61b22fcdf68a::t_9eaf67e06fcaaa 94,96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "dda9853de125f807ebb985e1625529e0f1f9a3c7",
+  "prompts": {},
+  "sessions": {
+    "s_6b61b22fcdf68a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da9cc837-5f92-4a3b-a348-0e7afe86f75d",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
