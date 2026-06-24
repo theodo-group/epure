@@ -1,6 +1,7 @@
 import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { AreaLayout } from '@/layout/types'
+import { dashArrayFor, fillOf, solidOf } from '@/style/palette'
 
 import { beginDrag, endDrag } from './dragState'
 
@@ -80,10 +81,16 @@ export const Area: FC<AreaProps> = ({
         height={area.h}
         rx={12}
         ry={12}
-        fill='#f4f5f9'
-        stroke={selected ? '#3b82f6' : '#cdd2dd'}
+        fill={area.fillColor ? fillOf(area.fillColor) : '#f4f5f9'}
+        stroke={
+          selected
+            ? '#3b82f6'
+            : area.borderColor
+              ? solidOf(area.borderColor)
+              : '#cdd2dd'
+        }
         strokeWidth={selected ? 1.5 : 1}
-        strokeDasharray='4 4'
+        strokeDasharray={dashArrayFor(area.borderStyle ?? 'dashed', 1)}
       />
       {area.label ? (
         <text

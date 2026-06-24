@@ -2,7 +2,16 @@ import type { FC } from 'react'
 
 import type { ShapeProps } from './rectangle'
 
-export const Cylinder: FC<ShapeProps> = ({ x, y, w, h }) => {
+export const Cylinder: FC<ShapeProps> = ({
+  x,
+  y,
+  w,
+  h,
+  fill = '#ffffff',
+  stroke = '#3b4252',
+  strokeWidth = 1.5,
+  strokeDasharray,
+}) => {
   const rx = w / 2
   const ry = Math.min(h * 0.12, 12)
   const topCy = y + ry
@@ -21,18 +30,20 @@ export const Cylinder: FC<ShapeProps> = ({ x, y, w, h }) => {
     <g>
       <path
         d={path}
-        fill='#ffffff'
-        stroke='#3b4252'
-        strokeWidth={1.5}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={strokeDasharray}
       />
       <ellipse
         cx={x + rx}
         cy={topCy}
         rx={rx}
         ry={ry}
-        fill='#ffffff'
-        stroke='#3b4252'
-        strokeWidth={1.5}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={strokeDasharray}
       />
       <ellipse
         cx={x + rx}
@@ -40,8 +51,8 @@ export const Cylinder: FC<ShapeProps> = ({ x, y, w, h }) => {
         rx={rx}
         ry={ry}
         fill='none'
-        stroke='#3b4252'
-        strokeWidth={1.5}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
         strokeDasharray='3 3'
       />
     </g>

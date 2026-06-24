@@ -5,9 +5,22 @@ export interface ShapeProps {
   y: number
   w: number
   h: number
+  fill?: string
+  stroke?: string
+  strokeWidth?: number
+  strokeDasharray?: string
 }
 
-export const Rectangle: FC<ShapeProps> = ({ x, y, w, h }) => (
+export const Rectangle: FC<ShapeProps> = ({
+  x,
+  y,
+  w,
+  h,
+  fill = '#ffffff',
+  stroke = '#3b4252',
+  strokeWidth = 1.5,
+  strokeDasharray,
+}) => (
   <rect
     x={x}
     y={y}
@@ -15,8 +28,9 @@ export const Rectangle: FC<ShapeProps> = ({ x, y, w, h }) => (
     height={h}
     rx={6}
     ry={6}
-    fill='#ffffff'
-    stroke='#3b4252'
-    strokeWidth={1.5}
+    fill={fill}
+    stroke={stroke}
+    strokeWidth={strokeWidth}
+    strokeDasharray={strokeDasharray}
   />
 )

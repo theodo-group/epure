@@ -248,23 +248,42 @@ export const route = async (
     const labelAnchor =
       longestHorizontalMidpoint(points) ?? pathMidpoint(points)
 
+    const styleSpec = layout.edges[edgeKey(meta.source, meta.target)]
     routedEdges.push({
       id: e.id,
       source: { nodeId: meta.source, side: SIDE_FROM_CONNECTION[result.sourceSide] ?? meta.sourceSide },
       target: { nodeId: meta.target, side: SIDE_FROM_CONNECTION[result.targetSide] ?? meta.targetSide },
       points,
       labelAnchor,
+      color: styleSpec?.color,
+      lineStyle: styleSpec?.lineStyle,
+      width: styleSpec?.width,
+      startCap: styleSpec?.startCap,
+      endCap: styleSpec?.endCap,
     })
   }
 
   const nodes = diagram.nodes.map((n) => {
     const pos = pixelNodes[n.id]!
-    return { id: n.id, x: pos.x, y: pos.y, w: pos.w, h: pos.h }
+    const layoutNode = layout.nodes[n.id]
+    return {
+      id: n.id,
+      x: pos.x,
+      y: pos.y,
+      w: pos.w,
+      h: pos.h,
+      textSize: layoutNode?.textSize,
+      textColor: layoutNode?.textColor,
+      borderColor: layoutNode?.borderColor,
+      borderStyle: layoutNode?.borderStyle,
+      fillColor: layoutNode?.fillColor,
+    }
   })
 
   const AREA_PAD = 16
   const AREA_TITLE_H = 28
   const areas = diagram.areas.map((a) => {
+    const style = layout.areas?.[a.id]
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const mid of a.members) {
       const r = pixelNodes[mid]
@@ -275,7 +294,7 @@ export const route = async (
       maxY = Math.max(maxY, r.y + r.h)
     }
     if (!isFinite(minX)) {
-      return { id: a.id, label: a.label, members: a.members, x: 0, y: 0, w: 0, h: 0 }
+      return { id: a.id, label: a.label, members: a.members, x: 0, y: 0, w: 0, h: 0, ...style }
     }
     return {
       id: a.id,
@@ -285,6 +304,9 @@ export const route = async (
       y: minY - AREA_PAD - AREA_TITLE_H,
       w: maxX - minX + AREA_PAD * 2,
       h: maxY - minY + AREA_PAD * 2 + AREA_TITLE_H,
+      borderColor: style?.borderColor,
+      borderStyle: style?.borderStyle,
+      fillColor: style?.fillColor,
     }
   })
 
@@ -467,10 +489,91 @@ const computeEdgeAnchors = (
 
     const sourceAnchor: Pt = srcHoriz ? { x: srcFC, y: srcPerp } : { x: srcPerp, y: srcFC }
     const targetAnchor: Pt = tgtHoriz ? { x: tgtFC, y: tgtPerp } : { x: tgtPerp, y: tgtFC }
-    result.set(e.id, { sourceAnchor, targetAnchor, bendCoord: bendCoords.get(e.id) })
+    let bendCoord = bendCoords.get(e.id)
+
+    // Obstacle avoidance. If the Z-bend's perpendicular leg would pass
+    // through another node, shift it just past the obstacle. Only applies
+    // when both sides are parallel and the anchors aren't already aligned.
+    if (srcHoriz === tgtHoriz && sourceAnchor.x !== targetAnchor.x && sourceAnchor.y !== targetAnchor.y) {
+      const candidate = bendCoord ?? (srcHoriz ? (sourceAnchor.x + targetAnchor.x) / 2 : (sourceAnchor.y + targetAnchor.y) / 2)
+      const adjusted = avoidObstacles(
+        candidate,
+        srcHoriz,
+        sourceAnchor,
+        targetAnchor,
+        nodes,
+        m.source,
+        m.target,
+      )
+      if (adjusted !== candidate) bendCoord = adjusted
+    }
+
+    result.set(e.id, { sourceAnchor, targetAnchor, bendCoord })
   }
 
   return result
+}
+
+const OBSTACLE_PAD = 8
+
+// Push the Z-bend perpendicular leg out of any node it would cross.
+const avoidObstacles = (
+  candidate: number,
+  horizontalSides: boolean,
+  src: Pt,
+  tgt: Pt,
+  nodes: Record<string, Rect>,
+  srcId: string,
+  tgtId: string,
+): number => {
+  // The vertical leg spans y in [yLo, yHi] at x=candidate (for horizontal
+  // sides). For vertical sides, the horizontal leg spans x in [xLo, xHi]
+  // at y=candidate.
+  const aLo = horizontalSides ? Math.min(src.y, tgt.y) : Math.min(src.x, tgt.x)
+  const aHi = horizontalSides ? Math.max(src.y, tgt.y) : Math.max(src.x, tgt.x)
+  // The legal range for the perpendicular coord is between source and target
+  // face (exclusive), so the entry/exit segments still exist.
+  const pLo = horizontalSides
+    ? Math.min(src.x, tgt.x)
+    : Math.min(src.y, tgt.y)
+  const pHi = horizontalSides
+    ? Math.max(src.x, tgt.x)
+    : Math.max(src.y, tgt.y)
+  if (pHi - pLo <= 0) return candidate
+
+  const obstacles: Array<[number, number]> = []
+  for (const [id, n] of Object.entries(nodes)) {
+    if (id === srcId || id === tgtId) continue
+    const nALo = horizontalSides ? n.y : n.x
+    const nAHi = horizontalSides ? n.y + n.h : n.x + n.w
+    const nPLo = horizontalSides ? n.x : n.y
+    const nPHi = horizontalSides ? n.x + n.w : n.y + n.h
+    // Does this node block the leg's a-range?
+    if (nAHi <= aLo || nALo >= aHi) continue
+    // Is this node in the legal perpendicular range?
+    if (nPHi <= pLo || nPLo >= pHi) continue
+    obstacles.push([nPLo, nPHi])
+  }
+  if (obstacles.length === 0) return candidate
+
+  // Does the candidate fall inside any obstacle?
+  const blocking = obstacles.find(([lo, hi]) => candidate > lo && candidate < hi)
+  if (!blocking) return candidate
+
+  // Try shifting left of the obstacle, then right. Pick whichever stays in
+  // the legal range.
+  const leftCandidate = blocking[0] - OBSTACLE_PAD
+  const rightCandidate = blocking[1] + OBSTACLE_PAD
+  const leftOk = leftCandidate > pLo && !obstacles.some(([lo, hi]) => leftCandidate > lo && leftCandidate < hi)
+  const rightOk = rightCandidate < pHi && !obstacles.some(([lo, hi]) => rightCandidate > lo && rightCandidate < hi)
+  if (leftOk && rightOk) {
+    return Math.abs(leftCandidate - candidate) <= Math.abs(rightCandidate - candidate)
+      ? leftCandidate
+      : rightCandidate
+  }
+  if (leftOk) return leftCandidate
+  if (rightOk) return rightCandidate
+  return candidate
 }
 
 // Pick the coordinate for the perpendicular leg of a Z-bend. Prefer a

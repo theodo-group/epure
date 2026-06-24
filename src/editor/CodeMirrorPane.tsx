@@ -16,7 +16,11 @@ import {
   type DecorationSet,
 } from '@codemirror/view'
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
-import { bracketMatching, indentOnInput } from '@codemirror/language'
+import {
+  bracketMatching,
+  indentOnInput,
+  type LanguageSupport,
+} from '@codemirror/language'
 import { d2Support } from './d2-language'
 import type { ParseError } from '@/parser/ast'
 
@@ -28,6 +32,7 @@ export interface CodeMirrorPaneProps {
   value: string
   onChange: (value: string) => void
   errors?: ParseError[]
+  language?: LanguageSupport
 }
 
 // Light-weight "this line has a parse error" decoration; we don't pull the
@@ -58,18 +63,42 @@ const errorField = StateField.define<DecorationSet>({
 
 const baseTheme = EditorView.theme(
   {
-    '&': { height: '100%', fontSize: '13px', backgroundColor: '#1e1e1e' },
+    '&': {
+      height: '100%',
+      fontSize: '12.5px',
+      backgroundColor: '#18181b',
+      color: '#d4d4d8',
+    },
     '.cm-scroller': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+      lineHeight: '22px',
     },
-    '.cm-content': { caretColor: '#fff' },
+    '.cm-content': {
+      caretColor: '#fafafa',
+      padding: '8px 0',
+    },
     '.cm-gutters': {
-      backgroundColor: '#1e1e1e',
-      color: '#6a6a6a',
+      backgroundColor: '#18181b',
+      color: '#52525b',
       border: 'none',
+      paddingRight: '6px',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.04)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.04)' },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 14px 0 12px',
+      minWidth: '32px',
+    },
+    '.cm-activeLine': { backgroundColor: 'rgba(96, 165, 250, 0.10)' },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'rgba(96, 165, 250, 0.10)',
+      color: 'oklch(0.7 0.14 250)',
+    },
+    '.cm-cursor': { borderLeftColor: '#fafafa' },
+    '.cm-selectionBackground': {
+      backgroundColor: 'rgba(96, 165, 250, 0.20) !important',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'rgba(96, 165, 250, 0.25) !important',
+    },
     '.cm-archgrid-error-line': {
       backgroundColor: 'rgba(255, 80, 80, 0.12)',
       boxShadow: 'inset 2px 0 0 #ff5d5d',
@@ -79,7 +108,7 @@ const baseTheme = EditorView.theme(
 )
 
 export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPaneProps>(
-  function CodeMirrorPane({ value, onChange, errors }, ref) {
+  function CodeMirrorPane({ value, onChange, errors, language }, ref) {
     const hostRef = useRef<HTMLDivElement | null>(null)
     const viewRef = useRef<EditorView | null>(null)
     const onChangeRef = useRef(onChange)
@@ -100,7 +129,7 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           bracketMatching(),
           indentOnInput(),
           keymap.of([...defaultKeymap, ...historyKeymap]),
-          d2Support,
+          language ?? d2Support,
           baseTheme,
           errorField,
           EditorView.updateListener.of((u) => {

@@ -2,6 +2,13 @@ import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { ShapeName } from '@/parser/ast'
 import type { Side } from '@/layout/types'
+import type { LineStyle, PaletteColor, Size } from '@/style/palette'
+import {
+  dashArrayFor,
+  fillOf,
+  solidOf,
+  TEXT_SIZE,
+} from '@/style/palette'
 
 import { beginDrag, endDrag } from './dragState'
 
@@ -24,6 +31,11 @@ interface NodeProps {
   w: number
   h: number
   selected?: boolean
+  textSize?: Size
+  textColor?: PaletteColor
+  borderColor?: PaletteColor
+  borderStyle?: LineStyle
+  fillColor?: PaletteColor
   onSelect?: (id: string, additive: boolean) => void
   onMove?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
   onResize?: (id: string, side: Side, pxX: number, pxY: number) => void
@@ -70,12 +82,22 @@ export const Node: FC<NodeProps> = ({
   w,
   h,
   selected,
+  textSize,
+  textColor,
+  borderColor,
+  borderStyle,
+  fillColor,
   onSelect,
   onMove,
   onResize,
   gridSize,
 }) => {
   const Shape = SHAPE_COMPONENTS[shape] ?? Rectangle
+  const strokeColor = borderColor ? solidOf(borderColor) : '#3b4252'
+  const shapeFill = fillColor ? fillOf(fillColor) : '#ffffff'
+  const dash = borderStyle ? dashArrayFor(borderStyle, 1.5) : undefined
+  const fontSize = TEXT_SIZE[textSize ?? 'M']
+  const labelFill = textColor ? solidOf(textColor) : '#1f2430'
   // Person shape fills its whole bounding box with a figure; render the
   // label below the figure instead of overlaying it.
   const labelBelow = shape === 'person'
@@ -169,7 +191,15 @@ export const Node: FC<NodeProps> = ({
       onMouseDown={handlePointerDown}
       style={{ cursor: onMove ? 'grab' : 'pointer' }}
     >
-      <Shape x={x} y={y} w={w} h={h} />
+      <Shape
+        x={x}
+        y={y}
+        w={w}
+        h={h}
+        fill={shapeFill}
+        stroke={strokeColor}
+        strokeDasharray={dash}
+      />
       {selected ? (
         <rect
           x={x - 3}
@@ -192,8 +222,8 @@ export const Node: FC<NodeProps> = ({
           y={startY + i * lineHeight}
           textAnchor='middle'
           fontFamily='Inter, system-ui, sans-serif'
-          fontSize={12}
-          fill='#1f2430'
+          fontSize={fontSize}
+          fill={labelFill}
           pointerEvents='none'
         >
           {line}

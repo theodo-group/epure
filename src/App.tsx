@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { Toolbar } from '@/editor/Toolbar'
+import { json as jsonLang } from '@codemirror/lang-json'
+import { Header } from '@/editor/Header'
+import { Footer } from '@/editor/Footer'
+import { EditorTabBar } from '@/editor/EditorTabBar'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
 import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
 import {
@@ -51,6 +54,8 @@ export const App = () => {
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
   const showGrid = useDiagramStore((s) => s.showGrid)
+  const filename = useDiagramStore((s) => s.filename)
+  const dirty = useDiagramStore((s) => s.dirty)
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
 
@@ -59,6 +64,7 @@ export const App = () => {
   const reroute = useDiagramStore((s) => s.reroute)
   const loadDocument = useDiagramStore((s) => s.loadDocument)
   const markClean = useDiagramStore((s) => s.markClean)
+  const toggleGrid = useDiagramStore((s) => s.toggleGrid)
   const selectNode = useDiagramStore((s) => s.selectNode)
   const selectArea = useDiagramStore((s) => s.selectArea)
   const setSelection = useDiagramStore((s) => s.setSelection)
@@ -67,6 +73,12 @@ export const App = () => {
   const resizeNode = useDiagramStore((s) => s.resizeNode)
   const areaDragStartRef = useRef<Record<string, { cx: number; cy: number }>>({})
   const [fitVersion, setFitVersion] = useState(0)
+  const [activeTab, setActiveTab] = useState<'d2' | 'layout'>('d2')
+  const setLayout = useDiagramStore((s) => s.setLayout)
+  const layoutJsonText = useMemo(
+    () => JSON.stringify(layout, null, 2),
+    [layout],
+  )
   const multiDragRef = useRef<{
     leaderId: string
     leaderStart: { cx: number; cy: number }
@@ -110,14 +122,20 @@ export const App = () => {
     return { nodesMeta: n, edgesMeta: e }
   }, [parseResult])
 
-  const getSvg = (): SVGSVGElement | null => svgRef.current
-
   const onExportPng = async () => {
     const svg = svgRef.current
     if (!svg) return
-    const { exportScale, filename } = useDiagramStore.getState()
+    const { exportScale, filename: f } = useDiagramStore.getState()
     const blob = await exportPng(svg, exportScale)
-    downloadBlob(blob, `${filename}.png`)
+    downloadBlob(blob, `${f}.png`)
+  }
+
+  const onExportHtml = async () => {
+    const svg = svgRef.current
+    if (!svg) return
+    const { filename: f } = useDiagramStore.getState()
+    const html = await exportStandaloneHtml(svg, { title: f })
+    downloadBlob(new Blob([html], { type: 'text/html' }), `${f}.html`)
   }
 
   // Global keyboard shortcuts.
@@ -178,8 +196,6 @@ export const App = () => {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [loadDocument, markClean])
 
-  const parseErrors = parseResult.ok ? [] : parseResult.errors
-
   const placeholderDiagram: RoutedDiagram = useMemo(
     () => ({
       gridSize: layout.gridSize,
@@ -194,47 +210,55 @@ export const App = () => {
 
   return (
     <div className="app-root">
-      <Toolbar
-        onExportPng={async () => {
-          try {
-            await onExportPng()
-          } catch (err) {
-            console.error('export png failed', err)
-          }
-        }}
-        onExportHtml={async () => {
-          const svg = svgRef.current
-          if (!svg) return
-          const { filename } = useDiagramStore.getState()
-          try {
-            const html = await exportStandaloneHtml(svg, { title: filename })
-            downloadBlob(
-              new Blob([html], { type: 'text/html' }),
-              `${filename}.html`,
-            )
-          } catch (err) {
-            console.error('export html failed', err)
-          }
-        }}
-        onFitView={() => setFitVersion((v) => v + 1)}
-        getSvg={getSvg}
+      <Header
+        onExportPng={onExportPng}
+        onExportHtml={onExportHtml}
+        saveHandleRef={handleRef}
       />
       <div className="app-body">
         <PanelGroup direction="horizontal" autoSaveId="archgrid:panels">
-          <Panel defaultSize={40} minSize={20} className="pane pane-editor">
-            <CodeMirrorPane
-              ref={editorRef}
-              value={source}
-              onChange={setSource}
-              errors={parseErrors}
+          <Panel defaultSize={36} minSize={20} className="pane pane-editor">
+            <EditorTabBar
+              tabs={[
+                { id: 'd2', label: `${filename}.d2`, dirty },
+                { id: 'layout', label: `${filename}.layout.json` },
+              ]}
+              activeTabId={activeTab}
+              onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
             />
+            <div className="ag-cm-wrap">
+              {activeTab === 'd2' ? (
+                <CodeMirrorPane
+                  key="d2"
+                  ref={editorRef}
+                  value={source}
+                  onChange={setSource}
+                  errors={parseResult.ok ? [] : parseResult.errors}
+                />
+              ) : (
+                <CodeMirrorPane
+                  key="layout"
+                  value={layoutJsonText}
+                  onChange={(text) => {
+                    try {
+                      const parsed = JSON.parse(text)
+                      setLayout(parsed)
+                    } catch {
+                      // ignore invalid JSON; the user is mid-edit
+                    }
+                  }}
+                  language={jsonLang()}
+                />
+              )}
+            </div>
           </Panel>
           <PanelResizeHandle className="resize-handle" />
-          <Panel defaultSize={60} minSize={30} className="pane pane-canvas">
+          <Panel defaultSize={64} minSize={30} className="pane pane-canvas">
             <Canvas
               ref={svgRef}
               diagram={renderDiagram}
               showGrid={showGrid}
+              onToggleGrid={toggleGrid}
               selectedNodeIds={selectedNodeIds}
               selectedAreaIds={selectedAreaIds}
               onSelectArea={(id, additive) => selectArea(id, additive)}
@@ -243,10 +267,6 @@ export const App = () => {
                   if (!additive) selectNode(undefined)
                   return
                 }
-                // Shift-click toggles in the set. Plain click on an already-
-                // selected node keeps the multi-selection (so a subsequent
-                // drag moves the whole group). Plain click on a different
-                // node replaces the selection.
                 if (additive) {
                   selectNode(id, true)
                 } else if (!selectedNodeIds.includes(id)) {
@@ -322,12 +342,14 @@ export const App = () => {
                 moveNodes(moves)
               }}
               fitVersion={fitVersion}
+              onFitView={() => setFitVersion((v) => v + 1)}
               nodes={nodesMeta}
               edges={edgesMeta}
             />
           </Panel>
         </PanelGroup>
       </div>
+      <Footer />
     </div>
   )
 }
