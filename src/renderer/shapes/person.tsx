@@ -2,7 +2,16 @@ import type { FC } from 'react'
 
 import type { ShapeProps } from './rectangle'
 
-export const Person: FC<ShapeProps> = ({ x, y, w, h }) => {
+export const Person: FC<ShapeProps> = ({
+  x,
+  y,
+  w,
+  h,
+  fill = '#ffffff',
+  stroke = '#3b4252',
+  strokeWidth = 1.5,
+  strokeDasharray,
+}) => {
   // Stick-figure-in-a-card: head circle on top, rounded body underneath.
   const cx = x + w / 2
   const headR = Math.min(w, h) * 0.16
@@ -18,9 +27,10 @@ export const Person: FC<ShapeProps> = ({ x, y, w, h }) => {
         cx={cx}
         cy={headCy}
         r={headR}
-        fill='#ffffff'
-        stroke='#3b4252'
-        strokeWidth={1.5}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={strokeDasharray}
       />
       <path
         d={[
@@ -29,9 +39,10 @@ export const Person: FC<ShapeProps> = ({ x, y, w, h }) => {
           `Q ${bodyX + bodyW} ${bodyTop} ${bodyX + bodyW} ${bodyTop + bodyH}`,
           'Z',
         ].join(' ')}
-        fill='#ffffff'
-        stroke='#3b4252'
-        strokeWidth={1.5}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={strokeDasharray}
       />
     </g>
   )

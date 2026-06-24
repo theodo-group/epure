@@ -2,7 +2,7 @@ import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { ShapeName } from '@/parser/ast'
 import type { Side } from '@/layout/types'
-import type { LineStyle, PaletteColor, Size } from '@/style/palette'
+import type { FillColor, LineStyle, PaletteColor, Size } from '@/style/palette'
 import {
   dashArrayFor,
   fillOf,
@@ -35,7 +35,7 @@ interface NodeProps {
   textColor?: PaletteColor
   borderColor?: PaletteColor
   borderStyle?: LineStyle
-  fillColor?: PaletteColor
+  fillColor?: FillColor
   onSelect?: (id: string, additive: boolean) => void
   onMove?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
   onResize?: (id: string, side: Side, pxX: number, pxY: number) => void
@@ -94,7 +94,14 @@ export const Node: FC<NodeProps> = ({
 }) => {
   const Shape = SHAPE_COMPONENTS[shape] ?? Rectangle
   const strokeColor = borderColor ? solidOf(borderColor) : '#3b4252'
-  const shapeFill = fillColor ? fillOf(fillColor) : '#ffffff'
+  // `transparent` keeps the interior see-through but still hit-testable (unlike
+  // `none`), so the node stays clickable/draggable by its whole body.
+  const shapeFill =
+    fillColor === 'transparent'
+      ? 'transparent'
+      : fillColor
+        ? fillOf(fillColor)
+        : '#ffffff'
   const dash = borderStyle ? dashArrayFor(borderStyle, 1.5) : undefined
   const fontSize = TEXT_SIZE[textSize ?? 'M']
   const labelFill = textColor ? solidOf(textColor) : '#1f2430'

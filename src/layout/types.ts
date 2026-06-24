@@ -1,5 +1,6 @@
 import type {
   EndCap,
+  FillColor,
   LineStyle,
   PaletteColor,
   Size,
@@ -12,7 +13,7 @@ export interface NodeStyle {
   textColor?: PaletteColor
   borderColor?: PaletteColor
   borderStyle?: LineStyle
-  fillColor?: PaletteColor
+  fillColor?: FillColor
 }
 
 export interface EdgeStyleSpec {
@@ -26,7 +27,7 @@ export interface EdgeStyleSpec {
 export interface AreaStyleSpec {
   borderColor?: PaletteColor
   borderStyle?: LineStyle
-  fillColor?: PaletteColor
+  fillColor?: FillColor
 }
 
 export interface NodeLayout extends NodeStyle {

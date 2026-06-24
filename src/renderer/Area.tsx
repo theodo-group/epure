@@ -81,7 +81,13 @@ export const Area: FC<AreaProps> = ({
         height={area.h}
         rx={12}
         ry={12}
-        fill={area.fillColor ? fillOf(area.fillColor) : '#f4f5f9'}
+        fill={
+          area.fillColor === 'transparent'
+            ? 'transparent'
+            : area.fillColor
+              ? fillOf(area.fillColor)
+              : '#f4f5f9'
+        }
         stroke={area.borderColor ? solidOf(area.borderColor) : '#cdd2dd'}
         strokeWidth={1}
         strokeDasharray={dashArrayFor(area.borderStyle ?? 'dashed', 1)}

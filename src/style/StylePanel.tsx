@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 
+import type { EdgeDirection } from '@/parser/ast'
+import { makeEdgeId } from '@/layout/elk'
 import { useDiagramStore } from '@/store/diagramStore'
 import {
   PALETTE,
   type EndCap,
+  type FillColor,
   type LineStyle,
   type PaletteColor,
   type Size,
@@ -21,6 +24,7 @@ const COLORS: PaletteColor[] = [
   'purple',
   'pink',
 ]
+const FILL_OPTIONS: FillColor[] = ['transparent', ...COLORS]
 const SIZES: Size[] = ['S', 'M', 'L', 'XL']
 const LINE_STYLES: LineStyle[] = ['solid', 'dashed', 'dotted']
 const CAPS: EndCap[] = ['none', 'arrow', 'dot', 'diamond']
@@ -35,6 +39,17 @@ const common = <T,>(values: (T | undefined)[]): T | undefined => {
 
 const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0] ?? edgeId
 
+// The cap a given edge end shows when no explicit cap is stored — derived from
+// the parsed edge direction, matching the renderer's defaults.
+const defaultCapFor = (
+  dir: EdgeDirection | undefined,
+  end: 'start' | 'end',
+): EndCap | undefined => {
+  if (!dir) return undefined
+  if (end === 'start') return dir === 'backward' || dir === 'bidirectional' ? 'arrow' : 'none'
+  return dir === 'forward' || dir === 'bidirectional' ? 'arrow' : 'none'
+}
+
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="ag-style-row">
     <div className="ag-style-label">{label}</div>
@@ -42,14 +57,20 @@ const Row = ({ label, children }: { label: string; children: ReactNode }) => (
   </div>
 )
 
-interface SwatchesProps {
-  value?: PaletteColor
-  onChange: (color?: PaletteColor) => void
+interface SwatchesProps<C extends string> {
+  value?: C
+  onChange: (color?: C) => void
   /** `solid` shows the line/text colour, `fill` the lighter surface tint. */
   variant: 'solid' | 'fill'
+  options: C[]
 }
 
-const Swatches = ({ value, onChange, variant }: SwatchesProps) => (
+const Swatches = <C extends string>({
+  value,
+  onChange,
+  variant,
+  options,
+}: SwatchesProps<C>) => (
   <div className="ag-swatches">
     <button
       type="button"
@@ -61,8 +82,19 @@ const Swatches = ({ value, onChange, variant }: SwatchesProps) => (
         <line x1="4" y1="14" x2="14" y2="4" stroke="#dc2626" strokeWidth="1.4" />
       </svg>
     </button>
-    {COLORS.map((color) => {
-      const entry = PALETTE[color]
+    {options.map((color) => {
+      if (color === 'transparent') {
+        return (
+          <button
+            key="transparent"
+            type="button"
+            title="Transparent"
+            className={`ag-swatch ag-swatch-transparent${value === color ? ' active' : ''}`}
+            onClick={() => onChange(color)}
+          />
+        )
+      }
+      const entry = PALETTE[color as PaletteColor]
       return (
         <button
           key={color}
@@ -89,7 +121,7 @@ interface SegmentedOption<T extends string> {
 interface SegmentedProps<T extends string> {
   options: SegmentedOption<T>[]
   value?: T
-  /** Highlighted faintly when nothing is set, to show the inherited default. */
+  /** Shown as active when nothing is explicitly set (the inherited default). */
   defaultValue?: T
   onChange: (value: T | undefined) => void
 }
@@ -99,27 +131,34 @@ const Segmented = <T extends string>({
   value,
   defaultValue,
   onChange,
-}: SegmentedProps<T>) => (
-  <div className="ag-seg" role="group">
-    {options.map((opt) => {
-      const active = value === opt.value
-      const ghost = value === undefined && defaultValue === opt.value
-      return (
-        <button
-          key={opt.value}
-          type="button"
-          title={active ? `${opt.title ?? opt.value} (click to reset)` : opt.title ?? opt.value}
-          className={`ag-seg-btn${active ? ' active' : ''}${ghost ? ' ghost' : ''}`}
-          // Clicking the active option clears the override back to the
-          // inherited default (mirrors the swatch "Default" affordance).
-          onClick={() => onChange(active ? undefined : opt.value)}
-        >
-          {opt.label}
-        </button>
-      )
-    })}
-  </div>
-)
+}: SegmentedProps<T>) => {
+  // Highlight whatever the element actually renders with — the explicit value,
+  // or the inherited default when nothing is set.
+  const effective = value ?? defaultValue
+  return (
+    <div className="ag-seg" role="group">
+      {options.map((opt) => {
+        const active = opt.value === effective
+        const isExplicit = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            title={isExplicit ? `${opt.title ?? opt.value} (click to reset)` : opt.title ?? opt.value}
+            className={`ag-seg-btn${active ? ' active' : ''}`}
+            // Picking the default (or re-clicking the explicit value) clears the
+            // override so the layout file only stores genuine overrides.
+            onClick={() =>
+              onChange(isExplicit || opt.value === defaultValue ? undefined : opt.value)
+            }
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 const LineIcon = ({ style }: { style: LineStyle }) => (
   <svg width="24" height="8" viewBox="0 0 24 8" aria-hidden>
@@ -192,6 +231,7 @@ export const StylePanel = () => {
   const selectedEdgeIds = useDiagramStore((s) => s.selectedEdgeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
   const layout = useDiagramStore((s) => s.layout)
+  const parseResult = useDiagramStore((s) => s.parseResult)
   const setNodeStyle = useDiagramStore((s) => s.setNodeStyle)
   const setEdgeStyle = useDiagramStore((s) => s.setEdgeStyle)
   const setAreaStyle = useDiagramStore((s) => s.setAreaStyle)
@@ -208,6 +248,26 @@ export const StylePanel = () => {
     (id) => layout.edges[edgeStyleKey(id)] ?? {},
   )
   const areaStyles = selectedAreaIds.map((id) => layout.areas?.[id] ?? {})
+
+  // Effective default caps come from the parsed edge direction, so a default
+  // forward arrow shows the arrow end cap as active.
+  let startCapDefault: EndCap | undefined
+  let endCapDefault: EndCap | undefined
+  if (hasEdges) {
+    const dirById = parseResult.ok
+      ? new Map(
+          parseResult.diagram.edges.map(
+            (e, i) => [makeEdgeId(e.source, e.target, i), e.direction] as const,
+          ),
+        )
+      : new Map<string, EdgeDirection>()
+    startCapDefault = common(
+      selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'start')),
+    )
+    endCapDefault = common(
+      selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'end')),
+    )
+  }
 
   const kindCount = [hasNodes, hasEdges, hasAreas].filter(Boolean).length
   const showHeaders = kindCount > 1
@@ -244,6 +304,7 @@ export const StylePanel = () => {
           <Row label="Text color">
             <Swatches
               variant="solid"
+              options={COLORS}
               value={common(nodeStyles.map((n) => n.textColor))}
               onChange={(c) => setNodeStyle({ textColor: c })}
             />
@@ -251,6 +312,7 @@ export const StylePanel = () => {
           <Row label="Border color">
             <Swatches
               variant="solid"
+              options={COLORS}
               value={common(nodeStyles.map((n) => n.borderColor))}
               onChange={(c) => setNodeStyle({ borderColor: c })}
             />
@@ -266,6 +328,7 @@ export const StylePanel = () => {
           <Row label="Fill">
             <Swatches
               variant="fill"
+              options={FILL_OPTIONS}
               value={common(nodeStyles.map((n) => n.fillColor))}
               onChange={(c) => setNodeStyle({ fillColor: c })}
             />
@@ -279,6 +342,7 @@ export const StylePanel = () => {
           <Row label="Color">
             <Swatches
               variant="solid"
+              options={COLORS}
               value={common(edgeStyles.map((e) => e.color))}
               onChange={(c) => setEdgeStyle({ color: c })}
             />
@@ -303,6 +367,7 @@ export const StylePanel = () => {
             <Segmented
               options={capOptions(true)}
               value={common(edgeStyles.map((e) => e.startCap))}
+              defaultValue={startCapDefault}
               onChange={(v) => setEdgeStyle({ startCap: v })}
             />
           </Row>
@@ -310,6 +375,7 @@ export const StylePanel = () => {
             <Segmented
               options={capOptions()}
               value={common(edgeStyles.map((e) => e.endCap))}
+              defaultValue={endCapDefault}
               onChange={(v) => setEdgeStyle({ endCap: v })}
             />
           </Row>
@@ -322,6 +388,7 @@ export const StylePanel = () => {
           <Row label="Border color">
             <Swatches
               variant="solid"
+              options={COLORS}
               value={common(areaStyles.map((a) => a.borderColor))}
               onChange={(c) => setAreaStyle({ borderColor: c })}
             />
@@ -337,6 +404,7 @@ export const StylePanel = () => {
           <Row label="Fill">
             <Swatches
               variant="fill"
+              options={FILL_OPTIONS}
               value={common(areaStyles.map((a) => a.fillColor))}
               onChange={(c) => setAreaStyle({ fillColor: c })}
             />

@@ -2,7 +2,16 @@ import type { FC } from 'react'
 
 import type { ShapeProps } from './rectangle'
 
-export const Document: FC<ShapeProps> = ({ x, y, w, h }) => {
+export const Document: FC<ShapeProps> = ({
+  x,
+  y,
+  w,
+  h,
+  fill = '#ffffff',
+  stroke = '#3b4252',
+  strokeWidth = 1.5,
+  strokeDasharray,
+}) => {
   // Classic "document" shape: top edge straight, bottom edge wavy.
   const waveDepth = Math.min(h * 0.12, 10)
   const midY = y + h - waveDepth
@@ -22,9 +31,10 @@ export const Document: FC<ShapeProps> = ({ x, y, w, h }) => {
   return (
     <path
       d={d}
-      fill='#ffffff'
-      stroke='#3b4252'
-      strokeWidth={1.5}
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeDasharray={strokeDasharray}
       strokeLinejoin='round'
     />
   )

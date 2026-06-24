@@ -703,6 +703,16 @@ body {
   background: var(--ag-surface);
 }
 
+/* Transparent fill — a checkerboard so it reads as "see-through". */
+.ag-swatch-transparent {
+  background-color: var(--ag-surface);
+  background-image:
+    linear-gradient(45deg, #c9c9c9 25%, transparent 25%, transparent 75%, #c9c9c9 75%),
+    linear-gradient(45deg, #c9c9c9 25%, transparent 25%, transparent 75%, #c9c9c9 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}
+
 .ag-seg {
   display: flex;
   gap: 2px;
@@ -738,11 +748,6 @@ body {
   border-color: var(--ag-accent-border);
   color: var(--ag-accent-deep);
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.06);
-}
-
-.ag-seg-btn.ghost {
-  color: var(--ag-text-subtle);
-  background: rgba(255, 255, 255, 0.6);
 }
 
 /* ── Footer ───────────────────────────────────────────── */

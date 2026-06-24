@@ -32,6 +32,10 @@ export const PALETTE: Record<PaletteColor, PaletteEntry> = {
   pink: { solid: '#db2777', fill: '#fdf2f8' },
 }
 
+// Fills additionally allow an explicit transparent (no-fill) choice, distinct
+// from leaving the colour unset (which falls back to the theme default fill).
+export type FillColor = PaletteColor | 'transparent'
+
 export type Size = 'S' | 'M' | 'L' | 'XL'
 
 export const TEXT_SIZE: Record<Size, number> = {
