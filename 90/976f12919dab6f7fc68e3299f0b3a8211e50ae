@@ -1,0 +1,57 @@
+bin/epure.ts
+  s_7413682a40e5a1::t_4f2083d9689ebe 249-271,283-299
+  s_7413682a40e5a1::t_9bc27105f91ce8 30
+  s_7413682a40e5a1::t_6902c301c490b9 272-282
+  s_7413682a40e5a1::t_92b7bdb614cd97 362-364
+  s_7413682a40e5a1::t_40676a00e499cc 24
+  s_7413682a40e5a1::t_ae47a7734251a7 343
+  s_7413682a40e5a1::t_645dced1ae4dd6 5
+src/layout/index.ts
+  s_7413682a40e5a1::t_fadb56e4a8979b 2
+scripts/build-server.mjs
+  s_7413682a40e5a1::t_000a6b06f41356 44-51
+  s_7413682a40e5a1::t_1fb811d78d194c 23-24
+  s_7413682a40e5a1::t_fd7a3ba1287457 9
+server/render/render.test.ts
+  s_7413682a40e5a1::t_3380ed25771584 1-43,48-79
+  s_7413682a40e5a1::t_396abfc123f300 44-47
+server/render/svg.tsx
+  s_7413682a40e5a1::t_0799b9d916592f 16
+  s_7413682a40e5a1::t_959a3c3c3a1d96 81,85
+  s_7413682a40e5a1::t_eb40024ae3ce77 1-15,17-80,82-84,86-133
+package.json
+  s_7413682a40e5a1::t_4ae8f1530f4003 42
+server/render/model.ts
+  s_7413682a40e5a1::t_a185a4d24ecfac 1-63
+server/render/png.ts
+  s_7413682a40e5a1::t_b5568f6d6c401a 1-23
+src/layout/elk.ts
+  s_7413682a40e5a1::t_7b51c19ae55854 226
+  s_7413682a40e5a1::t_bbddcd600960c5 22-31
+vite.config.ts
+  s_7413682a40e5a1::t_80335879e0fcdf 24
+skills/epure-diagram/SKILL.md
+  s_7413682a40e5a1::t_ea3dedf34b86fc 129-143
+server/render/index.ts
+  s_7413682a40e5a1::t_1553d0dee4228c 1-39
+tests/setup.ts
+  s_7413682a40e5a1::t_ffe5bc020315a6 1-10
+pnpm-lock.yaml
+  s_7413682a40e5a1::t_872cf69d4539a0 41-43,852-927,2725-2775
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "90976f12919dab6f7fc68e3299f0b3a8211e50ae",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
