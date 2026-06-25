@@ -246,23 +246,25 @@ class JsonParser {
 // layout/types module. Kept inline (not imported as values) because palette.ts
 // holds them as TS string-literal unions, not runtime arrays.
 
-const PALETTE_COLORS = new Set([
+// Exported so docs/skill drift-checks can assert against the single source of
+// truth rather than a hand-copied list (see tests/skillSchema.test.ts).
+export const PALETTE_COLORS = new Set([
   'black', 'gray', 'red', 'orange', 'yellow',
   'green', 'teal', 'blue', 'purple', 'pink',
 ])
-const FILL_COLORS = new Set([...PALETTE_COLORS, 'transparent', 'white'])
-const SIZES = new Set(['S', 'M', 'L', 'XL'])
-const LINE_STYLES = new Set(['solid', 'dashed', 'dotted'])
-const END_CAPS = new Set(['none', 'arrow', 'dot', 'diamond'])
-const ICON_POSITIONS = new Set(['corner', 'top'])
-const SIDES = new Set(['N', 'S', 'E', 'W'])
+export const FILL_COLORS = new Set([...PALETTE_COLORS, 'transparent', 'white'])
+export const SIZES = new Set(['S', 'M', 'L', 'XL'])
+export const LINE_STYLES = new Set(['solid', 'dashed', 'dotted'])
+export const END_CAPS = new Set(['none', 'arrow', 'dot', 'diamond'])
+export const ICON_POSITIONS = new Set(['corner', 'top'])
+export const SIDES = new Set(['N', 'S', 'E', 'W'])
 
 const NODE_FIELDS = new Set([
   'cx', 'cy', 'w', 'h',
   'textSize', 'textColor', 'borderColor', 'borderStyle',
   'fillColor', 'icon', 'iconPosition', 'shape',
 ])
-const SHAPES = new Set(['rectangle', 'cylinder', 'person'])
+export const SHAPES = new Set(['rectangle', 'cylinder', 'person'])
 const EDGE_FIELDS = new Set([
   'color', 'lineStyle', 'width', 'startCap', 'endCap',
   'sourceSide', 'targetSide',

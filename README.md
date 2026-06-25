@@ -16,39 +16,71 @@ anywhere or open from disk.
 
 ## File format
 
-A diagram is a pair of files sharing a basename, persisted together as a
-single `.epr.zip`:
+A diagram is a pair of files sharing a basename, committed and reviewed together:
 
 ```d2
-# system.epr.d2
+# system.epr.d2  — topology
 api: API { shape: rectangle }
 db: Postgres { shape: cylinder }
-api -> db: "writes" { style.stroke-dash: 3 }
-```
+api -> db: "writes"
 
-```json
-// system.epr.layout.json
-{
-  "gridSize": 16,
-  "nodes": {
-    "api": { "x": 64, "y": 64, "w": 160, "h": 64 },
-    "db":  { "x": 384, "y": 64, "w": 160, "h": 64 }
-  },
-  "edges": {
-    "api->db": { "sourceSide": "E", "targetSide": "W" }
-  },
-  "areas": [
-    { "id": "backend", "label": "Backend",
-      "members": ["api", "db"],
-      "x": 48, "y": 48, "w": 528, "h": 96 }
-  ]
+# groups list member ids (no `shape:`):
+Backend: "Backend" {
+  api
+  db
 }
 ```
 
-The `.epr.d2` file is the canonical source of truth for topology (nodes,
-shapes, edges, labels, edge styles). The `.epr.layout.json` sidecar owns
-node positions and sizes, area definitions and membership, the grid pitch,
-and which side (N/S/E/W) each edge endpoint anchors to.
+```json
+// system.epr.layout.json  — visuals (all geometry in integer grid units)
+{
+  "gridSize": 40,
+  "nodes": {
+    "api": { "cx": 8, "cy": 4, "w": 4, "h": 2, "borderColor": "purple" },
+    "db":  { "cx": 16, "cy": 4, "w": 4, "h": 2, "borderColor": "teal" }
+  },
+  "edges": {
+    "api->db": { "color": "teal", "lineStyle": "dashed", "sourceSide": "E", "targetSide": "W" }
+  },
+  "areas": {
+    "Backend": { "borderColor": "purple", "fillColor": "purple" }
+  }
+}
+```
+
+The `.epr.d2` file is the canonical source of truth for topology (nodes, shapes,
+edges, labels, and group membership). The `.epr.layout.json` sidecar owns each
+node's **center** position `cx,cy` and size `w,h` (in grid units), the grid
+pitch, per-element styling, area styling (keyed by area id — membership stays in
+the `.d2`), and which side (N/S/E/W) each edge endpoint prefers. The full,
+canonical example is [`fixtures/system.epr.*`](./fixtures); the schema is defined
+by [`src/file/layoutSchema.ts`](./src/file/layoutSchema.ts).
+
+## Editing live (the `epure` CLI / Claude Code)
+
+The editor is a static page, but a tiny local server makes the file pair
+**live-editable**: edits on disk appear instantly in the browser, and UI tweaks
+(drag, restyle) are written back to the files for git to see.
+
+```sh
+npx epure ./docs/diagrams/system.epr.d2   # serves the UI + watches the pair; prints the URL
+npx epure validate ./docs/diagrams/system.epr.d2   # parse + schema + cross-file checks
+npx epure fmt ./docs/diagrams/system.epr.d2        # canonicalize the layout JSON
+```
+
+This is what makes Épure pleasant to drive from Claude Code: CC edits the pair
+while the user watches it evolve. The bundled `epure-diagram` skill
+(`npx epure skill install`) teaches CC the schema and workflow.
+
+For a repo that keeps its diagrams in Épure, drop this into its `CLAUDE.md`:
+
+```md
+## Architecture diagrams (Épure)
+Diagrams live as `<name>.epr.d2` + `<name>.epr.layout.json` pairs under `docs/diagrams/`.
+- At session start, run `npx epure <file>.epr.d2 &` (idempotent — safe to re-run) and share the URL.
+- Edit the pair directly; saves sync live to the open editor.
+- Run `npx epure validate <file>.epr.d2` before finishing; keep diffs minimal with `npx epure fmt`.
+```
 
 ## Icons
 
@@ -58,7 +90,7 @@ reference lives in the JSON sidecar (never in the D2), so the topology stays
 clean and the visual stays reviewable:
 
 ```json
-"api": { "x": 64, "y": 64, "w": 160, "h": 64,
+"api": { "cx": 8, "cy": 4, "w": 4, "h": 2,
          "icon": "programming/framework/fastapi" }
 ```
 
