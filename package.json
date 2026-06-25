@@ -4,7 +4,25 @@
   "private": false,
   "license": "MIT",
   "type": "module",
-  "description": "A grid-snapped, orthogonal-routed architecture-diagram editor that reads and writes a tiny D2 subset.",
+  "description": "Grid-snapped, orthogonal-routed architecture-diagram editor that lives in your repo as a reviewable file pair and is driven live by Claude Code.",
+  "keywords": [
+    "architecture",
+    "diagram",
+    "d2",
+    "claude-code",
+    "claude",
+    "editor",
+    "svg",
+    "orthogonal-routing"
+  ],
+  "homepage": "https://github.com/theodo-group/epure#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theodo-group/epure.git"
+  },
+  "bugs": {
+    "url": "https://github.com/theodo-group/epure/issues"
+  },
   "engines": {
     "node": ">=20"
   },
@@ -20,13 +38,14 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "build:server": "node scripts/build-server.mjs",
-    "build:all": "pnpm build && pnpm build:server",
+    "build:all": "npm run build && npm run build:server",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepack": "pnpm build:all"
+    "prepare": "node scripts/prepare.mjs",
+    "prepack": "npm run build:all"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.4",
