@@ -1,0 +1,31 @@
+server/vite-plugin.ts
+  s_7413682a40e5a1::t_2a93cc2bb465b4 85
+eslint.config.js
+  s_7413682a40e5a1::t_fed59741253bbf 7-9,11-31,36-37,50-52
+  s_7413682a40e5a1::t_bfd92d6f87bf40 1-6,10,32-35,38-49
+src/bridge/useBridge.ts
+  s_7413682a40e5a1::t_627fa3515bc3af 191-192
+  s_7413682a40e5a1::t_f8d2a563d625e3 114,122-124,164-165
+  s_7413682a40e5a1::t_cefe54368d279e 75-78
+package.json
+  s_7413682a40e5a1::t_84592c46aef189 68
+  s_7413682a40e5a1::t_95061b24683b0d 26
+pnpm-lock.yaml
+  s_7413682a40e5a1::t_3b5713286f1de9 114-116,1352-1357,1499-1504,2068-2076,3205-3215,3371-3376,3858-3863
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "4d243bc4e39720af22016ac364cfd77fbcfabde7",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
