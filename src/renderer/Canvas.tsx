@@ -11,6 +11,9 @@ import {
 import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
 import type { RoutedDiagram, Side } from '@/layout/types'
 
+import { CommentsLayer } from '@/comments/CommentsLayer'
+import type { EprComment } from '@/comments/types'
+
 import { Area, AreaLabel } from './Area'
 import { beginDrag, endDrag } from './dragState'
 import { Edge, EdgeDefs } from './Edge'
@@ -58,6 +61,12 @@ interface CanvasProps {
   fontOptions?: Array<{ id: string; label: string; stack: string }>
   selectedFontId?: string
   onSetFontFamily?: (id: string) => void
+  comments?: EprComment[]
+  commentMode?: boolean
+  selectedCommentId?: string | null
+  /** Place a new pin: (gridX, gridY in grid units, optional element ref). */
+  onPlaceComment?: (gridX: number, gridY: number, ref?: string) => void
+  onSelectComment?: (id: string) => void
 }
 
 type Tool = 'select' | 'pan'
@@ -126,6 +135,11 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       fontOptions,
       selectedFontId,
       onSetFontFamily,
+      comments = [],
+      commentMode = false,
+      selectedCommentId = null,
+      onPlaceComment,
+      onSelectComment,
     },
     ref,
   ) => {
@@ -243,6 +257,24 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
         x: view.cx - vbW / 2 + sx * vbW,
         y: view.cy - vbH / 2 + sy * vbH,
       }
+    }
+
+    // In comment mode, a canvas click becomes a pin. Resolve the diagram coords
+    // (stored in grid units) and the element under the cursor (so the comment
+    // anchors to a node/edge/area and survives moves) via the topmost data-id.
+    const placeCommentAt = (clientX: number, clientY: number) => {
+      const { x, y } = clientToSvg(clientX, clientY)
+      const grid = diagram.gridSize || 40
+      let ref: string | undefined
+      for (const el of document.elementsFromPoint(clientX, clientY)) {
+        const node = el.closest('[data-node-id]')?.getAttribute('data-node-id')
+        const area = el.closest('[data-area-id]')?.getAttribute('data-area-id')
+        const edge = el.closest('[data-edge-id]')?.getAttribute('data-edge-id')
+        if (node) { ref = node; break }
+        if (area) { ref = area; break }
+        if (edge) { ref = edge.split('#')[0]; break } // edge key, not routed id
+      }
+      onPlaceComment?.(x / grid, y / grid, ref)
     }
 
     // Background mousedown — pan when the pan tool is active or Space is held,
@@ -483,6 +515,16 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 fontFamily={fontFamily}
               />
             ))}
+            <CommentsLayer
+              comments={comments}
+              routed={diagram}
+              selectedId={selectedCommentId}
+              onSelect={(id) => onSelectComment?.(id)}
+              commentMode={commentMode}
+              viewBox={{ x: viewBoxX, y: viewBoxY, w: viewBoxW, h: viewBoxH }}
+              onPlace={placeCommentAt}
+              zoom={z}
+            />
             {marquee ? (
               <rect
                 x={Math.min(marquee.x1, marquee.x2)}
