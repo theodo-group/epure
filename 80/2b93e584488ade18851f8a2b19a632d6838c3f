@@ -1,0 +1,72 @@
+src/style/IconPicker.tsx
+  s_df204a3dccd3db::t_ca718401cc811e 78,81,83,91,103,105,112,123,163,167,171,173,175,182
+package.json
+  s_df204a3dccd3db::t_d2a77b766036f6 2
+src/renderer/Grid.tsx
+  s_df204a3dccd3db::t_847649ca244a69 18
+src/file/localStore.ts
+  s_df204a3dccd3db::t_074f84792112d7 3
+  s_df204a3dccd3db::t_590b6c3ebff61a 49
+src/renderer/Node.tsx
+  s_df204a3dccd3db::t_73de605a79a65c 265,310,342,351
+src/export/standalone-html.ts
+  s_df204a3dccd3db::t_ab33abdc68a34b 42-43,47,53
+  s_df204a3dccd3db::t_6bf5b53ae71a01 57,59
+  s_df204a3dccd3db::t_5eb9e4d74472b7 32
+src/renderer/Canvas.tsx
+  s_df204a3dccd3db::t_a2069544addf45 409,503-504,508,520,525,537,540,542,544,550,553,568,570,590,598,619,621,636,644,659,672
+index.html
+  s_df204a3dccd3db::t_f59645297f8ff0 6-7
+src/editor/Footer.tsx
+  s_df204a3dccd3db::t_3697622fb33c60 14,21-22,37,39,41,43
+fixtures/system.epr.layout.json
+  s_df204a3dccd3db::t_5779f93238e83a 1-34
+src/renderer/dragState.ts
+  s_df204a3dccd3db::t_9596c96a5dbe3a 8,13
+src/editor/EditorTabBar.tsx
+  s_df204a3dccd3db::t_6e55b55feec6ad 19,28,44-45,56,67
+src/style/StylePanel.tsx
+  s_df204a3dccd3db::t_eeaaf5eb7691b6 55-56,75,79,93,104,119,155,164,389,395,411-412,491-492,537-538
+src/editor/CodeMirrorPane.tsx
+  s_df204a3dccd3db::t_69907a8138c725 48,172
+  s_df204a3dccd3db::t_e8f7cf82a5c3cd 62,181
+  s_df204a3dccd3db::t_23485231910228 51,176
+src/main.tsx
+  s_df204a3dccd3db::t_25637991c4db18 8
+fixtures/system.epr.d2
+  s_df204a3dccd3db::t_5779f93238e83a 1-48
+src/App.css
+  s_df204a3dccd3db::t_2a1b9647c5e427 78,89,104,110,114,127,132,138,142,148,152,159,169,174,189,205,209,215,235,244,257,267,271,279,293,298,339,354,363,371,375,386,401,405,411,421,425,440,452,461,471,484,488,501,518,522,537,554,558,564,570,589,597,608,612,617,623,628,636,642,650,656,668,672,677,686,695,712,716,725,731,748,752,759,769,776,792,797,810,815,828,834,848,858,870,875,880,886,894,902,916,920
+  s_df204a3dccd3db::t_6a7e31d14fd05c 4-35,47-48,50,62-64,67,81-82,98,107,133-135,165,179-180,182,197,210,212,217,229,238,241,249-251,253,268,282,294,317,326,333,378-379,383,396,402,406-408,416-417,432,444,446-447,449,464-465,468,477,494-495,503-504,506,511,525-526,528,533,540-541,543-544,559-561,565,577-578,580,586,593,613,624,633,647,669,673,678,690,703-704,713,717-719,739-740,745,760,773,784,787,794,802-803,805,820,824-825,830-831,839,843-844,872,876-877,889,896,905-906,912-913,917
+  s_df204a3dccd3db::t_b4b95c1d755111 929-930
+src/renderer/Edge.tsx
+  s_df204a3dccd3db::t_b59ed21ee4c9b6 23,26,35
+src/editor/Header.tsx
+  s_df204a3dccd3db::t_99746701e75080 85,90,93,110,127,129,133,135,143,145,147,149,157,169-170,173-174,176,189
+  s_df204a3dccd3db::t_df319465166fb1 86
+src/App.tsx
+  s_df204a3dccd3db::t_03f10878c15666 278
+  s_df204a3dccd3db::t_c48dd35fba446b 289
+  s_df204a3dccd3db::t_89715155ca8971 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "802b93e584488ade18851f8a2b19a632d6838c3f",
+  "prompts": {},
+  "humans": {
+    "h_b7ae6e1e56b67c": {
+      "author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_df204a3dccd3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8388740-86ba-4c9f-9496-1f654b19c53c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
