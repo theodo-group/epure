@@ -1,25 +1,77 @@
 # Épure
 
-> A grid-snapped, orthogonal-routed architecture-diagram editor that reads and writes a tiny D2 subset.
+> The architecture-diagram editor for the Claude Code era — your diagram lives in
+> your repo as a reviewable file pair, and Claude Code edits it live while you watch.
 
-[![Build](https://img.shields.io/badge/build-TBD-lightgrey)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-## Why
+![An Épure diagram](./docs/hero.png)
 
-Existing D2 tooling auto-lays-out diagrams. Épure keeps the human in charge
-of node placement and uses ELK only to route edges around fixed boxes. The
-output is a pair of files small enough to review in a pull request: semantic
-D2 source for the topology, and a JSON sidecar for the visuals. No SaaS, no
-account, no lock-in — the editor is a single static page you can host
-anywhere or open from disk.
+Épure is a grid-snapped, orthogonal-routed architecture-diagram editor. A diagram
+is **two small text files** — semantic D2 for the topology, a JSON sidecar for the
+visuals — so it diffs in a pull request like code, with no SaaS, no account, no
+lock-in. It is built to be driven by **Claude Code**: CC writes the files, you
+watch them render live, you drop comments on the canvas, and CC addresses them.
 
-## File format
+## Install
 
-A diagram is a pair of files sharing a basename, committed and reviewed together:
+Épure ships as a single CLI. Install it from this repo (it self-builds on
+install — no npm account needed):
+
+```sh
+npm i -g github:theodo-group/epure
+```
+
+This gives you the `epure` command. (Prefer not to install globally? Every
+command below also works as `npx github:theodo-group/epure …`.)
+
+## Quickstart (with Claude Code)
+
+```sh
+epure skill install      # teach Claude Code the Épure workflow (one time)
+```
+
+Then just ask Claude Code, in any repo:
+
+> "Diagram this service's architecture with epure."
+
+Claude Code will create the `.epr.d2` + `.epr.layout.json` pair, open the live
+editor in your browser, and refine the diagram as you discuss it. While it works:
+
+- **Watch it build live** — every edit CC makes to the files appears instantly.
+- **Tweak by hand** — drag nodes, restyle; your changes are written back to the
+  files (and into the next `git diff`).
+- **Comment on it** — toggle 💬 **Comment**, drop pins on the diagram, then
+  **Send to Claude** to have CC address them and mark each resolved.
+- CC can **see the result** too — it renders a PNG (`epure export`) to check its
+  own work and discuss the visuals with you.
+
+## Quickstart (just the editor)
+
+```sh
+epure ./docs/diagrams/system.epr.d2   # creates the pair if missing, opens the live editor
+```
+
+That prints a local URL and serves the editor against that file pair, syncing both
+directions. Nothing leaves your machine.
+
+## The `epure` CLI
+
+| Command | What it does |
+|---|---|
+| `epure <file>` | Serve the live editor for a diagram pair (creates a seed if missing). |
+| `epure new <file>` | Scaffold a new pair (won't overwrite an existing one). |
+| `epure export <file> -o out.png` | Render a fit-to-content PNG — no browser needed. |
+| `epure validate <file\|dir>` | Parse + schema + cross-file checks; non-zero exit on problems. |
+| `epure fmt <file>` | Canonicalize the layout JSON so diffs stay minimal. |
+| `epure skill install` | Install the `epure-diagram` skill into `~/.claude/skills`. |
+
+## The file format
+
+A diagram is a pair of files sharing a basename, committed and reviewed together.
 
 ```d2
-# system.epr.d2  — topology
+# system.epr.d2  — topology (the source of truth)
 api: API { shape: rectangle }
 db: Postgres { shape: cylinder }
 api -> db: "writes"
@@ -48,99 +100,64 @@ Backend: "Backend" {
 }
 ```
 
-The `.epr.d2` file is the canonical source of truth for topology (nodes, shapes,
-edges, labels, and group membership). The `.epr.layout.json` sidecar owns each
-node's **center** position `cx,cy` and size `w,h` (in grid units), the grid
-pitch, per-element styling, area styling (keyed by area id — membership stays in
-the `.d2`), and which side (N/S/E/W) each edge endpoint prefers. The full,
-canonical example is [`fixtures/system.epr.*`](./fixtures); the schema is defined
-by [`src/file/layoutSchema.ts`](./src/file/layoutSchema.ts).
+The `.epr.d2` owns topology (nodes, shapes, edges, labels, group membership). The
+`.epr.layout.json` sidecar owns each node's **center** `cx,cy` and size `w,h` (in
+grid units), the grid pitch, per-element styling, area styling (keyed by area id —
+membership stays in the `.d2`), and each edge's preferred anchor side. The full
+canonical example is [`fixtures/system.epr.*`](./fixtures); the schema lives in
+[`src/file/layoutSchema.ts`](./src/file/layoutSchema.ts).
 
-## Editing live (the `epure` CLI / Claude Code)
-
-The editor is a static page, but a tiny local server makes the file pair
-**live-editable**: edits on disk appear instantly in the browser, and UI tweaks
-(drag, restyle) are written back to the files for git to see.
-
-```sh
-npx epure ./docs/diagrams/system.epr.d2   # serves the UI + watches the pair; prints the URL
-npx epure validate ./docs/diagrams/system.epr.d2   # parse + schema + cross-file checks
-npx epure fmt ./docs/diagrams/system.epr.d2        # canonicalize the layout JSON
-```
-
-This is what makes Épure pleasant to drive from Claude Code: CC edits the pair
-while the user watches it evolve. The bundled `epure-diagram` skill
-(`npx epure skill install`) teaches CC the schema and workflow.
-
-For a repo that keeps its diagrams in Épure, drop this into its `CLAUDE.md`:
+Keeping diagrams in a repo? Drop this into its `CLAUDE.md`:
 
 ```md
 ## Architecture diagrams (Épure)
 Diagrams live as `<name>.epr.d2` + `<name>.epr.layout.json` pairs under `docs/diagrams/`.
-- At session start, run `npx epure <file>.epr.d2 &` (idempotent — safe to re-run) and share the URL.
+- At session start, run `epure <file>.epr.d2 &` (idempotent) and share the URL.
 - Edit the pair directly; saves sync live to the open editor.
-- Run `npx epure validate <file>.epr.d2` before finishing; keep diffs minimal with `npx epure fmt`.
+- Render `epure export <file>.epr.d2 -o /tmp/x.png` to see the result.
+- Run `epure validate <file>.epr.d2` before finishing; tidy with `epure fmt`.
 ```
 
 ## Icons
 
 Any node may carry an official cloud / infra / tech logo from the
-[mingrammer/diagrams](https://github.com/mingrammer/diagrams) icon set. The
-reference lives in the JSON sidecar (never in the D2), so the topology stays
-clean and the visual stays reviewable:
+[mingrammer/diagrams](https://github.com/mingrammer/diagrams) set. The reference
+lives in the JSON sidecar (never the D2), keyed `<provider>/<category>/<name>`:
 
 ```json
-"api": { "cx": 8, "cy": 4, "w": 4, "h": 2,
-         "icon": "programming/framework/fastapi" }
+"api": { "cx": 8, "cy": 4, "w": 4, "h": 2, "icon": "programming/framework/fastapi" }
 ```
 
-- `icon` — a catalog id (`<provider>/<category>/<name>`), e.g. `aws/compute/lambda`.
-  It renders as a small badge in the node's bottom-right corner. Omit it for a
-  plain node.
+In the editor, select a node and use the **Icon** control (searchable, by
+provider). Logos are inlined as data URIs on export, so PNG / HTML stay
+self-contained.
 
-Pick icons from the canvas: select a node and use the **Icon** control in the
-style panel (searchable, filterable by provider). Exports inline each logo as a
-base64 data URI, so PNG and standalone-HTML output stay fully self-contained.
+## How it works
 
-The bundled catalog (`public/icons/` + `src/icons/catalog.generated.ts`) is
-produced by `scripts/build-icon-catalog.mjs` from a checkout of
-mingrammer/diagrams — see the script header to regenerate.
+- **Parser** — a Chevrotain grammar for a tiny, safe D2 subset (nodes, edges,
+  one-level groups; nested containers / globs / `near` are rejected).
+- **Layout** — you place the boxes; [libavoid](https://www.adaptagrams.org/)
+  routes orthogonal edges *around* them.
+- **Editor** — React + Vite SPA (CodeMirror + SVG canvas, Zustand + zundo undo).
+  A static build; the same bundle runs on a static host and behind the live bridge.
+- **Bridge** — a tiny local server (chokidar + ws + sirv) that watches the pair
+  and syncs the browser both ways, with semantic echo-suppression so edits never
+  loop. Ships only in the CLI; never in the static bundle.
 
-## Getting started
+## Develop
 
 ```sh
 pnpm install
-pnpm dev
+pnpm dev          # the editor against a fixture
+pnpm typecheck    # tsc across the project
+pnpm lint         # ESLint (flat config)
+pnpm test         # Vitest
+pnpm build        # static SPA into dist/
+pnpm build:server # bundle the CLI/server into dist-server/
 ```
 
-Open the URL Vite prints. The dev page loads a fixture from `fixtures/` so
-you can see a rendered diagram immediately.
-
-Other useful scripts:
-
-```sh
-pnpm typecheck    # tsc --noEmit across the project
-pnpm lint         # ESLint over src and tests
-pnpm test         # Vitest, jsdom environment
-pnpm build        # production bundle into dist/
-pnpm preview      # serve the production build locally
-```
-
-Requires Node 20 or newer and pnpm 9 or newer.
-
-## Roadmap
-
-- **M1** — Vertical slice: Chevrotain parser, ELK libavoid wrapper, SVG
-  renderer, and PNG export, all driven from a dev page that loads a fixed
-  `.epr.d2` plus `.epr.layout.json` fixture.
-- **M2** — Editor shell: dual-pane UI, CodeMirror with D2 highlighting,
-  node drag with grid snap, edge anchor-side picker, areas, undo/redo, and
-  open/save `.epr.zip`.
-- **M3** — Shape library (cylinder, cloud, person, document), edge label
-  placement, dashed/dotted styles, dark mode, keyboard shortcuts.
-- **M4** — Standalone HTML export with inlined `svg-pan-zoom`, README,
-  screenshots, deploy to GitHub Pages, open-source release.
+Requires Node 20+ and pnpm 9+.
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT — see [LICENSE](./LICENSE).

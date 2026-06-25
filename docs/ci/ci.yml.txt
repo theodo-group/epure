@@ -1,0 +1,21 @@
+# Add this as .github/workflows/ci.yml (needs a token with `workflow` scope).
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env: { EPURE_SKIP_PREPARE: '1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build && pnpm build:server
+      - run: node dist-server/epure.mjs export fixtures/system.epr.d2 -o /tmp/ci.png && test -s /tmp/ci.png

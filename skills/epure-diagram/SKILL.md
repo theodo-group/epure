@@ -36,7 +36,7 @@ Run once at the start of a diagram session. It is safe to run repeatedly — a s
 file reuses the existing server:
 
 ```bash
-npx epure ./docs/diagrams/<name>.epr.d2 &
+epure ./docs/diagrams/<name>.epr.d2 &
 ```
 
 It prints exactly one machine-readable line to stdout — parse the URL from it:
@@ -133,7 +133,7 @@ discuss visuals with the user — render it to a PNG and open that image. No
 browser needed; the output is always fit to the diagram's content:
 
 ```bash
-npx epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
+epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
 ```
 
 Then view `/tmp/<name>.png`. Use this after edits to verify the result actually
@@ -144,8 +144,8 @@ lighter.
 ## Guardrails — run before finishing
 
 ```bash
-npx epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
-npx epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
+epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
+epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
 ```
 
 `validate` confirms every `nodes`/`edges`/`areas` key in the layout references a real node/edge/area in
