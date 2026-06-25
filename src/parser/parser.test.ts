@@ -35,24 +35,16 @@ describe('parser — nodes', () => {
 
   it('parses a quoted label', () => {
     const d = expectOk('api: "API Gateway"')
-    expect(d.nodes[0].label).toBe('API Gateway')
+    expect(d.nodes[0]!.label).toBe('API Gateway')
   })
 
   it('parses unquoted multi-word labels', () => {
-    const d = expectOk('queue: Job Queue')
-    expect(d.nodes[0].label).toBe('Job Queue')
+    const d = expectOk('jobs: Job Queue')
+    expect(d.nodes[0]!.label).toBe('Job Queue')
   })
 
-  it('parses all 7 shapes', () => {
-    const shapes = [
-      'rectangle',
-      'cylinder',
-      'cloud',
-      'person',
-      'queue',
-      'document',
-      'page',
-    ] as const
+  it('parses all supported shapes', () => {
+    const shapes = ['rectangle', 'cylinder', 'person'] as const
     const src = shapes
       .map((s, i) => `n${i}: "${s}" { shape: ${s} }`)
       .join('\n')
@@ -75,31 +67,31 @@ describe('parser — edges', () => {
 
   it('parses backward edges', () => {
     const d = expectOk('a <- b')
-    expect(d.edges[0].direction).toBe('backward')
+    expect(d.edges[0]!.direction).toBe('backward')
   })
 
   it('parses bidirectional edges', () => {
     const d = expectOk('a <-> b')
-    expect(d.edges[0].direction).toBe('bidirectional')
+    expect(d.edges[0]!.direction).toBe('bidirectional')
   })
 
   it('parses edges with no direction', () => {
     const d = expectOk('a -- b')
-    expect(d.edges[0].direction).toBe('none')
+    expect(d.edges[0]!.direction).toBe('none')
   })
 
   it('parses edge labels (quoted)', () => {
     const d = expectOk('a -> b: "writes"')
-    expect(d.edges[0].label).toBe('writes')
+    expect(d.edges[0]!.label).toBe('writes')
   })
 
   it('maps stroke-dash 1..3 to dotted and >3 to dashed', () => {
     const dotted = expectOk('a -> b { style.stroke-dash: 2 }')
-    expect(dotted.edges[0].style).toBe('dotted')
+    expect(dotted.edges[0]!.style).toBe('dotted')
     const dashed = expectOk('a -> b { style.stroke-dash: 5 }')
-    expect(dashed.edges[0].style).toBe('dashed')
+    expect(dashed.edges[0]!.style).toBe('dashed')
     const solid = expectOk('a -> b { style.stroke-dash: 0 }')
-    expect(solid.edges[0].style).toBe('solid')
+    expect(solid.edges[0]!.style).toBe('solid')
   })
 })
 
@@ -127,7 +119,7 @@ describe('parser — areas', () => {
 
   it('supports semicolon-separated members on one line', () => {
     const d = expectOk('group: G { a; b; c }')
-    expect(d.areas[0].members).toEqual(['a', 'b', 'c'])
+    expect(d.areas[0]!.members).toEqual(['a', 'b', 'c'])
   })
 })
 
@@ -169,8 +161,8 @@ describe('parser — fixture smoke test', () => {
     const r = parse(src)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.diagram.nodes).toHaveLength(5)
-    expect(r.diagram.edges).toHaveLength(5)
+    expect(r.diagram.nodes).toHaveLength(12)
+    expect(r.diagram.edges).toHaveLength(11)
     expect(r.diagram.areas).toHaveLength(2)
   })
 })

@@ -10,9 +10,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -20,10 +20,13 @@
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.4",
     "@codemirror/commands": "^6.7.1",
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.10.8",
     "@codemirror/lint": "^6.8.5",
+    "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.2",
+    "@lezer/highlight": "^1.2.3",
     "@mr_mint/elkjs-libavoid": "^0.3.0",
     "chevrotain": "^11.0.3",
     "codemirror": "^6.0.1",
@@ -37,7 +40,9 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@lobehub/icons-static-svg": "^1.91.0",
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^26.0.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@typescript-eslint/eslint-plugin": "^8.18.2",
@@ -46,6 +51,7 @@
     "eslint": "^9.17.0",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
+    "simple-icons": "^16.24.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"

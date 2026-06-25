@@ -118,7 +118,7 @@ export class D2Visitor extends BaseVisitor {
     RCurly?: IToken[]
     blockItem?: CstNode[]
   }): NodeDecl | AreaDecl | undefined {
-    const idTok = ctx.Identifier[0]
+    const idTok = ctx.Identifier[0]!
     const id = idTok.image
 
     const label = ctx.labelOrValue
@@ -128,7 +128,7 @@ export class D2Visitor extends BaseVisitor {
     const block = this.collectBlock(ctx)
     const endTok: IToken =
       ctx.RCurly?.[0] ??
-      (ctx.labelOrValue
+      (ctx.labelOrValue?.[0]
         ? this.lastTokenOfLabel(ctx.labelOrValue[0])
         : undefined) ??
       idTok
@@ -200,7 +200,7 @@ export class D2Visitor extends BaseVisitor {
     const members: string[] = []
     for (const item of block.items) {
       if (item.kind !== 'member') continue
-      const memberId = item.path[0]
+      const memberId = item.path[0]!
       if (members.includes(memberId)) {
         this.errors.push({
           message: `Area "${id}" lists member "${memberId}" more than once.`,
@@ -224,8 +224,8 @@ export class D2Visitor extends BaseVisitor {
     RCurly?: IToken[]
     attr?: CstNode[]
   }): EdgeDecl {
-    const sourceTok = ctx.Identifier[0]
-    const targetTok = ctx.Identifier[1]
+    const sourceTok = ctx.Identifier[0]!
+    const targetTok = ctx.Identifier[1]!
     const direction = this.visit(ctx.arrowOp) as EdgeDirection
     const label = ctx.labelOrValue
       ? (this.visit(ctx.labelOrValue) as LabelOrValueResult).text
@@ -255,7 +255,7 @@ export class D2Visitor extends BaseVisitor {
 
     const endTok: IToken =
       ctx.RCurly?.[0] ??
-      (ctx.labelOrValue
+      (ctx.labelOrValue?.[0]
         ? this.lastTokenOfLabel(ctx.labelOrValue[0])
         : undefined) ??
       targetTok
@@ -303,14 +303,14 @@ export class D2Visitor extends BaseVisitor {
     const path = ctx.Identifier.map((t) => t.image)
     const value = this.visit(ctx.attrValue) as AttrValue
     const range = makeRange(
-      ctx.Identifier[0],
-      this.lastTokenOfAttrValue(ctx.attrValue[0]),
+      ctx.Identifier[0]!,
+      this.lastTokenOfAttrValue(ctx.attrValue[0]!),
     )
     return { kind: 'attr', path, value, range }
   }
 
   memberStmt(ctx: { Identifier: IToken[] }): BlockItemResult {
-    const tok = ctx.Identifier[0]
+    const tok = ctx.Identifier[0]!
     return {
       kind: 'member',
       path: [tok.image],
@@ -323,7 +323,7 @@ export class D2Visitor extends BaseVisitor {
     Identifier?: IToken[]
   }): LabelOrValueResult {
     if (ctx.StringLit) {
-      const tok = ctx.StringLit[0]
+      const tok = ctx.StringLit[0]!
       return { kind: 'string', text: unquote(tok.image) }
     }
     // Unquoted labels may span multiple identifier tokens; join with spaces.
@@ -337,14 +337,14 @@ export class D2Visitor extends BaseVisitor {
     NumberLit?: IToken[]
   }): AttrValue {
     if (ctx.StringLit) {
-      const tok = ctx.StringLit[0]
+      const tok = ctx.StringLit[0]!
       return { kind: 'string', text: unquote(tok.image), raw: tok.image }
     }
     if (ctx.NumberLit) {
-      const tok = ctx.NumberLit[0]
+      const tok = ctx.NumberLit[0]!
       return { kind: 'number', text: tok.image, raw: tok.image }
     }
-    const tok = ctx.Identifier![0]
+    const tok = ctx.Identifier![0]!
     return { kind: 'identifier', text: tok.image, raw: tok.image }
   }
 
@@ -422,12 +422,12 @@ function unquote(raw: string): string {
   const body = raw.slice(1, -1)
   let out = ''
   for (let i = 0; i < body.length; i++) {
-    const c = body[i]
+    const c = body[i]!
     if (c !== '\\' || i === body.length - 1) {
       out += c
       continue
     }
-    const next = body[++i]
+    const next = body[++i]!
     switch (next) {
       case 'n':
         out += '\n'

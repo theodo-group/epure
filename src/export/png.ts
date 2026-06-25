@@ -1,3 +1,5 @@
+import { inlineSvgImages } from './inlineImages'
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
 
@@ -5,7 +7,7 @@ const parseViewBox = (vb: string | null) => {
   if (!vb) return null
   const parts = vb.trim().split(/\s+|,/).map(Number)
   if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return null
-  return { x: parts[0], y: parts[1], w: parts[2], h: parts[3] }
+  return { x: parts[0]!, y: parts[1]!, w: parts[2]!, h: parts[3]! }
 }
 
 const measure = (svgEl: SVGSVGElement) => {
@@ -41,6 +43,9 @@ export const exportPng = async (
   clone.setAttribute('xmlns:xlink', XLINK_NS)
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
+
+  // Inline icon images as data URIs — a rasterized SVG can't fetch externals.
+  await inlineSvgImages(clone)
 
   const serialized = new XMLSerializer().serializeToString(clone)
   const svgString = serialized.startsWith('<?xml')

@@ -13,41 +13,95 @@ import {
   highlightActiveLineGutter,
   keymap,
   Decoration,
+  WidgetType,
   type DecorationSet,
 } from '@codemirror/view'
-import { history, defaultKeymap, historyKeymap } from '@codemirror/commands'
-import { bracketMatching, indentOnInput } from '@codemirror/language'
+import { defaultKeymap } from '@codemirror/commands'
+import {
+  bracketMatching,
+  indentOnInput,
+  type LanguageSupport,
+} from '@codemirror/language'
+import { search, searchKeymap, openSearchPanel } from '@codemirror/search'
 import { d2Support } from './d2-language'
 import type { ParseError } from '@/parser/ast'
 
 export interface CodeMirrorPaneHandle {
   scrollToLine: (line: number) => void
+  openSearch: () => void
 }
 
 export interface CodeMirrorPaneProps {
   value: string
   onChange: (value: string) => void
   errors?: ParseError[]
+  language?: LanguageSupport
 }
 
-// Light-weight "this line has a parse error" decoration; we don't pull the
-// full lint package because the parser already gives us authoritative errors.
-const setErrorLines = StateEffect.define<number[]>()
+// Surface parser errors directly in the editor: a highlighted line, a wavy
+// underline on the offending range, and the message rendered inline at the end
+// of the line. We don't pull the full lint package because the parser already
+// gives us authoritative errors.
+const setErrors = StateEffect.define<ParseError[]>()
 
 const errorLineDeco = Decoration.line({
   attributes: { class: 'cm-archgrid-error-line' },
 })
+
+const errorMarkDeco = Decoration.mark({ class: 'cm-archgrid-error-mark' })
+
+class ErrorMessageWidget extends WidgetType {
+  constructor(readonly message: string) {
+    super()
+  }
+  override eq(other: ErrorMessageWidget) {
+    return other.message === this.message
+  }
+  override toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-archgrid-error-msg'
+    span.textContent = this.message
+    return span
+  }
+  override ignoreEvent() {
+    return true
+  }
+}
 
 const errorField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(deco, tr) {
     let next = deco.map(tr.changes)
     for (const e of tr.effects) {
-      if (e.is(setErrorLines)) {
-        const lines = e.value
-        const decos = lines
-          .filter((line) => line >= 1 && line <= tr.state.doc.lines)
-          .map((line) => errorLineDeco.range(tr.state.doc.line(line).from))
+      if (e.is(setErrors)) {
+        const errors = e.value
+        const doc = tr.state.doc
+        const decos = []
+        const messagedLines = new Set<number>()
+        for (const err of errors) {
+          const line = err.range.start.line
+          if (line < 1 || line > doc.lines) continue
+          const lineObj = doc.line(line)
+          decos.push(errorLineDeco.range(lineObj.from))
+          // Wavy underline on the exact range, when it has width.
+          const from = Math.max(0, Math.min(doc.length, err.range.start.offset))
+          const to = Math.max(from, Math.min(doc.length, err.range.end.offset))
+          if (to > from) decos.push(errorMarkDeco.range(from, to))
+          // One inline message per line (join multiple errors on that line).
+          if (!messagedLines.has(line)) {
+            messagedLines.add(line)
+            const message = errors
+              .filter((x) => x.range.start.line === line)
+              .map((x) => x.message)
+              .join(' · ')
+            decos.push(
+              Decoration.widget({
+                widget: new ErrorMessageWidget(message),
+                side: 1,
+              }).range(lineObj.to),
+            )
+          }
+        }
         next = Decoration.set(decos, true)
       }
     }
@@ -58,28 +112,177 @@ const errorField = StateField.define<DecorationSet>({
 
 const baseTheme = EditorView.theme(
   {
-    '&': { height: '100%', fontSize: '13px', backgroundColor: '#1e1e1e' },
+    '&': {
+      height: '100%',
+      fontSize: '12.5px',
+      backgroundColor: '#18181b',
+      color: '#d4d4d8',
+    },
     '.cm-scroller': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+      lineHeight: '22px',
+      scrollbarColor: '#3f3f46 #18181b',
+      scrollbarWidth: 'thin',
     },
-    '.cm-content': { caretColor: '#fff' },
+    '.cm-scroller::-webkit-scrollbar': {
+      width: '12px',
+      height: '12px',
+      backgroundColor: '#18181b',
+    },
+    '.cm-scroller::-webkit-scrollbar-track': {
+      backgroundColor: '#18181b',
+    },
+    '.cm-scroller::-webkit-scrollbar-corner': {
+      backgroundColor: '#18181b',
+    },
+    '.cm-scroller::-webkit-scrollbar-thumb': {
+      backgroundColor: '#3f3f46',
+      borderRadius: '6px',
+      border: '3px solid #18181b',
+    },
+    '.cm-scroller::-webkit-scrollbar-thumb:hover': {
+      backgroundColor: '#52525b',
+    },
+    '.cm-content': {
+      caretColor: '#fafafa',
+      padding: '8px 0',
+    },
     '.cm-gutters': {
-      backgroundColor: '#1e1e1e',
-      color: '#6a6a6a',
+      backgroundColor: '#18181b',
+      color: '#52525b',
       border: 'none',
+      paddingRight: '6px',
     },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.04)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(255,255,255,0.04)' },
+    '.cm-lineNumbers .cm-gutterElement': {
+      padding: '0 14px 0 12px',
+      minWidth: '32px',
+    },
+    '.cm-activeLine': { backgroundColor: 'rgba(96, 165, 250, 0.10)' },
+    '.cm-activeLineGutter': {
+      backgroundColor: 'rgba(96, 165, 250, 0.10)',
+      color: 'oklch(0.7 0.14 250)',
+    },
+    '.cm-cursor': { borderLeftColor: '#fafafa' },
+    '.cm-selectionBackground': {
+      backgroundColor: 'rgba(96, 165, 250, 0.20) !important',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: 'rgba(96, 165, 250, 0.25) !important',
+    },
     '.cm-archgrid-error-line': {
       backgroundColor: 'rgba(255, 80, 80, 0.12)',
       boxShadow: 'inset 2px 0 0 #ff5d5d',
+    },
+    '.cm-archgrid-error-mark': {
+      textDecoration: 'underline wavy #ff5d5d',
+      textDecorationSkipInk: 'none',
+      textUnderlineOffset: '3px',
+    },
+    '.cm-archgrid-error-msg': {
+      marginLeft: '18px',
+      color: '#ff8585',
+      fontStyle: 'italic',
+      fontSize: '11px',
+      whiteSpace: 'pre-wrap',
+      userSelect: 'none',
+      pointerEvents: 'none',
+    },
+
+    // ── Search panel ────────────────────────────────────
+    '.cm-panels': {
+      backgroundColor: '#0f0f12',
+      color: '#d4d4d8',
+      border: 'none',
+    },
+    '.cm-panels.cm-panels-top': {
+      borderBottom: '1px solid #27272a',
+    },
+    '.cm-panels.cm-panels-bottom': {
+      borderTop: '1px solid #27272a',
+    },
+    '.cm-panel.cm-search': {
+      padding: '8px 10px',
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: '6px',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif",
+      fontSize: '12px',
+    },
+    '.cm-panel.cm-search label': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      color: '#a1a1aa',
+      fontSize: '11px',
+      userSelect: 'none',
+    },
+    '.cm-panel.cm-search input[type=checkbox]': {
+      accentColor: 'oklch(0.55 0.16 250)',
+      margin: 0,
+    },
+    '.cm-panel.cm-search input[type=text], .cm-textfield': {
+      backgroundColor: '#18181b',
+      color: '#e4e4e7',
+      border: '1px solid #27272a',
+      borderRadius: '4px',
+      padding: '4px 8px',
+      fontFamily:
+        "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+      fontSize: '12px',
+      outline: 'none',
+      minWidth: '180px',
+    },
+    '.cm-panel.cm-search input[type=text]:focus, .cm-textfield:focus': {
+      borderColor: 'oklch(0.6 0.16 250)',
+      boxShadow: '0 0 0 1px oklch(0.6 0.16 250 / 0.4)',
+    },
+    '.cm-panel.cm-search button, .cm-button': {
+      backgroundColor: 'transparent',
+      backgroundImage: 'none',
+      color: '#d4d4d8',
+      border: '1px solid #27272a',
+      borderRadius: '4px',
+      padding: '4px 10px',
+      fontSize: '11px',
+      cursor: 'pointer',
+      textTransform: 'none',
+      fontFamily: 'inherit',
+    },
+    '.cm-panel.cm-search button:hover, .cm-button:hover': {
+      backgroundColor: '#1f1f23',
+      borderColor: '#3f3f46',
+      color: '#fafafa',
+    },
+    '.cm-panel.cm-search button[name=close]': {
+      position: 'absolute',
+      top: '4px',
+      right: '6px',
+      padding: '2px 6px',
+      border: 'none',
+      fontSize: '14px',
+      lineHeight: 1,
+      color: '#71717a',
+    },
+    '.cm-panel.cm-search button[name=close]:hover': {
+      color: '#e4e4e7',
+      backgroundColor: 'transparent',
+    },
+    '.cm-searchMatch': {
+      backgroundColor: 'rgba(250, 204, 21, 0.25)',
+      outline: '1px solid rgba(250, 204, 21, 0.5)',
+    },
+    '.cm-searchMatch.cm-searchMatch-selected': {
+      backgroundColor: 'rgba(250, 204, 21, 0.5)',
+      outline: '1px solid rgba(250, 204, 21, 0.9)',
     },
   },
   { dark: true },
 )
 
 export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPaneProps>(
-  function CodeMirrorPane({ value, onChange, errors }, ref) {
+  function CodeMirrorPane({ value, onChange, errors, language }, ref) {
     const hostRef = useRef<HTMLDivElement | null>(null)
     const viewRef = useRef<EditorView | null>(null)
     const onChangeRef = useRef(onChange)
@@ -96,11 +299,11 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           lineNumbers(),
           highlightActiveLine(),
           highlightActiveLineGutter(),
-          history(),
           bracketMatching(),
           indentOnInput(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
-          d2Support,
+          search({ top: true }),
+          keymap.of([...defaultKeymap, ...searchKeymap]),
+          language ?? d2Support,
           baseTheme,
           errorField,
           EditorView.updateListener.of((u) => {
@@ -131,12 +334,11 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
       })
     }, [value])
 
-    // Project parse errors onto error lines.
+    // Project parse errors into the editor (line highlight + underline + message).
     useEffect(() => {
       const view = viewRef.current
       if (!view) return
-      const lines = (errors ?? []).map((e) => e.range.start.line)
-      view.dispatch({ effects: setErrorLines.of(lines) })
+      view.dispatch({ effects: setErrors.of(errors ?? []) })
     }, [errors])
 
     useImperativeHandle(ref, () => ({
@@ -150,6 +352,12 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           effects: EditorView.scrollIntoView(pos, { y: 'center' }),
         })
         view.focus()
+      },
+      openSearch() {
+        const view = viewRef.current
+        if (!view) return
+        view.focus()
+        openSearchPanel(view)
       },
     }))
 

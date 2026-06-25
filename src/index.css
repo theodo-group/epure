@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 *,
 *::before,
 *::after {
@@ -17,14 +19,15 @@ body {
   font-family:
     -apple-system,
     BlinkMacSystemFont,
+    'SF Pro Text',
     'Segoe UI',
     Roboto,
     Oxygen,
     Ubuntu,
     Cantarell,
     sans-serif;
-  background: #1e1e1e;
-  color: #e8e8e8;
+  background: #ecebe7;
+  color: #1c1917;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -34,4 +37,11 @@ input,
 select {
   font-family: inherit;
   color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
 }

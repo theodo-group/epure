@@ -1,21 +1,42 @@
-// TODO: replace with the actual svg-pan-zoom UMD source string, inlined at
-// build time (e.g. via a Vite plugin or an `?raw` import of
-// node_modules/svg-pan-zoom/dist/svg-pan-zoom.min.js). For now this placeholder
-// keeps the export shape stable; the produced HTML will render the SVG but
-// pan/zoom will be a no-op until the source is wired in.
-const SVG_PAN_ZOOM_SOURCE = ''
+import svgPanZoomSource from 'svg-pan-zoom/dist/svg-pan-zoom.min.js?raw'
 
-const escapeForScript = (src: string) => src.replace(/<\/script>/gi, '<\\/script>')
+import { inlineSvgImages } from './inlineImages'
 
-export const buildStandaloneHtml = (svgString: string): string => {
-  const inlinedLib = escapeForScript(SVG_PAN_ZOOM_SOURCE)
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const XLINK_NS = 'http://www.w3.org/1999/xlink'
+
+const escapeForScript = (src: string) =>
+  src.replace(/<\/script>/gi, '<\\/script>')
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+export interface StandaloneHtmlOptions {
+  title?: string
+}
+
+const serializeSvg = async (svgEl: SVGSVGElement) => {
+  const clone = svgEl.cloneNode(true) as SVGSVGElement
+  clone.setAttribute('xmlns', SVG_NS)
+  clone.setAttribute('xmlns:xlink', XLINK_NS)
+  // Inline icon images so the exported file is fully self-contained.
+  await inlineSvgImages(clone)
+  return new XMLSerializer().serializeToString(clone)
+}
+
+export const buildStandaloneHtml = (
+  svgString: string,
+  options: StandaloneHtmlOptions = {},
+): string => {
+  const inlinedLib = escapeForScript(svgPanZoomSource)
+  const title = escapeHtml(options.title ?? 'archgrid diagram')
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>archgrid diagram</title>
+<title>${title}</title>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #ffffff; }
   #archgrid-host { width: 100%; height: 100%; display: flex; }
@@ -49,4 +70,11 @@ ${svgString}
 </body>
 </html>
 `
+}
+
+export const exportStandaloneHtml = async (
+  svgEl: SVGSVGElement,
+  options: StandaloneHtmlOptions = {},
+): Promise<string> => {
+  return buildStandaloneHtml(await serializeSvg(svgEl), options)
 }

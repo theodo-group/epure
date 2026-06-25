@@ -15,23 +15,12 @@ export interface SourceRange {
   end: SourcePos
 }
 
-export type ShapeName =
-  | 'rectangle'
-  | 'cylinder'
-  | 'cloud'
-  | 'person'
-  | 'queue'
-  | 'document'
-  | 'page'
+export type ShapeName = 'rectangle' | 'cylinder' | 'person'
 
 export const SHAPE_NAMES: readonly ShapeName[] = [
   'rectangle',
   'cylinder',
-  'cloud',
   'person',
-  'queue',
-  'document',
-  'page',
 ]
 
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted'
