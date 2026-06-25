@@ -8,24 +8,25 @@ Existing D2 tooling auto-lays-out diagrams; Épure keeps the human in charge of 
 ## File format
 A diagram is a pair of files sharing a basename:
 
-- `system.epr.d2` — D2 source. Owns: nodes, shapes, edges, labels, edge styles.
-- `system.epr.layout.json` — sidecar, source of truth for visuals. Owns: node x/y, node size, area definitions + membership, grid size, anchor side per edge endpoint.
+- `system.epr.d2` — D2 source. Owns: nodes, shapes, edges, labels, group membership.
+- `system.epr.layout.json` — sidecar, source of truth for visuals. Owns: node center+size (`cx,cy,w,h` in integer grid units), grid size, per-element styling, area styling (keyed by area id; membership stays in the `.d2`), preferred anchor side per edge endpoint.
 
 ```d2
 # system.epr.d2
 api: API { shape: rectangle }
 db: Postgres { shape: cylinder }
-api -> db: "writes" { style.stroke-dash: 3 }
+api -> db: "writes"
+
+Backend: "Backend" { api \n db }
 ```
 
 ```json
-// system.epr.layout.json
-{ "gridSize": 16,
-  "nodes": { "api": {"x":64,"y":64,"w":160,"h":64},
-             "db":  {"x":384,"y":64,"w":160,"h":64} },
-  "edges": { "api->db": {"sourceSide":"E","targetSide":"W"} },
-  "areas": [ {"id":"backend","label":"Backend","members":["api","db"],
-              "x":48,"y":48,"w":528,"h":96} ] }
+// system.epr.layout.json  (geometry in integer grid units; see fixtures/system.epr.*)
+{ "gridSize": 40,
+  "nodes": { "api": {"cx":8,"cy":4,"w":4,"h":2},
+             "db":  {"cx":16,"cy":4,"w":4,"h":2} },
+  "edges": { "api->db": {"color":"teal","sourceSide":"E","targetSide":"W"} },
+  "areas": { "Backend": {"borderColor":"purple","fillColor":"purple"} } }
 ```
 
 ## Architecture
