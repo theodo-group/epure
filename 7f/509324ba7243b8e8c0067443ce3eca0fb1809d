@@ -1,0 +1,85 @@
+src/file/canonicalLayout.ts
+  s_7413682a40e5a1::t_0ac2b55d1e217c 1-46,49-50,52-60,62-91
+  s_7413682a40e5a1::t_cf678417a07383 47-48,51
+  s_7413682a40e5a1::t_3701fcfd90aa26 61
+server/core/frames.ts
+  s_7413682a40e5a1::t_fa7f767008d7e7 1-9,13-93
+  s_7413682a40e5a1::t_a36e6208bc1dd8 10-12
+src/file/canonicalLayout.test.ts
+  s_7413682a40e5a1::t_45634e91d2d63b 1-79
+tsconfig.json
+  s_7413682a40e5a1::t_9bd8fed4cff30b 30
+package.json
+  s_7413682a40e5a1::t_1c380d9aa442dd 62,66
+  s_7413682a40e5a1::t_4407898c0835ff 43,50,52
+server/core/protocol.ts
+  s_7413682a40e5a1::t_cb53a0fe036959 1-79
+server/inject.ts
+  s_7413682a40e5a1::t_c05362a99e2e98 35-39,41-44
+  s_7413682a40e5a1::t_16507da78bba3f 1-34,40,45-63
+server/standalone.ts
+  s_7413682a40e5a1::t_b86b37d095ec02 1-66,68-132
+  s_7413682a40e5a1::t_6ef55fcf0db7be 67
+scripts/build-server.mjs
+  s_7413682a40e5a1::t_5207cd62f604db 26-32
+  s_7413682a40e5a1::t_2229c4ad496dba 1-25,33,36-41
+  s_7413682a40e5a1::t_c7ac494b76a50d 34-35
+server/ws.ts
+  s_7413682a40e5a1::t_27bf9092ce9b4c 41-44
+  s_7413682a40e5a1::t_3bee61ba34848e 1-40,45-149
+server/core/bridge.ts
+  s_7413682a40e5a1::t_cc177446be253d 1-11,14-174
+  s_7413682a40e5a1::t_93e7caf0698da9 12-13
+server/core/bridge.test.ts
+  s_7413682a40e5a1::t_8392bffb7ea1a2 5
+  s_7413682a40e5a1::t_f24a674909a700 1-4,6-120
+server/core/pair.ts
+  s_7413682a40e5a1::t_1bccacbc316906 1-60
+vite.config.ts
+  s_7413682a40e5a1::t_86440286d89e24 6-7,11-14
+  s_7413682a40e5a1::t_eaba7d130c715f 24-28
+bin/epure.ts
+  s_7413682a40e5a1::t_e18a864be7ab41 21-23
+  s_7413682a40e5a1::t_4740120c6d8814 1-14,16-20,24-38,41-162,164-332
+  s_7413682a40e5a1::t_2471b64787e59c 15,40,163
+  s_7413682a40e5a1::t_e784d790973595 39
+server/core/port.ts
+  s_7413682a40e5a1::t_94cd0ff08204f0 1-22
+server/vite-plugin.ts
+  s_7413682a40e5a1::t_01d780ebed05bc 15-18
+  s_7413682a40e5a1::t_3933b0467d8de6 1-14,19-54,56-67,71-81,87-99
+  s_7413682a40e5a1::t_c9fc0baae377ad 55
+  s_7413682a40e5a1::t_4a0e4915d3be77 82-86
+  s_7413682a40e5a1::t_e7f9c22580db75 68-70
+server/core/validate.ts
+  s_7413682a40e5a1::t_6bbe0c3fd3ad7a 1-8,11-109
+  s_8efbd0e3b8b6eb::t_47d32df6862ff1 9-10
+server/standalone.test.ts
+  s_7413682a40e5a1::t_e2f794e48c2f61 1-115
+pnpm-lock.yaml
+  s_7413682a40e5a1::t_228d391b78153d 44-46,65-67,71-73,96-98,108-110,304-309,322-327,340-345,358-363,376-381,394-399,412-417,430-435,448-453,466-471,484-489,502-507,520-525,538-543,556-561,574-579,592-597,604-609,622-627,634-639,652-657,664-669,682-687,700-705,718-723,736-741,843-845,1028-1030,1221-1224,1336-1340,1630-1633,1736-1739,1789-1792,1849-1852,2294-2296,2303-2305,2312-2314,2321-2323,2330-2332,2339-2341,2348-2350,2357-2359,2366-2368,2375-2377,2384-2386,2393-2395,2402-2404,2411-2413,2420-2422,2429-2431,2438-2440,2444-2446,2453-2455,2459-2461,2468-2470,2474-2476,2483-2485,2492-2494,2501-2503,2510-2512,2620-2621,2762-2765,3000-3003,3148-3176,3476-3477,3562-3563,3625-3630,3670-3671
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "7f509324ba7243b8e8c0067443ce3eca0fb1809d",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_8efbd0e3b8b6eb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb1633f2-a5f3-4678-816b-59dbe6bfa116",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
