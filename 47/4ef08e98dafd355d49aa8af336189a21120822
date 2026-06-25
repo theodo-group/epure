@@ -1,0 +1,29 @@
+src/parser/parser.test.ts
+  s_df204a3dccd3db::t_b828a9f542c432 10
+  s_df204a3dccd3db::t_8394a86f90e5d3 159
+src/file/zip.ts
+  s_df204a3dccd3db::t_1b7d6f4bf4bd69 20,22,24,46,48,55,60,85-86,93,104,112
+tests/layoutSchema.test.ts
+  s_df204a3dccd3db::t_e4adc32894cc1c 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "474ef08e98dafd355d49aa8af336189a21120822",
+  "prompts": {},
+  "humans": {
+    "h_b7ae6e1e56b67c": {
+      "author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_df204a3dccd3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8388740-86ba-4c9f-9496-1f654b19c53c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
