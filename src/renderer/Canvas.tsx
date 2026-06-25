@@ -406,7 +406,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
           viewBox={`${viewBoxX} ${viewBoxY} ${viewBoxW} ${viewBoxH}`}
           preserveAspectRatio="xMidYMid meet"
           onMouseDown={handleBackgroundMouseDown}
-          className="ag-canvas-svg"
+          className="ep-canvas-svg"
           style={{ cursor }}
         >
           <EdgeDefs />
@@ -500,12 +500,12 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
         </svg>
 
         {/* Top-left: tool palette + hint */}
-        <div className="ag-canvas-floating" style={{ top: 16, left: 16 }}>
-          <div className="ag-tool-palette" role="toolbar" aria-label="Tools">
+        <div className="ep-canvas-floating" style={{ top: 16, left: 16 }}>
+          <div className="ep-tool-palette" role="toolbar" aria-label="Tools">
             <button
               type="button"
               title="Select — V"
-              className={`ag-tool ${tool === 'select' ? 'active' : ''}`}
+              className={`ep-tool ${tool === 'select' ? 'active' : ''}`}
               onClick={() => setTool('select')}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -517,12 +517,12 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   strokeLinejoin="round"
                 />
               </svg>
-              <span className="ag-tool-key">1</span>
+              <span className="ep-tool-key">1</span>
             </button>
             <button
               type="button"
               title="Pan — H or Space"
-              className={`ag-tool ${tool === 'pan' ? 'active' : ''}`}
+              className={`ep-tool ${tool === 'pan' ? 'active' : ''}`}
               onClick={() => setTool('pan')}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -534,23 +534,23 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   fill="none"
                 />
               </svg>
-              <span className="ag-tool-key">2</span>
+              <span className="ep-tool-key">2</span>
             </button>
           </div>
-          <div className="ag-hint">
+          <div className="ep-hint">
             <span>Hold</span>
-            <span className="ag-kbd">Space</span>
+            <span className="ep-kbd">Space</span>
             <span>or</span>
-            <span className="ag-kbd">Scroll</span>
+            <span className="ep-kbd">Scroll</span>
             <span>to pan, or use the hand tool</span>
           </div>
         </div>
 
         {/* Bottom-right: zoom dock */}
-        <div className="ag-zoom-dock">
+        <div className="ep-zoom-dock">
           {fontOptions && onSetFontFamily ? (
             <select
-              className="ag-font-select"
+              className="ep-font-select"
               value={selectedFontId}
               onChange={(e) => onSetFontFamily(e.target.value)}
               title="Font family"
@@ -565,9 +565,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             </select>
           ) : null}
           {onSetTextScale ? (
-            <div className="ag-zoom-pill" aria-label="Text size">
+            <div className="ep-zoom-pill" aria-label="Text size">
               <button
-                className="ag-zoom-btn"
+                className="ep-zoom-btn"
                 title="Smaller text"
                 type="button"
                 onClick={() => onSetTextScale(textScale / TEXT_STEP)}
@@ -587,7 +587,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 </svg>
               </button>
               <button
-                className="ag-zoom-readout"
+                className="ep-zoom-readout"
                 title="Reset text size"
                 type="button"
                 onClick={() => onSetTextScale(1)}
@@ -595,7 +595,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 {Math.round(textScale * 100)}%
               </button>
               <button
-                className="ag-zoom-btn"
+                className="ep-zoom-btn"
                 title="Larger text"
                 type="button"
                 onClick={() => onSetTextScale(textScale * TEXT_STEP)}
@@ -616,9 +616,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               </button>
             </div>
           ) : null}
-          <div className="ag-zoom-pill">
+          <div className="ep-zoom-pill">
             <button
-              className="ag-zoom-btn"
+              className="ep-zoom-btn"
               title="Zoom out"
               type="button"
               onClick={() => zoomBy(1 / ZOOM_STEP)}
@@ -633,7 +633,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               </svg>
             </button>
             <button
-              className="ag-zoom-readout"
+              className="ep-zoom-readout"
               title="Reset to 100%"
               type="button"
               onClick={resetZoom}
@@ -641,7 +641,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               {Math.round(z * 100)}%
             </button>
             <button
-              className="ag-zoom-btn"
+              className="ep-zoom-btn"
               title="Zoom in"
               type="button"
               onClick={() => zoomBy(ZOOM_STEP)}
@@ -656,7 +656,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               </svg>
             </button>
           </div>
-          <button className="ag-fit" type="button" onClick={handleFit}>
+          <button className="ep-fit" type="button" onClick={handleFit}>
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path
                 d="M3 6 V3 H6 M10 3 H13 V6 M13 10 V13 H10 M6 13 H3 V10"
@@ -669,7 +669,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             Fit
           </button>
           <button
-            className={`ag-grid-toggle ${showGrid ? 'active' : ''}`}
+            className={`ep-grid-toggle ${showGrid ? 'active' : ''}`}
             title="Toggle grid"
             type="button"
             onClick={onToggleGrid}

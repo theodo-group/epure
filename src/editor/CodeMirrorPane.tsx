@@ -45,10 +45,10 @@ export interface CodeMirrorPaneProps {
 const setErrors = StateEffect.define<ParseError[]>()
 
 const errorLineDeco = Decoration.line({
-  attributes: { class: 'cm-archgrid-error-line' },
+  attributes: { class: 'cm-epure-error-line' },
 })
 
-const errorMarkDeco = Decoration.mark({ class: 'cm-archgrid-error-mark' })
+const errorMarkDeco = Decoration.mark({ class: 'cm-epure-error-mark' })
 
 class ErrorMessageWidget extends WidgetType {
   constructor(readonly message: string) {
@@ -59,7 +59,7 @@ class ErrorMessageWidget extends WidgetType {
   }
   override toDOM() {
     const span = document.createElement('span')
-    span.className = 'cm-archgrid-error-msg'
+    span.className = 'cm-epure-error-msg'
     span.textContent = this.message
     return span
   }
@@ -169,16 +169,16 @@ const baseTheme = EditorView.theme(
     '&.cm-focused .cm-selectionBackground': {
       backgroundColor: 'rgba(96, 165, 250, 0.25) !important',
     },
-    '.cm-archgrid-error-line': {
+    '.cm-epure-error-line': {
       backgroundColor: 'rgba(255, 80, 80, 0.12)',
       boxShadow: 'inset 2px 0 0 #ff5d5d',
     },
-    '.cm-archgrid-error-mark': {
+    '.cm-epure-error-mark': {
       textDecoration: 'underline wavy #ff5d5d',
       textDecorationSkipInk: 'none',
       textUnderlineOffset: '3px',
     },
-    '.cm-archgrid-error-msg': {
+    '.cm-epure-error-msg': {
       marginLeft: '18px',
       color: '#ff8585',
       fontStyle: 'italic',

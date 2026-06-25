@@ -1,6 +1,6 @@
 import type { LayoutSidecar } from '@/layout/types'
 
-const KEY = 'archgrid:doc:v1'
+const KEY = 'epure:doc:v1'
 
 export interface StoredDoc {
   source: string
@@ -46,7 +46,7 @@ export const saveStoredDoc = (doc: StoredDoc): void => {
 // memory; persisting them lets undo/redo survive a page reload. Each entry is a
 // tracked `{ source, layout }` snapshot — the same shape as StoredDoc.
 
-const HISTORY_KEY = 'archgrid:history:v1'
+const HISTORY_KEY = 'epure:history:v1'
 // Cap the persisted depth so a long editing session can't blow the localStorage
 // quota. Undo/redo operate on the END of each stack, so the most recent entries
 // are the ones worth keeping.

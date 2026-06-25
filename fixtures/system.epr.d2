@@ -1,0 +1,48 @@
+# system.arch.d2 — cloud reference architecture (icon showcase)
+
+user: User { shape: person }
+
+cdn: CDN { shape: rectangle }
+gateway: "<b>Traefik</b><br><small>proxy prod</small>" { shape: rectangle }
+
+web: Web App { shape: rectangle }
+api: API Service { shape: rectangle }
+auth: Auth { shape: rectangle }
+
+bucket: Object Store { shape: rectangle }
+postgres: Postgres { shape: cylinder }
+redis: Cache { shape: cylinder }
+events: Event Bus { shape: rectangle }
+workers: Workers { shape: rectangle }
+
+metrics: Observability { shape: rectangle }
+
+user -> cdn: "HTTPS"
+cdn -> gateway
+
+gateway -> web
+gateway -> api
+gateway -> auth
+
+api -> bucket: "objects"
+api -> postgres: "SQL"
+api -> redis: "cache"
+api -> events: "publish"
+
+events -> workers: "consume"
+
+metrics -> api: "scrape"
+
+Services: "Services" {
+  web
+  api
+  auth
+}
+
+Data: "Data Stores" {
+  bucket
+  postgres
+  redis
+  events
+  workers
+}

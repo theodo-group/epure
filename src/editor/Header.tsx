@@ -82,15 +82,15 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
   }
 
   return (
-    <header className="ag-header">
-      <div className="ag-logo" aria-label="archgrid">
+    <header className="ep-header">
+      <div className="ep-logo" aria-label="Épure">
         d2
       </div>
 
-      <div className="ag-spacer" />
+      <div className="ep-spacer" />
 
       <button
-        className="ag-btn ag-btn-ghost ag-btn-icon"
+        className="ep-btn ep-btn-ghost ep-btn-icon"
         onClick={() => useTemporalStore.getState().undo()}
         disabled={!canUndo}
         title="Undo (⌘Z)"
@@ -107,7 +107,7 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
         </svg>
       </button>
       <button
-        className="ag-btn ag-btn-ghost ag-btn-icon"
+        className="ep-btn ep-btn-ghost ep-btn-icon"
         onClick={() => useTemporalStore.getState().redo()}
         disabled={!canRedo}
         title="Redo (⌘⇧Z)"
@@ -124,15 +124,15 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
         </svg>
       </button>
 
-      <div className="ag-vrule" />
+      <div className="ep-vrule" />
 
-      <button className="ag-btn ag-btn-ghost" onClick={onOpen} type="button">
+      <button className="ep-btn ep-btn-ghost" onClick={onOpen} type="button">
         Open
       </button>
 
-      <div className="ag-menu-wrap" ref={exportRef}>
+      <div className="ep-menu-wrap" ref={exportRef}>
         <button
-          className="ag-btn ag-btn-primary"
+          className="ep-btn ep-btn-primary"
           onClick={() => setExportOpen((o) => !o)}
           type="button"
         >
@@ -140,13 +140,13 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
           <ChevronDown />
         </button>
         {exportOpen ? (
-          <div className="ag-menu" role="menu">
+          <div className="ep-menu" role="menu">
             <button onClick={handleExportPng}>
-              Export PNG <span className="ag-menu-kbd">⌘E</span>
+              Export PNG <span className="ep-menu-kbd">⌘E</span>
             </button>
-            <div className="ag-menu-sep" />
+            <div className="ep-menu-sep" />
             <button onClick={handleExportHtml}>Export standalone HTML</button>
-            <div className="ag-menu-sep" />
+            <div className="ep-menu-sep" />
             <div
               style={{
                 display: 'flex',
@@ -154,7 +154,7 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
                 justifyContent: 'space-between',
                 padding: '4px 10px',
                 fontSize: 12,
-                color: 'var(--ag-text-muted)',
+                color: 'var(--ep-text-muted)',
               }}
             >
               <span>PNG scale</span>
@@ -166,14 +166,14 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
                     style={{
                       padding: '2px 8px',
                       borderRadius: 4,
-                      border: '1px solid var(--ag-border)',
-                      background: exportScale === s ? 'var(--ag-accent-bg)' : '#fff',
+                      border: '1px solid var(--ep-border)',
+                      background: exportScale === s ? 'var(--ep-accent-bg)' : '#fff',
                       color:
                         exportScale === s
-                          ? 'var(--ag-accent-deep)'
-                          : 'var(--ag-text)',
+                          ? 'var(--ep-accent-deep)'
+                          : 'var(--ep-text)',
                       fontSize: 11,
-                      fontFamily: 'var(--ag-mono)',
+                      fontFamily: 'var(--ep-mono)',
                       cursor: 'pointer',
                     }}
                   >
@@ -186,7 +186,7 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
         ) : null}
       </div>
 
-      <div className="ag-avatar" aria-hidden />
+      <div className="ep-avatar" aria-hidden />
     </header>
   )
 }

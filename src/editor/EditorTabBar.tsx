@@ -16,7 +16,7 @@ export const EditorTabBar = ({
   onSelectTab,
   onSearch,
 }: EditorTabBarProps) => (
-  <div className="ag-tabbar" role="tablist">
+  <div className="ep-tabbar" role="tablist">
     {tabs.map((tab) => {
       const active = tab.id === activeTabId
       return (
@@ -25,7 +25,7 @@ export const EditorTabBar = ({
           type="button"
           role="tab"
           aria-selected={active}
-          className={`ag-tab${active ? '' : ' ag-tab-inactive'}`}
+          className={`ep-tab${active ? '' : ' ep-tab-inactive'}`}
           onClick={() => onSelectTab(tab.id)}
         >
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -41,8 +41,8 @@ export const EditorTabBar = ({
         </button>
       )
     })}
-    <div className="ag-tab-actions">
-      <button className="ag-tab-action" title="Wrap" type="button">
+    <div className="ep-tab-actions">
+      <button className="ep-tab-action" title="Wrap" type="button">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path
             d="M2 4 H14 M2 8 H11 a2 2 0 0 1 0 4 H8 M10 10 L8 12 L10 14"
@@ -53,7 +53,7 @@ export const EditorTabBar = ({
           />
         </svg>
       </button>
-      <button className="ag-tab-action" title="Format" type="button">
+      <button className="ep-tab-action" title="Format" type="button">
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path
             d="M3 3 H13 M3 8 H13 M3 13 H9"
@@ -64,7 +64,7 @@ export const EditorTabBar = ({
         </svg>
       </button>
       <button
-        className="ag-tab-action"
+        className="ep-tab-action"
         title="Search (⌘F)"
         type="button"
         onClick={onSearch}

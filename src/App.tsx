@@ -28,8 +28,8 @@ import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 
-import fixtureSource from '../fixtures/system.arch.d2?raw'
-import fixtureLayoutRaw from '../fixtures/system.arch.layout.json?raw'
+import fixtureSource from '../fixtures/system.epr.d2?raw'
+import fixtureLayoutRaw from '../fixtures/system.epr.layout.json?raw'
 import './App.css'
 
 const EXPORT_STEM = 'diagram'
@@ -275,7 +275,7 @@ export const App = () => {
     <div className="app-root">
       <Header onExportPng={onExportPng} onExportHtml={onExportHtml} />
       <div className="app-body">
-        <PanelGroup direction="horizontal" autoSaveId="archgrid:panels">
+        <PanelGroup direction="horizontal" autoSaveId="epure:panels">
           <Panel defaultSize={36} minSize={20} className="pane pane-editor">
             <EditorTabBar
               tabs={[
@@ -286,7 +286,7 @@ export const App = () => {
               onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
               onSearch={() => editorRef.current?.openSearch()}
             />
-            <div className="ag-cm-wrap">
+            <div className="ep-cm-wrap">
               {activeTab === 'd2' ? (
                 <CodeMirrorPane
                   key="d2"

@@ -75,12 +75,12 @@ const Popover = ({
   return createPortal(
     <div
       ref={ref}
-      className="ag-iconpop"
+      className="ep-iconpop"
       style={{ left, top, width: W, maxHeight: MAXH }}
     >
-      <div className="ag-iconpop-controls">
+      <div className="ep-iconpop-controls">
         <input
-          className="ag-iconpop-search"
+          className="ep-iconpop-search"
           type="text"
           placeholder="Search icons…"
           value={query}
@@ -88,7 +88,7 @@ const Popover = ({
           onChange={(e) => setQuery(e.target.value)}
         />
         <select
-          className="ag-iconpop-provider"
+          className="ep-iconpop-provider"
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
         >
@@ -100,16 +100,16 @@ const Popover = ({
           ))}
         </select>
       </div>
-      <div className="ag-iconpop-grid">
+      <div className="ep-iconpop-grid">
         {results.length === 0 ? (
-          <div className="ag-iconpop-empty">No icons match.</div>
+          <div className="ep-iconpop-empty">No icons match.</div>
         ) : (
           results.map((m) => (
             <button
               key={m.id}
               type="button"
               title={`${m.name} · ${m.provider}/${m.category}`}
-              className={`ag-iconpop-item${value === m.id ? ' active' : ''}`}
+              className={`ep-iconpop-item${value === m.id ? ' active' : ''}`}
               onClick={() => {
                 onChange(m.id)
                 onClose()
@@ -120,7 +120,7 @@ const Popover = ({
           ))
         )}
       </div>
-      <div className="ag-iconpop-foot">
+      <div className="ep-iconpop-foot">
         {results.length >= GRID_LIMIT
           ? `Showing first ${GRID_LIMIT} — refine your search`
           : `${results.length} icon${results.length === 1 ? '' : 's'}`}
@@ -160,26 +160,26 @@ export const IconControl = ({ value, mixed, onChange }: IconControlProps) => {
   const url = value ? iconUrlById(value) : undefined
 
   return (
-    <div className="ag-icon-control">
+    <div className="ep-icon-control">
       <button
         ref={btnRef}
         type="button"
-        className="ag-icon-trigger"
+        className="ep-icon-trigger"
         onClick={() => (open ? setOpen(false) : openPopover())}
       >
         {url ? (
-          <img className="ag-icon-thumb" src={url} alt="" />
+          <img className="ep-icon-thumb" src={url} alt="" />
         ) : (
-          <span className="ag-icon-thumb ag-icon-thumb-empty" aria-hidden />
+          <span className="ep-icon-thumb ep-icon-thumb-empty" aria-hidden />
         )}
-        <span className="ag-icon-trigger-label">
+        <span className="ep-icon-trigger-label">
           {meta ? meta.name : mixed ? 'Mixed' : 'Add icon'}
         </span>
       </button>
       {value ? (
         <button
           type="button"
-          className="ag-icon-clear"
+          className="ep-icon-clear"
           title="Remove icon"
           onClick={() => onChange(undefined)}
         >

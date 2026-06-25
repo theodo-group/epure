@@ -29,7 +29,7 @@ export const buildStandaloneHtml = (
   options: StandaloneHtmlOptions = {},
 ): string => {
   const inlinedLib = escapeForScript(svgPanZoomSource)
-  const title = escapeHtml(options.title ?? 'archgrid diagram')
+  const title = escapeHtml(options.title ?? 'epure diagram')
 
   return `<!doctype html>
 <html lang="en">
@@ -39,24 +39,24 @@ export const buildStandaloneHtml = (
 <title>${title}</title>
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #ffffff; }
-  #archgrid-host { width: 100%; height: 100%; display: flex; }
-  #archgrid-host > svg { width: 100%; height: 100%; }
+  #epure-host { width: 100%; height: 100%; display: flex; }
+  #epure-host > svg { width: 100%; height: 100%; }
 </style>
 </head>
 <body>
-<div id="archgrid-host">
+<div id="epure-host">
 ${svgString}
 </div>
 <script>${inlinedLib}</script>
 <script>
 (function () {
-  var host = document.getElementById('archgrid-host');
+  var host = document.getElementById('epure-host');
   if (!host) return;
   var svg = host.querySelector('svg');
   if (!svg) return;
-  svg.setAttribute('id', 'archgrid-svg');
+  svg.setAttribute('id', 'epure-svg');
   if (typeof svgPanZoom === 'function') {
-    svgPanZoom('#archgrid-svg', {
+    svgPanZoom('#epure-svg', {
       zoomEnabled: true,
       controlIconsEnabled: true,
       fit: true,
