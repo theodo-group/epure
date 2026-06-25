@@ -1,0 +1,120 @@
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import { canonicalizeLayout } from '@/file/canonicalLayout'
+
+import { BridgeCore, InvalidApplyError } from './bridge'
+import { verdictFor } from './frames'
+import { resolvePair } from './pair'
+import { portForPath } from './port'
+import type { FileChangedMsg } from './protocol'
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+const D2 = 'a\nb\na -> b\n'
+const LAYOUT_MESSY =
+  '{ "gridSize":40, "nodes": { "a": {"cy":2,"cx":1,"w":4,"h":2}, "b": {"cx":7,"cy":2,"w":4,"h":2} }, "edges":{} }'
+
+describe('portForPath', () => {
+  it('is deterministic and lands in the IANA ephemeral range', () => {
+    const p = portForPath('/repo/docs/system.epr.d2')
+    expect(p).toBe(portForPath('/repo/docs/system.epr.d2'))
+    expect(p).toBeGreaterThanOrEqual(49152)
+    expect(p).toBeLessThanOrEqual(65535)
+  })
+
+  it('separates different diagrams', () => {
+    expect(portForPath('/a/x.epr.d2')).not.toBe(portForPath('/a/y.epr.d2'))
+  })
+})
+
+describe('echo content keys', () => {
+  it('treats reformatted layout as the same key but a real edit as different', () => {
+    const a = verdictFor('layout', LAYOUT_MESSY).key
+    const reformatted = canonicalizeLayout({
+      gridSize: 40,
+      nodes: { a: { cx: 1, cy: 2, w: 4, h: 2 }, b: { cx: 7, cy: 2, w: 4, h: 2 } },
+      edges: {},
+    })
+    expect(verdictFor('layout', reformatted).key).toBe(a)
+    const moved = LAYOUT_MESSY.replace('"cx":1', '"cx":3')
+    expect(verdictFor('layout', moved).key).not.toBe(a)
+  })
+
+  it('keys d2 by raw bytes', () => {
+    expect(verdictFor('d2', D2).key).toBe(D2)
+    expect(verdictFor('d2', D2 + '\n').key).not.toBe(D2)
+  })
+})
+
+describe('BridgeCore', () => {
+  let dir: string
+  let core: BridgeCore
+  const changes: FileChangedMsg[] = []
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'epure-bridge-'))
+    changes.length = 0
+    const pair = resolvePair(join(dir, 'system.epr.d2'))
+    core = new BridgeCore({ pair, onFileChanged: (m) => changes.push(m) })
+  })
+
+  afterEach(async () => {
+    await core.stop()
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('writes a coherent pair, canonicalizing layout', async () => {
+    const written = await core.applyInbound([
+      { kind: 'd2', content: D2 },
+      { kind: 'layout', content: LAYOUT_MESSY },
+    ])
+    expect(written.sort()).toEqual(['d2', 'layout'])
+
+    const onDiskD2 = await readFile(join(dir, 'system.epr.d2'), 'utf8')
+    const onDiskLayout = await readFile(join(dir, 'system.epr.layout.json'), 'utf8')
+    expect(onDiskD2).toBe(D2)
+    // Layout landed in canonical form, not the messy input bytes.
+    expect(onDiskLayout).not.toBe(LAYOUT_MESSY)
+    expect(onDiskLayout.endsWith('}\n')).toBe(true)
+    expect(verdictFor('layout', onDiskLayout).valid).toBe(true)
+  })
+
+  it('rejects an invalid layout without touching disk', async () => {
+    await expect(
+      core.applyInbound([{ kind: 'layout', content: '{ not json' }]),
+    ).rejects.toBeInstanceOf(InvalidApplyError)
+    await expect(
+      readFile(join(dir, 'system.epr.layout.json'), 'utf8'),
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('hydrate reports absent files as null, present files validated', async () => {
+    await writeFile(join(dir, 'system.epr.d2'), D2, 'utf8')
+    const frames = await core.hydrate()
+    const byKind = Object.fromEntries(frames.map((f) => [f.kind, f]))
+    expect(byKind.d2).toMatchObject({ content: D2, valid: true })
+    expect(byKind.layout).toMatchObject({ content: null, valid: true })
+  })
+
+  it('suppresses the echo of its own write but reports a real disk edit', async () => {
+    await core.start()
+    await core.applyInbound([
+      { kind: 'd2', content: D2 },
+      { kind: 'layout', content: LAYOUT_MESSY },
+    ])
+    // Give chokidar (awaitWriteFinish) time to fire — these are our own writes.
+    await wait(450)
+    expect(changes).toHaveLength(0)
+
+    // Now a genuine external edit (as if CC wrote it).
+    await writeFile(join(dir, 'system.epr.d2'), 'a\nb\nc\na -> b\n', 'utf8')
+    await wait(450)
+    const d2Changes = changes.filter((c) => c.kind === 'd2')
+    expect(d2Changes.length).toBeGreaterThanOrEqual(1)
+    expect(d2Changes.at(-1)!.content).toContain('c')
+  }, 4000)
+})
