@@ -1,0 +1,70 @@
+src/bridge/BridgeStatus.tsx
+  s_7413682a40e5a1::t_c192f61dff734f 1-45
+src/bridge/config.ts
+  s_7413682a40e5a1::t_f2fab2e68fb880 1-57,68,71-77
+  s_7413682a40e5a1::t_9de8119cfcc2f5 58-67,69-70
+src/store/diagramStore.ts
+  s_7413682a40e5a1::t_0e3ae50154c850 97-99
+  s_7413682a40e5a1::t_af4191142175f1 479-480,483-485
+  s_7413682a40e5a1::t_22be16f002f6e6 112-127
+  s_7413682a40e5a1::t_2f6bbcee8edb68 446-463
+server/core/protocol.ts
+  s_7413682a40e5a1::t_f5633f0450e4f9 1-4
+src/bridge/useBridge.ts
+  s_7413682a40e5a1::t_22ed7cf3a54345 154-156,158-168
+  s_7413682a40e5a1::t_ccd9109642c55e 189-192
+  s_7413682a40e5a1::t_504f1d58a3b775 136
+  s_7413682a40e5a1::t_f03cece0c80586 1-17,19-22,30-83,88-91,93-96,98-135,137-146,157,169-188,193-222
+  s_7413682a40e5a1::t_b5935f68205e1c 84-87,92,97
+  s_7413682a40e5a1::t_1bfd086bca6eb7 18,23-29
+  s_7413682a40e5a1::t_663ac5196aad8a 147-153
+src/bridge/BridgeClient.ts
+  s_7413682a40e5a1::t_791115d424542a 1-209
+src/bridge/sync.test.ts
+  s_7413682a40e5a1::t_993d33ae446d9f 1-41
+src/App.tsx
+  s_7413682a40e5a1::t_abef1633269581 307-313
+  s_7413682a40e5a1::t_317f7e02c828c7 143-146,148-151,153
+  s_7413682a40e5a1::t_0a7d330423917b 30-31
+  s_7413682a40e5a1::t_380166e1c3c59e 322-326
+  s_7413682a40e5a1::t_af2a53b8aaee56 448
+  s_7413682a40e5a1::t_de0078419221c7 32
+src/bridge/BridgeClient.test.ts
+  s_7413682a40e5a1::t_cd02aa90411df3 1-222
+src/bridge/protocol.ts
+  s_7413682a40e5a1::t_647ebc33816b8b 1-79
+src/bridge/config.test.ts
+  s_7413682a40e5a1::t_bb7012d16542a8 1-37,39-42,47-56
+  s_7413682a40e5a1::t_069297481e91db 38,43-46
+src/bridge/sync.ts
+  s_7413682a40e5a1::t_3435fc1798f0db 1-42
+src/editor/Footer.tsx
+  s_7413682a40e5a1::t_9f437c372955c1 2-3,5
+  s_7413682a40e5a1::t_d464b335c1fc2b 40-41
+src/bridge/interaction.ts
+  s_7413682a40e5a1::t_856b54d386933e 1-50
+src/store/applyRemote.test.ts
+  s_7413682a40e5a1::t_1601185492b1cb 1-64
+src/bridge/useBridge.test.tsx
+  s_7413682a40e5a1::t_934b9afa0609a6 1-111,114-120,122-128,176-187
+  s_7413682a40e5a1::t_3caecf2fab292e 112-113,121
+  s_7413682a40e5a1::t_7d8fab4ee5d001 156,160,162,164
+  s_7413682a40e5a1::t_73221f6329778e 149-155,157-159,161,163,165-175
+  s_7413682a40e5a1::t_09e75326f9c5d2 129-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "1ec5b791373444241fab9476ac461b011db85974",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
