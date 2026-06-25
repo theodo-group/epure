@@ -133,11 +133,25 @@ export const route = async (
     pixelNodes[id] = toPixelRect(node, gridSize)
   }
 
-  const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
-    const pos = pixelNodes[n.id]
-    if (!pos) {
-      throw new Error(`Missing layout for node "${n.id}"`)
+  // Defensive fallback: a node may exist in the diagram (or be referenced by an
+  // edge) with no layout entry — most commonly when CC appends a node to the
+  // `.d2` without touching the layout. `normalizeForRoute` normally fills these
+  // in upstream; completing the map here too guarantees every downstream
+  // `pixelNodes[id]` lookup resolves, so `route()` can never throw and blank the
+  // canvas. The fallback rect lands in the same coordinate space as the rest.
+  const ensureRect = (id: string) => {
+    if (!pixelNodes[id]) {
+      pixelNodes[id] = toPixelRect({ cx: 0, cy: 0, w: 4, h: 2 }, gridSize)
     }
+  }
+  for (const n of diagram.nodes) ensureRect(n.id)
+  for (const e of diagram.edges) {
+    ensureRect(e.source)
+    ensureRect(e.target)
+  }
+
+  const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
+    const pos = pixelNodes[n.id]!
     return {
       id: n.id,
       x: pos.x,

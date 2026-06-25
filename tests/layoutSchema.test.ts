@@ -18,8 +18,8 @@ describe('validateLayoutJson', () => {
   it('reports JSON syntax errors with position', () => {
     const r = validateLayoutJson('{"gridSize": 40,}')
     expect(r.errors).toHaveLength(1)
-    expect(r.errors[0].message).toMatch(/Expected string key/)
-    expect(r.errors[0].range.start.offset).toBe(16)
+    expect(r.errors[0]!.message).toMatch(/Expected string key/)
+    expect(r.errors[0]!.range.start.offset).toBe(16)
   })
 
   it('rejects unknown root fields and points at the key', () => {
@@ -64,13 +64,13 @@ describe('validateLayoutJson', () => {
   "edges": { "a->b": { "thickness": "M" } }
 }`
     const r = validateLayoutJson(text)
-    expect(r.errors[0].message).toMatch(/Unknown edge field "thickness"/)
+    expect(r.errors[0]!.message).toMatch(/Unknown edge field "thickness"/)
   })
 
   it('flags wrong types', () => {
     const text = `{"gridSize":"forty","nodes":{},"edges":{}}`
     const r = validateLayoutJson(text)
-    expect(r.errors[0].message).toMatch(/gridSize must be a number/)
+    expect(r.errors[0]!.message).toMatch(/gridSize must be a number/)
   })
 
   it('accepts the bundled fixture', async () => {
