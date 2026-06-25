@@ -11,6 +11,7 @@ import type {
   Side,
 } from '@/layout/types'
 import { makeEdgeId, route } from '@/layout/elk'
+import { normalizeForRoute } from '@/layout/normalize'
 
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
 // `source->target` (shared across parallel edges), so strip the ordinal.
@@ -389,7 +390,15 @@ export const useDiagramStore = create<DiagramStore>()(
           return
         }
         try {
-          const routed = await route(parseResult.diagram, layout)
+          // Synthesize layout entries for any `.d2` node missing from the
+          // sidecar (e.g. CC appended a node without touching the layout) so
+          // the canvas renders it auto-placed. The normalized layout is used
+          // only for routing — never written back into the store — so these
+          // positions can never bounce out to disk.
+          const routed = await route(
+            parseResult.diagram,
+            normalizeForRoute(parseResult.diagram, layout),
+          )
           set((s) => ({ ...s, routed }))
         } catch (err) {
           console.error('route failed', err)
