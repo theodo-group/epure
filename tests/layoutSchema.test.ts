@@ -74,7 +74,7 @@ describe('validateLayoutJson', () => {
   })
 
   it('accepts the bundled fixture', async () => {
-    const fixture = await import('../fixtures/system.arch.layout.json?raw')
+    const fixture = await import('../fixtures/system.epr.layout.json?raw')
     const r = validateLayoutJson(fixture.default)
     expect(r.errors).toEqual([])
     expect(r.value).not.toBeNull()
