@@ -1,0 +1,33 @@
+skills/epure-diagram/SKILL.md
+  s_7413682a40e5a1::t_1c3263f51d2e59 39,136,147-148
+RELEASING.md
+  s_7413682a40e5a1::t_cfca1eb4b4da70 1-40
+README.md
+  s_7413682a40e5a1::t_ba02eff3f5166f 52,56,62-67
+  s_7413682a40e5a1::t_239869fb5aca14 115,117-118
+  s_7413682a40e5a1::t_f36659bd749791 3-4,8,10-14,28-30,32-51,53-55,57-61,68-71,74,103-108,110,124-125,128,131-133,135,137-145,147,151-156,159,163
+  s_7413682a40e5a1::t_471a3ed707f7c5 16,18-27,31
+scripts/prepare.mjs
+  s_7413682a40e5a1::t_9ca709b3533031 14-16
+  s_7413682a40e5a1::t_bbfbd615d0c51e 1-13,17-28
+package.json
+  s_7413682a40e5a1::t_22db5062d6a51a 7-25,41,47-48
+docs/ci/ci.yml.txt
+  s_7413682a40e5a1::t_46fbe9bf705f79 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "8f23b9f65650317a349eb9877fe8f2bbd4f68966",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
