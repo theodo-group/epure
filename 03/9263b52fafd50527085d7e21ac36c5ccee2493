@@ -1,0 +1,31 @@
+PLAN.md
+  s_7413682a40e5a1::t_0e4e75e82480d1 11-12,18-20,24-29
+src/file/layoutSchema.ts
+  s_7413682a40e5a1::t_e999a9408048ba 267
+  s_7413682a40e5a1::t_edaad9d1955d4b 249-251,255-260
+skills/epure-diagram/SKILL.md
+  s_7413682a40e5a1::t_1a80793eed0ccd 1-150
+tests/skillSchema.test.ts
+  s_7413682a40e5a1::t_b8dfb20eed27e4 1-63
+README.md
+  s_7413682a40e5a1::t_4455f33cecab9e 93
+  s_7413682a40e5a1::t_617e1de3cbb6b7 75-83
+  s_7413682a40e5a1::t_9d9765c05dcf05 19,22,25-31,35,37,39-40,43,45-47,51-73
+  s_7413682a40e5a1::t_0dc0873a63308e 74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "039263b52fafd50527085d7e21ac36c5ccee2493",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
