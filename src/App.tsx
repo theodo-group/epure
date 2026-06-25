@@ -27,6 +27,9 @@ import { validateLayoutJson } from '@/file/layoutSchema'
 import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
+import { useBridge } from '@/bridge/useBridge'
+import { readInjectedBridge } from '@/bridge/config'
+import { interaction } from '@/bridge/interaction'
 
 import fixtureSource from '../fixtures/system.epr.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.epr.layout.json?raw'
@@ -137,8 +140,17 @@ export const App = () => {
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
+  // The live bridge (when present) hydrates the store from disk over WebSocket;
+  // returns presentational status for the footer pill.
+  const bridge = useBridge()
+
   // Hydrate from localStorage on mount, falling back to the bundled fixture.
+  // In bridge mode the WS hydrate is authoritative — skip localStorage entirely
+  // so a different repo's stale doc can't flash in or win the race. We read the
+  // injected global synchronously (detectBridge's async probe is for the
+  // connection, not the bootstrap decision).
   useEffect(() => {
+    if (readInjectedBridge()) return
     const stored = loadStoredDoc()
     if (stored) {
       loadDocument(stored.source, stored.layout)
@@ -292,7 +304,13 @@ export const App = () => {
                   key="d2"
                   ref={editorRef}
                   value={source}
-                  onChange={setSource}
+                  onChange={(text) => {
+                    // Mark local activity so the bridge defers inbound applies
+                    // while the user is typing (the d2 buffer is bound directly
+                    // to the store, so a remote write would replace it live).
+                    interaction.noteActivity()
+                    setSource(text)
+                  }}
                   errors={parseResult.ok ? [] : parseResult.errors}
                 />
               ) : (
@@ -301,6 +319,11 @@ export const App = () => {
                   ref={editorRef}
                   value={layoutText}
                   onChange={(text) => {
+                    // Mark activity on EVERY keystroke — invalid JSON never
+                    // reaches the store, so without this the bridge wouldn't see
+                    // the user as busy and a remote layout write could clobber
+                    // the in-progress (invalid) buffer.
+                    interaction.noteActivity()
                     setLayoutText(text)
                     const result = validateLayoutJson(text)
                     if (result.value) setLayout(result.value)
@@ -422,7 +445,7 @@ export const App = () => {
           </Panel>
         </PanelGroup>
       </div>
-      <Footer />
+      <Footer bridge={bridge} />
     </div>
   )
 }

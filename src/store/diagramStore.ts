@@ -94,6 +94,9 @@ export interface DiagramActions {
   reparse: () => void
   reroute: () => Promise<void>
   loadDocument: (source: string, layout: LayoutSidecar) => void
+  /** Inbound bridge chokepoint: apply a remote (CC/disk) edit without creating
+   *  an undo entry or clearing history. See `flushBurst`. */
+  applyRemote: (patch: { source?: string; layout?: LayoutSidecar }) => void
 }
 
 export type DiagramStore = DiagramState & DiagramActions
@@ -105,6 +108,22 @@ const initialLayout: LayoutSidecar = {
   edges: {},
 }
 const initialParse: ParseResult = { ok: false, errors: [] }
+
+// Undo-burst coalescing state, hoisted out of `handleSet` so the bridge's
+// remote-apply path can reset it. Without this reset, a local edit landing
+// <350ms after a remote apply would fuse into the *pre-remote* undo step.
+const burstState: {
+  timeout: ReturnType<typeof setTimeout> | undefined
+  active: boolean
+} = { timeout: undefined, active: false }
+
+/** Reset the in-flight undo-burst window so the next tracked change opens a
+ *  fresh snapshot. Called by `applyRemote` after a bridge write. */
+export const flushBurst = (): void => {
+  if (burstState.timeout) clearTimeout(burstState.timeout)
+  burstState.timeout = undefined
+  burstState.active = false
+}
 
 export const useDiagramStore = create<DiagramStore>()(
   temporal(
@@ -424,6 +443,24 @@ export const useDiagramStore = create<DiagramStore>()(
         temporal.clear()
         temporal.resume()
       },
+
+      applyRemote: (patch) => {
+        // Apply with temporal PAUSED so the remote write creates no undo entry
+        // and doesn't clear history (a transient reconnect must never wipe the
+        // user's stack); then reset the burst window so the user's next local
+        // edit opens a fresh, independently-undoable snapshot.
+        const temporal = useDiagramStore.temporal.getState()
+        temporal.pause()
+        set((s) => ({
+          ...s,
+          ...(patch.source !== undefined ? { source: patch.source } : {}),
+          ...(patch.layout !== undefined
+            ? { layout: patch.layout, gridSize: patch.layout.gridSize }
+            : {}),
+        }))
+        temporal.resume()
+        flushBurst()
+      },
     }),
     {
       limit: 100,
@@ -438,16 +475,14 @@ export const useDiagramStore = create<DiagramStore>()(
       // further snapshots until ~350ms of quiet. Without this, undo steps
       // through every keystroke and every intermediate drag position.
       handleSet: (handleSet) => {
-        let timeout: ReturnType<typeof setTimeout> | undefined
-        let bursting = false
         return (pastState, replace) => {
-          if (!bursting) {
-            bursting = true
+          if (!burstState.active) {
+            burstState.active = true
             handleSet(pastState, replace)
           }
-          if (timeout) clearTimeout(timeout)
-          timeout = setTimeout(() => {
-            bursting = false
+          if (burstState.timeout) clearTimeout(burstState.timeout)
+          burstState.timeout = setTimeout(() => {
+            burstState.active = false
           }, 350)
         }
       },
