@@ -15,7 +15,7 @@ export const Grid: FC<GridProps> = ({
   width,
   height,
   gridSize,
-  patternId = 'archgrid-grid',
+  patternId = 'epure-grid',
 }) => (
   <g aria-hidden='true'>
     <defs>

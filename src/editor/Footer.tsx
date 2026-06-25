@@ -11,15 +11,15 @@ export const Footer = () => {
   const errorCount = parseResult.ok ? 0 : parseResult.errors.length
 
   return (
-    <footer className="ag-footer">
+    <footer className="ep-footer">
       <span>
         {nodeCount} nodes · {edgeCount} edges · {areaCount}{' '}
         {areaCount === 1 ? 'group' : 'groups'}
       </span>
       {errorCount > 0 ? (
         <>
-          <span className="ag-footer-sep">·</span>
-          <span className="ag-footer-error">
+          <span className="ep-footer-sep">·</span>
+          <span className="ep-footer-error">
             <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path
                 d="M6 1 L11 11 L1 11 Z"
@@ -34,13 +34,13 @@ export const Footer = () => {
           </span>
         </>
       ) : null}
-      <div className="ag-spacer" />
+      <div className="ep-spacer" />
       <span>grid {gridSize}px</span>
-      <span className="ag-footer-sep">·</span>
+      <span className="ep-footer-sep">·</span>
       <span>d2 v0.7</span>
-      <span className="ag-footer-sep">·</span>
+      <span className="ep-footer-sep">·</span>
       <span>UTF-8</span>
-      <span className="ag-footer-sep">·</span>
+      <span className="ep-footer-sep">·</span>
       <span>LF</span>
     </footer>
   )

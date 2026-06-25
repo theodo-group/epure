@@ -5,11 +5,11 @@
 let depth = 0
 
 export const beginDrag = () => {
-  if (depth++ === 0) document.body.classList.add('archgrid-dragging')
+  if (depth++ === 0) document.body.classList.add('epure-dragging')
 }
 
 export const endDrag = () => {
   if (depth > 0 && --depth === 0) {
-    document.body.classList.remove('archgrid-dragging')
+    document.body.classList.remove('epure-dragging')
   }
 }

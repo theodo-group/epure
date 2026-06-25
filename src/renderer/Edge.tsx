@@ -20,10 +20,10 @@ interface EdgeProps {
 // a diffuse drop shadow applied to every node body.
 export const EdgeDefs: FC = () => (
   <defs>
-    <filter id='ag-badge-shadow' x='-60%' y='-60%' width='220%' height='220%'>
+    <filter id='ep-badge-shadow' x='-60%' y='-60%' width='220%' height='220%'>
       <feGaussianBlur stdDeviation='1.6' />
     </filter>
-    <filter id='ag-node-shadow' x='-20%' y='-20%' width='140%' height='160%'>
+    <filter id='ep-node-shadow' x='-20%' y='-20%' width='140%' height='160%'>
       <feDropShadow
         dx='0'
         dy='2'
@@ -32,7 +32,7 @@ export const EdgeDefs: FC = () => (
         floodOpacity='0.14'
       />
     </filter>
-    <filter id='ag-icon-halo' x='-50%' y='-50%' width='200%' height='200%'>
+    <filter id='ep-icon-halo' x='-50%' y='-50%' width='200%' height='200%'>
       <feGaussianBlur stdDeviation='5' />
     </filter>
   </defs>

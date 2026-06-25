@@ -52,8 +52,8 @@ const defaultCapFor = (
 }
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="ag-style-row">
-    <div className="ag-style-label">{label}</div>
+  <div className="ep-style-row">
+    <div className="ep-style-label">{label}</div>
     {children}
   </div>
 )
@@ -72,11 +72,11 @@ const Swatches = <C extends string>({
   variant,
   options,
 }: SwatchesProps<C>) => (
-  <div className="ag-swatches">
+  <div className="ep-swatches">
     <button
       type="button"
       title="Default"
-      className={`ag-swatch ag-swatch-none${value === undefined ? ' active' : ''}`}
+      className={`ep-swatch ep-swatch-none${value === undefined ? ' active' : ''}`}
       onClick={() => onChange(undefined)}
     >
       <svg width="14" height="14" viewBox="0 0 18 18" aria-hidden>
@@ -90,7 +90,7 @@ const Swatches = <C extends string>({
             key="transparent"
             type="button"
             title="Transparent"
-            className={`ag-swatch ag-swatch-transparent${value === color ? ' active' : ''}`}
+            className={`ep-swatch ep-swatch-transparent${value === color ? ' active' : ''}`}
             onClick={() => onChange(color)}
           />
         )
@@ -101,7 +101,7 @@ const Swatches = <C extends string>({
             key="white"
             type="button"
             title="White"
-            className={`ag-swatch${value === color ? ' active' : ''}`}
+            className={`ep-swatch${value === color ? ' active' : ''}`}
             style={{
               background: '#ffffff',
               borderColor: 'rgba(0,0,0,0.18)',
@@ -116,7 +116,7 @@ const Swatches = <C extends string>({
           key={color}
           type="button"
           title={color}
-          className={`ag-swatch${value === color ? ' active' : ''}`}
+          className={`ep-swatch${value === color ? ' active' : ''}`}
           style={{
             background: variant === 'fill' ? entry.fill : entry.solid,
             borderColor: variant === 'fill' ? entry.solid : 'rgba(0,0,0,0.12)',
@@ -152,7 +152,7 @@ const Segmented = <T extends string>({
   // or the inherited default when nothing is set.
   const effective = value ?? defaultValue
   return (
-    <div className="ag-seg" role="group">
+    <div className="ep-seg" role="group">
       {options.map((opt) => {
         const active = opt.value === effective
         const isExplicit = value === opt.value
@@ -161,7 +161,7 @@ const Segmented = <T extends string>({
             key={opt.value}
             type="button"
             title={isExplicit ? `${opt.title ?? opt.value} (click to reset)` : opt.title ?? opt.value}
-            className={`ag-seg-btn${active ? ' active' : ''}`}
+            className={`ep-seg-btn${active ? ' active' : ''}`}
             // Picking the default (or re-clicking the explicit value) clears the
             // override so the layout file only stores genuine overrides.
             onClick={() =>
@@ -386,13 +386,13 @@ export const StylePanel = () => {
   return (
     <div
       ref={panelRef}
-      className="ag-style-panel"
+      className="ep-style-panel"
       role="group"
       aria-label="Style"
       style={panelStyle}
     >
       <div
-        className="ag-style-head ag-style-drag"
+        className="ep-style-head ep-style-drag"
         onMouseDown={startDrag}
         title="Drag to move"
       >
@@ -408,8 +408,8 @@ export const StylePanel = () => {
       </div>
 
       {hasNodes ? (
-        <section className="ag-style-section">
-          {showHeaders ? <div className="ag-style-kind">Node</div> : null}
+        <section className="ep-style-section">
+          {showHeaders ? <div className="ep-style-kind">Node</div> : null}
           <Row label="Shape">
             <Segmented
               options={shapeOptions}
@@ -488,8 +488,8 @@ export const StylePanel = () => {
       ) : null}
 
       {hasEdges ? (
-        <section className="ag-style-section">
-          {showHeaders ? <div className="ag-style-kind">Edge</div> : null}
+        <section className="ep-style-section">
+          {showHeaders ? <div className="ep-style-kind">Edge</div> : null}
           <Row label="Color">
             <Swatches
               variant="solid"
@@ -534,8 +534,8 @@ export const StylePanel = () => {
       ) : null}
 
       {hasAreas ? (
-        <section className="ag-style-section">
-          {showHeaders ? <div className="ag-style-kind">Group</div> : null}
+        <section className="ep-style-section">
+          {showHeaders ? <div className="ep-style-kind">Group</div> : null}
           <Row label="Border color">
             <Swatches
               variant="solid"

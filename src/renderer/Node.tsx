@@ -262,7 +262,7 @@ export const Node: FC<NodeProps> = ({
       onMouseDown={handlePointerDown}
       style={{ cursor: onMove ? 'grab' : 'pointer' }}
     >
-      <g filter='url(#ag-node-shadow)'>
+      <g filter='url(#ep-node-shadow)'>
         <Shape
           x={x}
           y={y}
@@ -307,7 +307,7 @@ export const Node: FC<NodeProps> = ({
                 ry={rad}
                 fill={strokeColor}
                 opacity={0.45}
-                filter='url(#ag-badge-shadow)'
+                filter='url(#ep-badge-shadow)'
               />
               {/* Chip behind the logo. Picks up the node's effective fill so
                   the badge reads as part of the node when the user has chosen
@@ -339,7 +339,7 @@ export const Node: FC<NodeProps> = ({
       {topIcon ? (
         <g pointerEvents='none'>
           {/* Soft white halo behind the icon: a circle blurred via
-              ag-icon-halo so the icon fades smoothly into the node body
+              ep-icon-halo so the icon fades smoothly into the node body
               and any underlying strokes (e.g. the cylinder top arc) read
               as receding into the background rather than cutting across
               the icon. */}
@@ -348,7 +348,7 @@ export const Node: FC<NodeProps> = ({
             cy={topIcon.cy}
             r={topIcon.size * 0.62}
             fill={shapeFill === 'transparent' ? '#ffffff' : shapeFill}
-            filter='url(#ag-icon-halo)'
+            filter='url(#ep-icon-halo)'
           />
           <image
             href={iconUrl}
