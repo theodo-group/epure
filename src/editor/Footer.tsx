@@ -1,6 +1,8 @@
 import { useDiagramStore } from '@/store/diagramStore'
+import { BridgeStatus } from '@/bridge/BridgeStatus'
+import type { BridgeUiState } from '@/bridge/useBridge'
 
-export const Footer = () => {
+export const Footer = ({ bridge }: { bridge?: BridgeUiState }) => {
   const parseResult = useDiagramStore((s) => s.parseResult)
   const routed = useDiagramStore((s) => s.routed)
   const gridSize = useDiagramStore((s) => s.gridSize)
@@ -35,6 +37,8 @@ export const Footer = () => {
         </>
       ) : null}
       <div className="ep-spacer" />
+      {bridge ? <BridgeStatus state={bridge} /> : null}
+      {bridge?.active ? <span className="ep-footer-sep">·</span> : null}
       <span>grid {gridSize}px</span>
       <span className="ep-footer-sep">·</span>
       <span>d2 v0.7</span>
