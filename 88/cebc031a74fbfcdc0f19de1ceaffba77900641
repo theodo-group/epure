@@ -1,0 +1,54 @@
+src/comments/pins.ts
+  s_7413682a40e5a1::t_8181d2d6cc91b7 1-41
+src/bridge/useBridge.ts
+  s_7413682a40e5a1::t_d46080fed9cc07 17-18
+  s_7413682a40e5a1::t_09f433d7d0ad66 233-243
+  s_7413682a40e5a1::t_bde9d342452725 102-105
+  s_7413682a40e5a1::t_d10543fb81576d 117-123
+  s_7413682a40e5a1::t_4efa9409c6c7d8 159-162
+src/comments/CommentsPanel.tsx
+  s_7413682a40e5a1::t_83fe2a716b5d96 1-28,32-57,59-73,75-194
+  s_7413682a40e5a1::t_8f052da1f1a8e3 29-31
+  s_7413682a40e5a1::t_01020671f60959 58
+  s_7413682a40e5a1::t_4076b46eb94632 74
+src/App.tsx
+  s_7413682a40e5a1::t_192c17ee7183a0 453-459,462
+  s_7413682a40e5a1::t_bf1e5b1410f30b 33-34
+  s_7413682a40e5a1::t_d76936bdc2445d 149-156
+src/comments/CommentsLayer.tsx
+  s_7413682a40e5a1::t_8634af5450f9ae 1-106
+src/comments/comments.test.ts
+  s_7413682a40e5a1::t_e25889ddf9d49b 1-82
+src/comments/store.ts
+  s_7413682a40e5a1::t_9ac8af2e492b14 1-73,75
+  s_7413682a40e5a1::t_806290e1277936 74
+src/comments/serialize.ts
+  s_7413682a40e5a1::t_9510400ead640f 1-5,7-75
+  s_7413682a40e5a1::t_80731851afe12d 6
+src/comments/types.ts
+  s_7413682a40e5a1::t_994d42d64b62ca 1-35
+skills/epure-diagram/SKILL.md
+  s_7413682a40e5a1::t_29cb18415160f9 161-176
+src/renderer/Canvas.tsx
+  s_7413682a40e5a1::t_c5b2d90a199322 14-16
+  s_7413682a40e5a1::t_ba918123288a83 64-69
+  s_7413682a40e5a1::t_f8daab78ca2ce2 138-142
+  s_7413682a40e5a1::t_4580bda66f4aa3 262-279
+  s_7413682a40e5a1::t_9dd67568c1ea65 518-527
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "88cebc031a74fbfcdc0f19de1ceaffba77900641",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
