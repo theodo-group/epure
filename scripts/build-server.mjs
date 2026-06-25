@@ -6,7 +6,7 @@
 // server-only deps never enter dist/.
 
 import { build } from 'esbuild'
-import { readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,6 +20,8 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node20',
+  // The PNG export SSR-renders the React renderer; compile its JSX.
+  jsx: 'automatic',
   // Keep all installed packages external; bundle only our own source.
   packages: 'external',
   alias: { '@': resolve(root, 'src') },
@@ -39,3 +41,11 @@ await build({
   },
   logLevel: 'info',
 })
+
+// Ship libavoid's wasm alongside the CLI so `epure export` does real
+// server-side routing (the headless render points init() at this file).
+mkdirSync(resolve(root, 'dist-server'), { recursive: true })
+copyFileSync(
+  resolve(root, 'public/libavoid.wasm'),
+  resolve(root, 'dist-server/libavoid.wasm'),
+)
