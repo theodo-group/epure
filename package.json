@@ -23,7 +23,7 @@
     "build:all": "pnpm build && pnpm build:server",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "pnpm build:all"
@@ -65,6 +65,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "esbuild": "^0.28.1",
     "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "simple-icons": "^16.24.0",
