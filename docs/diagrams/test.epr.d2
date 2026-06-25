@@ -1,0 +1,32 @@
+# test.epr.d2 — Épure live-bridge architecture
+
+browser: Browser { shape: person }
+
+editor: "Épure Editor" { shape: rectangle }
+bridge: "File Bridge" { shape: rectangle }
+
+d2file: ".epr.d2" { shape: rectangle }
+layout: ".epr.layout.json" { shape: rectangle }
+
+parser: "D2 Parser" { shape: rectangle }
+router: "Layout Engine" { shape: rectangle }
+
+browser -> editor: "render"
+editor -> bridge: "watch"
+bridge -> d2file: "read/write"
+bridge -> layout: "read/write"
+
+d2file -> parser: "parse"
+layout -> router: "positions"
+parser -> editor: "nodes & edges"
+router -> editor: "ortho paths"
+
+Files: "Repo Files" {
+  d2file
+  layout
+}
+
+Core: "Épure Core" {
+  parser
+  router
+}
