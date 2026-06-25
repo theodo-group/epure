@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useDiagramStore } from '@/store/diagramStore'
 import type { LayoutSidecar } from '@/layout/types'
 import { validateLayoutJson } from '@/file/layoutSchema'
+import { useCommentsStore } from '@/comments/store'
+import { parseComments, serializeComments } from '@/comments/serialize'
 
 import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeClient'
 import { detectBridge } from './config'
@@ -97,8 +99,11 @@ export const useBridge = (): BridgeUiState => {
         if (!value) return
         client?.markRemote('layout', content)
         applyRemote({ layout: value })
+      } else if (kind === 'comments') {
+        // Comments live in their own store, never the diagram/undo history.
+        client?.markRemote('comments', content)
+        useCommentsStore.getState().setComments(parseComments(content))
       }
-      // 'comments' kind: reserved, not applied to the store yet.
       triggerFlash()
     }
 
@@ -109,8 +114,13 @@ export const useBridge = (): BridgeUiState => {
         return
       }
       setRemoteError(null)
-      if (content === null) return // file deleted: keep current buffer
-      if (interaction.isBusy()) {
+      if (content === null) {
+        // File deleted. Comments: clear the list; d2/layout: keep last buffer.
+        if (kind === 'comments') useCommentsStore.getState().setComments([])
+        return
+      }
+      // Comments don't touch the canvas/editor, so they never need deferring.
+      if (kind !== 'comments' && interaction.isBusy()) {
         pending.set(kind, content)
         setDiskChanged(true)
         return
@@ -146,6 +156,10 @@ export const useBridge = (): BridgeUiState => {
           const byKind = Object.fromEntries(files.map((f) => [f.kind, f]))
           const source = byKind.d2?.content ?? ''
           const layout = layoutFromFrame(byKind.layout?.content ?? null)
+          // Comments are independent of undo/defer — apply straight away.
+          const commentsText = byKind.comments?.content ?? null
+          client.markRemote('comments', commentsText ?? serializeComments([]))
+          useCommentsStore.getState().setComments(parseComments(commentsText))
           // Key against the *store-resulting* content BEFORE the store write, so
           // the synchronous outbound subscriber dedups. Critical for an absent
           // layout file, where the store holds a synthesized default that must
@@ -216,7 +230,17 @@ export const useBridge = (): BridgeUiState => {
       if (sent.length > 0 || invalid.length > 0) interaction.noteActivity()
       setInvalidUnsaved(invalid.includes('d2'))
     })
-    return unsub
+    // Outbound for the comments sidecar (its own store).
+    const unsubComments = useCommentsStore.subscribe((state, prev) => {
+      if (state.comments === prev.comments) return
+      clientRef.current?.apply([
+        { kind: 'comments', content: serializeComments(state.comments) },
+      ])
+    })
+    return () => {
+      unsub()
+      unsubComments()
+    }
   }, [active])
 
   return { active, status, filename, flash, diskChanged, invalidUnsaved, remoteError }

@@ -158,8 +158,19 @@ Edge styles are keyed by `"src->tgt"`, so **two edges between the same pair shar
 you need two visually distinct links between the same nodes, that's a known limitation — they will render
 with the same color/lineStyle.
 
-## Comments (forward-looking, not yet shipped)
+## Comments — addressing the user's review notes
 
-A third sidecar `<name>.epr.comments.json` is planned: the user drops pins/comments on the diagram in the
-UI, and you address them by reading that file, editing the pair, and marking each `status:"resolved"`. It
-will ride the same file-bridge — no new tooling. When it lands, treat it as files-as-API like the pair.
+The user can drop pins on the diagram in the Épure UI; each is a review note saved to a third sidecar,
+**`<name>.epr.comments.json`**, synced live by the bridge. When the user says "address my comments" (or
+clicks **Send to Claude** in the editor):
+
+1. `Read` `<name>.epr.comments.json`. Each entry: `{ id, body, status, target: { ref?, x, y } }` —
+   `ref` is the node id / `src->tgt` / area id the note is attached to (absent = free-floating); `body`
+   is what the user wants changed.
+2. For each `status:"open"` comment, edit the `.epr.d2` / `.epr.layout.json` pair to satisfy it.
+3. Write the comments file back with that comment's `status` set to `"resolved"` (keep everything else
+   byte-identical; `epure fmt` isn't needed for comments — preserve the structure). The pin turns green
+   in the user's editor instantly.
+
+Resolve only what you actually addressed; leave the rest `open`. It's plain files-as-API — no extra
+tooling, and `epure export` lets you check the result visually before reporting back.
