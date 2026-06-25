@@ -1,0 +1,45 @@
+PLAN.md
+  s_df204a3dccd3db::t_2f97ba5b6dc609 1
+  s_df204a3dccd3db::t_9192efd8f97772 6,11,15
+  s_df204a3dccd3db::t_e32596bbbc3771 12,22,49
+  s_df204a3dccd3db::t_87edcc174e67a2 35,50
+README.md
+  s_df204a3dccd3db::t_3959c2a03a7d63 1
+  s_df204a3dccd3db::t_4aad231dd6d530 30,49,103
+  s_df204a3dccd3db::t_c607c34cb9ac08 20,106
+  s_df204a3dccd3db::t_67a151b443cca7 23,48
+  s_df204a3dccd3db::t_af35521eb6f373 10
+docs/features/claude-code-live-bridge/plan.md
+  s_68fc787eaf5bba::t_289afc1ee3238d 1-351
+CLAUDE.md
+  s_68fc787eaf5bba::t_54f248df730f8d 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "78c4a23be6dd5e6299d2f40b2455b5428d90c298",
+  "prompts": {},
+  "humans": {
+    "h_b7ae6e1e56b67c": {
+      "author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_68fc787eaf5bba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d817de76-9250-47bf-80de-ebbfa8d43e40",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_df204a3dccd3db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8388740-86ba-4c9f-9496-1f654b19c53c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
