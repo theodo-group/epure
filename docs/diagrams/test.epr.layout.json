@@ -1,0 +1,26 @@
+{
+  "gridSize": 40,
+  "nodes": {
+    "bridge": { "cx": 8, "cy": 17, "w": 4, "h": 2, "borderColor": "blue", "icon": "programming/language/typescript", "iconPosition": "top" },
+    "browser": { "cx": 2, "cy": 11, "w": 2, "h": 2 },
+    "d2file": { "cx": 16, "cy": 15, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
+    "editor": { "cx": 8, "cy": 11, "w": 4, "h": 2, "borderColor": "purple", "icon": "programming/framework/react", "iconPosition": "top" },
+    "layout": { "cx": 16, "cy": 19, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
+    "parser": { "cx": 24, "cy": 9, "w": 4, "h": 2, "borderColor": "orange" },
+    "router": { "cx": 24, "cy": 13, "w": 4, "h": 2, "borderColor": "orange" }
+  },
+  "edges": {
+    "bridge->d2file": { "color": "teal" },
+    "bridge->layout": { "color": "teal" },
+    "browser->editor": { "color": "gray", "width": "L" },
+    "d2file->parser": { "color": "orange" },
+    "editor->bridge": { "color": "blue", "lineStyle": "dashed" },
+    "layout->router": { "color": "orange" },
+    "parser->editor": { "color": "purple" },
+    "router->editor": { "color": "purple" }
+  },
+  "areas": {
+    "Core": { "borderColor": "orange", "fillColor": "orange" },
+    "Files": { "borderColor": "teal", "fillColor": "teal" }
+  }
+}
