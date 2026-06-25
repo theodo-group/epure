@@ -222,6 +222,10 @@ export const route = async (
   }
 
   let routes: Map<string, RouteResult>
+  // Whether libavoid actually ran. When it did, its routed polyline already
+  // avoids every obstacle, so we use it directly; only the no-wasm fallback
+  // falls back to the synthetic anchor-to-anchor path (which can't detour).
+  let libavoidOk = false
   try {
     await init(wasmLocator)
     routes = await routeEdges(graph, {
@@ -229,6 +233,7 @@ export const route = async (
       shapeBufferDistance: 8,
       idealNudgingDistance: 8,
     })
+    libavoidOk = true
   } catch {
     // Fallback when libavoid wasm cannot initialize (test environments,
     // headless runs without fetch): synthesize stub routes — the real
@@ -261,7 +266,11 @@ export const route = async (
 
     const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(e.id)!
 
-    const points = buildOrthogonalPath(
+    // Default to the clean synthetic orthogonal path. Only when it would cut
+    // through a *foreign* node do we swap in libavoid's obstacle-avoiding
+    // polyline — keeping the tidy look everywhere a detour isn't needed and
+    // never letting libavoid's occasional loop-through-its-own-endpoint show.
+    let points = buildOrthogonalPath(
       sourceAnchor,
       targetAnchor,
       meta.sourceSide,
@@ -269,6 +278,14 @@ export const route = async (
       gridSize,
       bendCoord,
     )
+    if (libavoidOk && pathCrossesForeignNode(points, pixelNodes, meta.source, meta.target)) {
+      const avoided = cleanPolyline([
+        result.sourcePoint,
+        ...result.bendPoints,
+        result.targetPoint,
+      ])
+      if (avoided.length >= 2) points = avoided
+    }
 
     const labelAnchor =
       longestHorizontalMidpoint(points) ?? pathMidpoint(points)
@@ -611,6 +628,70 @@ const zJogCoord = (a: number, c: number, gridSize: number): number => {
   const snapped = snap((a + c) / 2, gridSize)
   if (snapped !== a && snapped !== c) return snapped
   return (a + c) / 2
+}
+
+// Does an axis-aligned segment pass through a rect's interior? (A small inset
+// means an edge merely grazing a node's border doesn't count as a crossing.)
+const CROSS_INSET = 1.5
+const segCrossesRect = (a: Pt, b: Pt, r: Rect): boolean => {
+  const x0 = r.x + CROSS_INSET
+  const x1 = r.x + r.w - CROSS_INSET
+  const y0 = r.y + CROSS_INSET
+  const y1 = r.y + r.h - CROSS_INSET
+  if (x1 <= x0 || y1 <= y0) return false
+  if (a.y === b.y) {
+    if (a.y <= y0 || a.y >= y1) return false
+    return Math.min(a.x, b.x) < x1 && Math.max(a.x, b.x) > x0
+  }
+  if (a.x === b.x) {
+    if (a.x <= x0 || a.x >= x1) return false
+    return Math.min(a.y, b.y) < y1 && Math.max(a.y, b.y) > y0
+  }
+  return false // diagonal: our synthetic paths are always orthogonal
+}
+
+// True when any segment of the path passes through a node other than the
+// edge's own endpoints.
+const pathCrossesForeignNode = (
+  pts: Pt[],
+  nodes: Record<string, Rect>,
+  srcId: string,
+  tgtId: string,
+): boolean => {
+  for (let i = 1; i < pts.length; i += 1) {
+    for (const [id, r] of Object.entries(nodes)) {
+      if (id === srcId || id === tgtId) continue
+      if (segCrossesRect(pts[i - 1]!, pts[i]!, r)) return true
+    }
+  }
+  return false
+}
+
+// Normalize a polyline: drop duplicate points and collinear midpoints so the
+// rendered path is minimal (libavoid can emit redundant waypoints).
+const cleanPolyline = (pts: Pt[]): Pt[] => {
+  const dedup: Pt[] = []
+  for (const p of pts) {
+    const tail = dedup[dedup.length - 1]
+    if (tail && tail.x === p.x && tail.y === p.y) continue
+    dedup.push({ x: p.x, y: p.y })
+  }
+  const out: Pt[] = []
+  for (let i = 0; i < dedup.length; i += 1) {
+    const prev = out[out.length - 1]
+    const cur = dedup[i]!
+    const next = dedup[i + 1]
+    if (
+      prev &&
+      next &&
+      ((prev.x === cur.x && cur.x === next.x) ||
+        (prev.y === cur.y && cur.y === next.y))
+    ) {
+      continue // cur lies on the straight segment prev→next
+    }
+    out.push(cur)
+  }
+  return out
 }
 
 // Synthesize a fully-orthogonal polyline from the two anchors. The first
