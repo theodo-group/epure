@@ -1,23 +1,23 @@
 {
   "gridSize": 40,
   "nodes": {
-    "bridge": { "cx": 8, "cy": 17, "w": 4, "h": 2, "borderColor": "blue", "icon": "programming/language/typescript", "iconPosition": "top" },
-    "browser": { "cx": 2, "cy": 11, "w": 2, "h": 2 },
-    "d2file": { "cx": 16, "cy": 15, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
-    "editor": { "cx": 8, "cy": 11, "w": 4, "h": 2, "borderColor": "purple", "icon": "programming/framework/react", "iconPosition": "top" },
-    "layout": { "cx": 16, "cy": 19, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
-    "parser": { "cx": 24, "cy": 9, "w": 4, "h": 2, "borderColor": "orange" },
-    "router": { "cx": 24, "cy": 13, "w": 4, "h": 2, "borderColor": "orange" }
+    "bridge": { "cx": 18, "cy": 13, "w": 4, "h": 2, "borderColor": "blue", "icon": "programming/language/typescript", "iconPosition": "top" },
+    "browser": { "cx": 3, "cy": 13, "w": 2, "h": 2 },
+    "d2file": { "cx": 26, "cy": 11, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
+    "editor": { "cx": 10, "cy": 13, "w": 4, "h": 2, "borderColor": "purple", "icon": "programming/framework/react", "iconPosition": "top" },
+    "layout": { "cx": 26, "cy": 15, "w": 5, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
+    "parser": { "cx": 34, "cy": 7, "w": 4, "h": 2, "borderColor": "orange" },
+    "router": { "cx": 34, "cy": 19, "w": 4, "h": 2, "borderColor": "orange" }
   },
   "edges": {
-    "bridge->d2file": { "color": "teal" },
-    "bridge->layout": { "color": "teal" },
-    "browser->editor": { "color": "gray", "width": "L" },
-    "d2file->parser": { "color": "orange" },
-    "editor->bridge": { "color": "blue", "lineStyle": "dashed" },
-    "layout->router": { "color": "orange" },
-    "parser->editor": { "color": "purple" },
-    "router->editor": { "color": "purple" }
+    "bridge->d2file": { "sourceSide": "E", "targetSide": "W", "color": "teal" },
+    "bridge->layout": { "sourceSide": "E", "targetSide": "W", "color": "teal" },
+    "browser->editor": { "sourceSide": "E", "targetSide": "W", "color": "gray", "width": "L" },
+    "d2file->parser": { "sourceSide": "E", "targetSide": "W", "color": "orange" },
+    "editor->bridge": { "sourceSide": "E", "targetSide": "W", "color": "blue", "lineStyle": "dashed" },
+    "layout->router": { "sourceSide": "E", "targetSide": "W", "color": "orange" },
+    "parser->editor": { "sourceSide": "N", "targetSide": "N", "color": "purple" },
+    "router->editor": { "sourceSide": "S", "targetSide": "S", "color": "purple" }
   },
   "areas": {
     "Core": { "borderColor": "orange", "fillColor": "orange" },
