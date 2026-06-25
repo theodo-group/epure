@@ -19,6 +19,16 @@ import type {
   Side,
 } from './types'
 
+// Where libavoid loads its wasm from. In the browser it's served at the app
+// root (`/libavoid.wasm`); the headless Node export (`epure export`) overrides
+// this with an absolute filesystem path so real routing runs server-side
+// instead of the degraded fallback. Without a real wasm, route() still works
+// via the stub-route fallback below.
+let wasmLocator = '/libavoid.wasm'
+export const setLibavoidWasmPath = (path: string): void => {
+  wasmLocator = path
+}
+
 const portId = (nodeId: string, side: Side) => `${nodeId}.${side}`
 
 export const edgeKey = (sourceId: string, targetId: string) =>
@@ -213,7 +223,7 @@ export const route = async (
 
   let routes: Map<string, RouteResult>
   try {
-    await init('/libavoid.wasm')
+    await init(wasmLocator)
     routes = await routeEdges(graph, {
       routingType: 'orthogonal',
       shapeBufferDistance: 8,

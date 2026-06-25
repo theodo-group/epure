@@ -2,6 +2,7 @@
 //
 //   epure <file>              start the live bridge server (default)
 //   epure new <file>          scaffold a new pair from a seed (won't clobber)
+//   epure export <file>       render a fit-to-content PNG (so Claude Code can see it)
 //   epure validate <path...>  validate pair(s); non-zero exit on problems
 //   epure fmt <file...>       rewrite layout(s) in canonical form
 //   epure skill install       copy the epure-diagram skill to ~/.claude/skills
@@ -20,11 +21,13 @@ import { homedir } from 'node:os'
 
 import { canonicalizeLayout } from '../src/file/canonicalLayout'
 import { validateLayoutJson } from '../src/file/layoutSchema'
+import { setLibavoidWasmPath } from '../src/layout/elk'
 import type { LayoutSidecar } from '../src/layout/types'
 
 import { resolvePair, type ResolvedPair, EXT } from '../server/core/pair'
 import { portForPath } from '../server/core/port'
 import { validatePair, type ValidationIssue } from '../server/core/validate'
+import { renderDiagramPng } from '../server/render'
 import { startStandalone } from '../server/standalone'
 
 // Injected at build time via esbuild --define; falls back for ts-direct runs.
@@ -243,6 +246,57 @@ const cmdSkillInstall = async (): Promise<number> => {
   return 0
 }
 
+const cmdExport = async (args: string[]): Promise<number> => {
+  let file: string | undefined
+  let out: string | undefined
+  let scale = 2
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i]!
+    if (a === '-o' || a === '--out') out = args[(i += 1)]
+    else if (a === '--scale') scale = Number(args[(i += 1)]) || 2
+    else if (!a.startsWith('-') && !file) file = a
+  }
+  if (!file) {
+    log('usage: epure export <file> [-o out.png] [--scale N]')
+    return 1
+  }
+
+  const pair = resolvePair(file)
+  const d2 = await readFile(pair.paths.d2, 'utf8').catch(() => null)
+  if (d2 === null) {
+    log(`no diagram at ${pair.paths.d2}`)
+    return 1
+  }
+  const layoutText = await readFile(pair.paths.layout, 'utf8').catch(() => null)
+
+  // Real server-side routing needs libavoid's wasm; ship it next to the CLI.
+  const wasm = resolve(HERE, 'libavoid.wasm')
+  if (existsSync(wasm)) setLibavoidWasmPath(wasm)
+  // Belt-and-suspenders: if wasm init still leaks a rejection, don't crash —
+  // route()'s fallback produces stub routes and the export proceeds.
+  const onUnhandled = (err: unknown) => {
+    if (String(err).includes('wasm') || String(err).includes('libavoid')) return
+    throw err
+  }
+  process.on('unhandledRejection', onUnhandled)
+
+  const result = await renderDiagramPng(d2, layoutText, {
+    scale,
+    iconsDir: join(DIST_DIR, 'icons'),
+  })
+  if (!Buffer.isBuffer(result)) {
+    log(`cannot render: ${result.error}`)
+    return 1
+  }
+
+  const dest = resolve(out ?? join(pair.dir, `${pair.stem}.png`))
+  await writeFile(dest, result)
+  // One machine-readable line on stdout so CC can grab the path to view it.
+  process.stdout.write(dest + '\n')
+  log(`exported ${pair.stem} → ${dest} (fit to content, ${scale}×)`)
+  return 0
+}
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const formatIssue = (i: ValidationIssue): string =>
@@ -286,7 +340,7 @@ const main = async (): Promise<void> => {
 
   if (!first || first === '--help' || first === '-h') {
     process.stdout.write(
-      'usage: epure <file> | new <file> | validate <path...> | fmt <file...> | skill install\n',
+      'usage: epure <file> | new <file> | export <file> | validate <path...> | fmt <file...> | skill install\n',
     )
     process.exit(first ? 0 : 1)
   }
@@ -304,6 +358,9 @@ const main = async (): Promise<void> => {
       break
     case 'fmt':
       process.exit(await cmdFmt(rest))
+      break
+    case 'export':
+      process.exit(await cmdExport(rest))
       break
     case 'skill':
       if (rest[0] !== 'install') {

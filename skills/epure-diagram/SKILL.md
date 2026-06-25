@@ -126,6 +126,21 @@ you want to control its position.
 - **Color by category** (e.g. all data stores `teal`, all services `purple`) via `borderColor`, and tint
   groups with a matching `areas` `fillColor`. See `fixtures/system.epr.*` as the canonical example.
 
+## Seeing the diagram (render a PNG)
+
+To *look at* the diagram yourself — to check layout, overlaps, balance, or to
+discuss visuals with the user — render it to a PNG and open that image. No
+browser needed; the output is always fit to the diagram's content:
+
+```bash
+npx epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
+```
+
+Then view `/tmp/<name>.png`. Use this after edits to verify the result actually
+looks right, and whenever the user asks a visual question ("is it too cramped?",
+"do the groups read clearly?"). `--scale 2` (default) is crisp; `--scale 1` is
+lighter.
+
 ## Guardrails — run before finishing
 
 ```bash
