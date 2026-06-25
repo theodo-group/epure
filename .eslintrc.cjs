@@ -17,7 +17,14 @@ module.exports = {
   settings: {
     react: { version: 'detect' },
   },
-  ignorePatterns: ['dist', 'node_modules', 'coverage', '.vite', '*.cjs'],
+  ignorePatterns: [
+    'dist',
+    'node_modules',
+    'coverage',
+    '.vite',
+    '*.cjs',
+    'src/icons/catalog.generated.ts',
+  ],
   rules: {
     '@typescript-eslint/no-unused-vars': [
       'warn',

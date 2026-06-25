@@ -1,7 +1,7 @@
 import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { AreaLayout } from '@/layout/types'
-import { dashArrayFor, fillOf, solidOf } from '@/style/palette'
+import { dashArrayFor, resolveFill, solidOf } from '@/style/palette'
 
 import { beginDrag, endDrag } from './dragState'
 
@@ -81,13 +81,7 @@ export const Area: FC<AreaProps> = ({
         height={area.h}
         rx={12}
         ry={12}
-        fill={
-          area.fillColor === 'transparent'
-            ? 'transparent'
-            : area.fillColor
-              ? fillOf(area.fillColor)
-              : '#f4f5f9'
-        }
+        fill={resolveFill(area.fillColor) ?? '#f4f5f9'}
         stroke={area.borderColor ? solidOf(area.borderColor) : '#cdd2dd'}
         strokeWidth={1}
         strokeDasharray={dashArrayFor(area.borderStyle ?? 'dashed', 1)}
@@ -107,18 +101,63 @@ export const Area: FC<AreaProps> = ({
           pointerEvents='none'
         />
       ) : null}
-      {area.label ? (
-        <text
-          x={area.x + 12}
-          y={area.y + 20}
-          fontFamily='Inter, system-ui, sans-serif'
-          fontSize={12}
-          fontWeight={600}
-          fill='#5b6478'
-        >
-          {area.label}
-        </text>
-      ) : null}
+    </g>
+  )
+}
+
+// Approximate character width at the label's font size; keeps the chip wide
+// enough for the rendered text without measuring the DOM.
+const LABEL_CHAR_PX = 7
+const LABEL_PAD_X = 10
+const LABEL_HEIGHT = 22
+const LABEL_FONT = 12
+
+interface AreaLabelProps {
+  area: AreaLayout
+  textScale?: number
+  fontFamily?: string
+}
+
+// Rendered as a separate pass *after* nodes so the label never disappears
+// underneath a dragged child; positioned as a tab straddling the top border.
+export const AreaLabel: FC<AreaLabelProps> = ({
+  area,
+  textScale = 1,
+  fontFamily = 'Inter, system-ui, sans-serif',
+}) => {
+  if (!area.label) return null
+  const accent = area.borderColor ? solidOf(area.borderColor) : '#5b6478'
+  const chipH = LABEL_HEIGHT * textScale
+  const charW = LABEL_CHAR_PX * textScale
+  const padX = LABEL_PAD_X * textScale
+  const chipW = Math.max(40 * textScale, area.label.length * charW + padX * 2)
+  const chipX = area.x + 14
+  const chipY = area.y - chipH / 2
+  return (
+    <g pointerEvents='none'>
+      <rect
+        x={chipX}
+        y={chipY}
+        width={chipW}
+        height={chipH}
+        rx={chipH / 2}
+        ry={chipH / 2}
+        fill='#ffffff'
+        stroke={accent}
+        strokeWidth={1}
+      />
+      <text
+        x={chipX + chipW / 2}
+        y={chipY + chipH / 2 + 0.5}
+        textAnchor='middle'
+        dominantBaseline='middle'
+        fontFamily={fontFamily}
+        fontSize={LABEL_FONT * textScale}
+        fontWeight={600}
+        fill={accent}
+      >
+        {area.label}
+      </text>
     </g>
   )
 }

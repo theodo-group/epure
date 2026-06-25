@@ -8,7 +8,7 @@ export const Person: FC<ShapeProps> = ({
   w,
   h,
   fill = '#ffffff',
-  stroke = '#3b4252',
+  stroke = '#475569',
   strokeWidth = 1.5,
   strokeDasharray,
 }) => {

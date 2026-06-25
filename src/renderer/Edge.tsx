@@ -12,9 +12,31 @@ interface EdgeProps {
   marker?: EdgeDirection
   selected?: boolean
   onSelect?: (id: string, additive: boolean) => void
+  textScale?: number
+  fontFamily?: string
 }
 
-export const EdgeDefs: FC = () => null
+// Shared SVG defs for the canvas: the soft-blur used by node icon badges and
+// a diffuse drop shadow applied to every node body.
+export const EdgeDefs: FC = () => (
+  <defs>
+    <filter id='ag-badge-shadow' x='-60%' y='-60%' width='220%' height='220%'>
+      <feGaussianBlur stdDeviation='1.6' />
+    </filter>
+    <filter id='ag-node-shadow' x='-20%' y='-20%' width='140%' height='160%'>
+      <feDropShadow
+        dx='0'
+        dy='2'
+        stdDeviation='4'
+        floodColor='#0f172a'
+        floodOpacity='0.14'
+      />
+    </filter>
+    <filter id='ag-icon-halo' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur stdDeviation='5' />
+    </filter>
+  </defs>
+)
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
   points.length === 0
@@ -105,6 +127,8 @@ export const Edge: FC<EdgeProps> = ({
   marker = 'forward',
   selected = false,
   onSelect,
+  textScale = 1,
+  fontFamily = 'Inter, system-ui, sans-serif',
 }) => {
   const color = solidOf(edge.color)
   const width = STROKE_WIDTH[(edge.width ?? 'M') as Size]
@@ -168,21 +192,35 @@ export const Edge: FC<EdgeProps> = ({
         />
       ) : null}
       {label && edge.labelAnchor ? (
-        <g transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}>
-          <text
-            textAnchor='middle'
-            dominantBaseline='middle'
-            fontFamily='Inter, system-ui, sans-serif'
-            fontSize={11}
-            stroke='#ffffff'
-            strokeWidth={3}
-            paintOrder='stroke'
-            fill='#1f2430'
-            pointerEvents='none'
-          >
-            {label}
-          </text>
-        </g>
+        (() => {
+          const fontSize = 11 * textScale
+          const pillH = 16 * textScale
+          const pillW = Math.max(20 * textScale, label.length * 6 * textScale + 12 * textScale)
+          return (
+            <g transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}>
+              <rect
+                x={-pillW / 2}
+                y={-pillH / 2}
+                width={pillW}
+                height={pillH}
+                rx={4}
+                ry={4}
+                fill='#ffffff'
+                pointerEvents='none'
+              />
+              <text
+                textAnchor='middle'
+                dominantBaseline='middle'
+                fontFamily={fontFamily}
+                fontSize={fontSize}
+                fill='#1f2430'
+                pointerEvents='none'
+              >
+                {label}
+              </text>
+            </g>
+          )
+        })()
       ) : null}
     </g>
   )

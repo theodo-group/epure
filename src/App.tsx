@@ -8,11 +8,22 @@ import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPa
 import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
 import { StylePanel } from '@/style/StylePanel'
 import {
+  FONT_LABELS,
+  FONT_STACKS,
   useDiagramStore,
   useTemporalStore,
+  type FontFamilyId,
 } from '@/store/diagramStore'
 import { openWithFileSystemAccess } from '@/file/zip'
-import { loadStoredDoc, saveStoredDoc } from '@/file/localStore'
+import {
+  clearStoredHistory,
+  loadStoredDoc,
+  loadStoredHistory,
+  saveStoredDoc,
+  saveStoredHistory,
+  type StoredDoc,
+} from '@/file/localStore'
+import { validateLayoutJson } from '@/file/layoutSchema'
 import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
@@ -56,6 +67,8 @@ export const App = () => {
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
   const showGrid = useDiagramStore((s) => s.showGrid)
+  const textScale = useDiagramStore((s) => s.textScale)
+  const fontFamily = useDiagramStore((s) => s.fontFamily)
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)
   const selectedEdgeIds = useDiagramStore((s) => s.selectedEdgeIds)
@@ -65,6 +78,17 @@ export const App = () => {
   const reroute = useDiagramStore((s) => s.reroute)
   const loadDocument = useDiagramStore((s) => s.loadDocument)
   const toggleGrid = useDiagramStore((s) => s.toggleGrid)
+  const setTextScale = useDiagramStore((s) => s.setTextScale)
+  const setFontFamily = useDiagramStore((s) => s.setFontFamily)
+  const fontOptions = useMemo(
+    () =>
+      (Object.keys(FONT_STACKS) as FontFamilyId[]).map((id) => ({
+        id,
+        label: FONT_LABELS[id],
+        stack: FONT_STACKS[id],
+      })),
+    [],
+  )
   const selectNode = useDiagramStore((s) => s.selectNode)
   const selectArea = useDiagramStore((s) => s.selectArea)
   const selectEdge = useDiagramStore((s) => s.selectEdge)
@@ -80,6 +104,30 @@ export const App = () => {
     () => JSON.stringify(layout, null, 2),
     [layout],
   )
+  // Mirror the JSON editor's current text in App state so schema validation
+  // runs against in-progress edits, not the last successfully-applied layout.
+  const [layoutText, setLayoutText] = useState(layoutJsonText)
+  const layoutTextRef = useRef(layoutText)
+  useEffect(() => {
+    layoutTextRef.current = layoutText
+  }, [layoutText])
+  // Resync only when the store layout actually changes (e.g. a node drag), and
+  // only when the editor's text doesn't already represent that layout — keying
+  // the effect on `layoutJsonText` keeps schema-invalid edits intact (those
+  // never reach the store, so the formatted text never changes).
+  useEffect(() => {
+    try {
+      const current = JSON.parse(layoutTextRef.current)
+      if (JSON.stringify(current) === JSON.stringify(layout)) return
+    } catch {
+      // text is mid-edit and unparseable — fall through to force-sync.
+    }
+    setLayoutText(layoutJsonText)
+  }, [layoutJsonText, layout])
+  const layoutValidation = useMemo(
+    () => validateLayoutJson(layoutText),
+    [layoutText],
+  )
   const multiDragRef = useRef<{
     leaderId: string
     leaderStart: { cx: number; cy: number }
@@ -94,15 +142,33 @@ export const App = () => {
     const stored = loadStoredDoc()
     if (stored) {
       loadDocument(stored.source, stored.layout)
+      // loadDocument clears the undo history; restore the persisted past/future
+      // stacks on top of the just-loaded baseline so undo/redo survives reload.
+      const history = loadStoredHistory()
+      if (history) {
+        useTemporalStore.setState({
+          pastStates: history.past,
+          futureStates: history.future,
+        })
+      }
     } else {
       loadDocument(fixtureSource, parseFixtureLayout(fixtureLayoutRaw))
+      // No stored doc → any persisted history belongs to a different document.
+      clearStoredHistory()
     }
   }, [loadDocument])
 
-  // Persist source + layout to localStorage (debounced).
+  // Persist source + layout + the undo/redo stacks to localStorage (debounced).
+  // Both are saved together so the restored history stays consistent with the
+  // restored document.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       saveStoredDoc({ source, layout })
+      const temporal = useTemporalStore.getState()
+      saveStoredHistory({
+        past: temporal.pastStates as StoredDoc[],
+        future: temporal.futureStates as StoredDoc[],
+      })
     }, PERSIST_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
   }, [source, layout])
@@ -233,15 +299,13 @@ export const App = () => {
                 <CodeMirrorPane
                   key="layout"
                   ref={editorRef}
-                  value={layoutJsonText}
+                  value={layoutText}
                   onChange={(text) => {
-                    try {
-                      const parsed = JSON.parse(text)
-                      setLayout(parsed)
-                    } catch {
-                      // ignore invalid JSON; the user is mid-edit
-                    }
+                    setLayoutText(text)
+                    const result = validateLayoutJson(text)
+                    if (result.value) setLayout(result.value)
                   }}
+                  errors={layoutValidation.errors}
                   language={jsonLang()}
                 />
               )}
@@ -254,6 +318,12 @@ export const App = () => {
               diagram={renderDiagram}
               showGrid={showGrid}
               onToggleGrid={toggleGrid}
+              textScale={textScale}
+              onSetTextScale={setTextScale}
+              fontFamily={FONT_STACKS[fontFamily]}
+              fontOptions={fontOptions}
+              selectedFontId={fontFamily}
+              onSetFontFamily={(id) => setFontFamily(id as FontFamilyId)}
               selectedNodeIds={selectedNodeIds}
               selectedAreaIds={selectedAreaIds}
               selectedEdgeIds={selectedEdgeIds}

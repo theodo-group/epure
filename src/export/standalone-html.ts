@@ -1,5 +1,7 @@
 import svgPanZoomSource from 'svg-pan-zoom/dist/svg-pan-zoom.min.js?raw'
 
+import { inlineSvgImages } from './inlineImages'
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
 
@@ -13,10 +15,12 @@ export interface StandaloneHtmlOptions {
   title?: string
 }
 
-const serializeSvg = (svgEl: SVGSVGElement) => {
+const serializeSvg = async (svgEl: SVGSVGElement) => {
   const clone = svgEl.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', SVG_NS)
   clone.setAttribute('xmlns:xlink', XLINK_NS)
+  // Inline icon images so the exported file is fully self-contained.
+  await inlineSvgImages(clone)
   return new XMLSerializer().serializeToString(clone)
 }
 
@@ -72,5 +76,5 @@ export const exportStandaloneHtml = async (
   svgEl: SVGSVGElement,
   options: StandaloneHtmlOptions = {},
 ): Promise<string> => {
-  return buildStandaloneHtml(serializeSvg(svgEl), options)
+  return buildStandaloneHtml(await serializeSvg(svgEl), options)
 }

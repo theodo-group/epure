@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { useCallback, useRef, type MouseEvent, type ReactNode } from 'react'
 
-import type { EdgeDirection } from '@/parser/ast'
+import { SHAPE_NAMES, type EdgeDirection, type ShapeName } from '@/parser/ast'
 import { makeEdgeId } from '@/layout/elk'
 import { useDiagramStore } from '@/store/diagramStore'
+import { IconControl } from './IconPicker'
 import {
   PALETTE,
   type EndCap,
@@ -24,7 +25,7 @@ const COLORS: PaletteColor[] = [
   'purple',
   'pink',
 ]
-const FILL_OPTIONS: FillColor[] = ['transparent', ...COLORS]
+const FILL_OPTIONS: FillColor[] = ['transparent', 'white', ...COLORS]
 const SIZES: Size[] = ['S', 'M', 'L', 'XL']
 const LINE_STYLES: LineStyle[] = ['solid', 'dashed', 'dotted']
 const CAPS: EndCap[] = ['none', 'arrow', 'dot', 'diamond']
@@ -90,6 +91,21 @@ const Swatches = <C extends string>({
             type="button"
             title="Transparent"
             className={`ag-swatch ag-swatch-transparent${value === color ? ' active' : ''}`}
+            onClick={() => onChange(color)}
+          />
+        )
+      }
+      if (color === 'white') {
+        return (
+          <button
+            key="white"
+            type="button"
+            title="White"
+            className={`ag-swatch${value === color ? ' active' : ''}`}
+            style={{
+              background: '#ffffff',
+              borderColor: 'rgba(0,0,0,0.18)',
+            }}
             onClick={() => onChange(color)}
           />
         )
@@ -226,6 +242,38 @@ const lineOptions = LINE_STYLES.map((s) => ({
 const capOptions = (flip?: boolean) =>
   CAPS.map((c) => ({ value: c, label: <CapIcon cap={c} flip={flip} />, title: c }))
 
+const ShapeIcon = ({ shape }: { shape: ShapeName }) => {
+  const stroke = 'currentColor'
+  const fill = 'none'
+  const sw = 1.4
+  if (shape === 'cylinder')
+    return (
+      <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden>
+        <ellipse cx="11" cy="3" rx="8" ry="2" stroke={stroke} strokeWidth={sw} fill={fill} />
+        <path d="M3 3 V11 a8 2 0 0 0 16 0 V3" stroke={stroke} strokeWidth={sw} fill={fill} />
+      </svg>
+    )
+  if (shape === 'person')
+    return (
+      <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden>
+        <circle cx="11" cy="4" r="2.4" stroke={stroke} strokeWidth={sw} fill={fill} />
+        <path d="M5 13 Q5 7 11 7 Q17 7 17 13" stroke={stroke} strokeWidth={sw} fill={fill} />
+      </svg>
+    )
+  // rectangle (default)
+  return (
+    <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden>
+      <rect x="3" y="3" width="16" height="8" rx="1.6" ry="1.6" stroke={stroke} strokeWidth={sw} fill={fill} />
+    </svg>
+  )
+}
+
+const shapeOptions = SHAPE_NAMES.map((s) => ({
+  value: s,
+  label: <ShapeIcon shape={s} />,
+  title: s,
+}))
+
 export const StylePanel = () => {
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedEdgeIds = useDiagramStore((s) => s.selectedEdgeIds)
@@ -235,6 +283,46 @@ export const StylePanel = () => {
   const setNodeStyle = useDiagramStore((s) => s.setNodeStyle)
   const setEdgeStyle = useDiagramStore((s) => s.setEdgeStyle)
   const setAreaStyle = useDiagramStore((s) => s.setAreaStyle)
+  const panelPos = useDiagramStore((s) => s.stylePanelPosition)
+  const setPanelPos = useDiagramStore((s) => s.setStylePanelPosition)
+
+  const panelRef = useRef<HTMLDivElement | null>(null)
+
+  const startDrag = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      // Ignore drags that start on an interactive control inside the header.
+      const target = event.target as HTMLElement
+      if (target.closest('button, select, input, textarea, [contenteditable]')) return
+      const panel = panelRef.current
+      if (!panel) return
+      const parent = panel.offsetParent as HTMLElement | null
+      if (!parent) return
+      event.preventDefault()
+      const parentRect = parent.getBoundingClientRect()
+      const panelRect = panel.getBoundingClientRect()
+      const dx = event.clientX - panelRect.left
+      const dy = event.clientY - panelRect.top
+
+      const onMove = (e: globalThis.MouseEvent) => {
+        const left = e.clientX - parentRect.left - dx
+        const top = e.clientY - parentRect.top - dy
+        // Keep the panel fully inside the parent — every edge stays visible.
+        const maxLeft = Math.max(0, parent.clientWidth - panelRect.width)
+        const maxTop = Math.max(0, parent.clientHeight - panelRect.height)
+        setPanelPos({
+          left: Math.max(0, Math.min(maxLeft, left)),
+          top: Math.max(0, Math.min(maxTop, top)),
+        })
+      }
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [setPanelPos],
+  )
 
   const hasNodes = selectedNodeIds.length > 0
   const hasEdges = selectedEdgeIds.length > 0
@@ -269,6 +357,11 @@ export const StylePanel = () => {
     )
   }
 
+  const astShapeFor = new Map<string, ShapeName>()
+  if (hasNodes && parseResult.ok) {
+    for (const n of parseResult.diagram.nodes) astShapeFor.set(n.id, n.shape)
+  }
+
   const kindCount = [hasNodes, hasEdges, hasAreas].filter(Boolean).length
   const showHeaders = kindCount > 1
 
@@ -286,13 +379,71 @@ export const StylePanel = () => {
       `${selectedAreaIds.length} ${selectedAreaIds.length === 1 ? 'group' : 'groups'}`,
     )
 
+  const panelStyle = panelPos
+    ? { top: panelPos.top, left: panelPos.left, right: 'auto' as const }
+    : undefined
+
   return (
-    <div className="ag-style-panel" role="group" aria-label="Style">
-      <div className="ag-style-head">{summaryParts.join(' · ')}</div>
+    <div
+      ref={panelRef}
+      className="ag-style-panel"
+      role="group"
+      aria-label="Style"
+      style={panelStyle}
+    >
+      <div
+        className="ag-style-head ag-style-drag"
+        onMouseDown={startDrag}
+        title="Drag to move"
+      >
+        <span>{summaryParts.join(' · ')}</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+          <circle cx="5" cy="4" r="1" fill="currentColor" />
+          <circle cx="11" cy="4" r="1" fill="currentColor" />
+          <circle cx="5" cy="8" r="1" fill="currentColor" />
+          <circle cx="11" cy="8" r="1" fill="currentColor" />
+          <circle cx="5" cy="12" r="1" fill="currentColor" />
+          <circle cx="11" cy="12" r="1" fill="currentColor" />
+        </svg>
+      </div>
 
       {hasNodes ? (
         <section className="ag-style-section">
           {showHeaders ? <div className="ag-style-kind">Node</div> : null}
+          <Row label="Shape">
+            <Segmented
+              options={shapeOptions}
+              value={common(nodeStyles.map((n) => n.shape))}
+              defaultValue={
+                common(
+                  selectedNodeIds.map(
+                    (id) => astShapeFor.get(id),
+                  ),
+                ) ?? 'rectangle'
+              }
+              onChange={(v) => setNodeStyle({ shape: v })}
+            />
+          </Row>
+          <Row label="Icon">
+            <IconControl
+              value={common(nodeStyles.map((n) => n.icon))}
+              mixed={new Set(nodeStyles.map((n) => n.icon)).size > 1}
+              onChange={(id) => setNodeStyle({ icon: id })}
+            />
+          </Row>
+          {nodeStyles.some((n) => n.icon) ? (
+            <Row label="Icon position">
+              <Segmented
+                options={[
+                  { value: 'corner', label: 'Corner', title: 'Bottom-right badge' },
+                  { value: 'top', label: 'Top', title: 'Centered above the label' },
+                ]}
+                value={common(nodeStyles.map((n) => n.iconPosition))}
+                defaultValue="corner"
+                onChange={(v) => setNodeStyle({ iconPosition: v })}
+              />
+            </Row>
+          ) : null}
           <Row label="Text size">
             <Segmented
               options={sizeOptions}

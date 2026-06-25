@@ -50,6 +50,30 @@ shapes, edges, labels, edge styles). The `.arch.layout.json` sidecar owns
 node positions and sizes, area definitions and membership, the grid pitch,
 and which side (N/S/E/W) each edge endpoint anchors to.
 
+## Icons
+
+Any node may carry an official cloud / infra / tech logo from the
+[mingrammer/diagrams](https://github.com/mingrammer/diagrams) icon set. The
+reference lives in the JSON sidecar (never in the D2), so the topology stays
+clean and the visual stays reviewable:
+
+```json
+"api": { "x": 64, "y": 64, "w": 160, "h": 64,
+         "icon": "programming/framework/fastapi" }
+```
+
+- `icon` — a catalog id (`<provider>/<category>/<name>`), e.g. `aws/compute/lambda`.
+  It renders as a small badge in the node's bottom-right corner. Omit it for a
+  plain node.
+
+Pick icons from the canvas: select a node and use the **Icon** control in the
+style panel (searchable, filterable by provider). Exports inline each logo as a
+base64 data URI, so PNG and standalone-HTML output stay fully self-contained.
+
+The bundled catalog (`public/icons/` + `src/icons/catalog.generated.ts`) is
+produced by `scripts/build-icon-catalog.mjs` from a checkout of
+mingrammer/diagrams — see the script header to regenerate.
+
 ## Getting started
 
 ```sh
@@ -80,9 +104,8 @@ Requires Node 20 or newer and pnpm 9 or newer.
 - **M2** — Editor shell: dual-pane UI, CodeMirror with D2 highlighting,
   node drag with grid snap, edge anchor-side picker, areas, undo/redo, and
   open/save `.arch.zip`.
-- **M3** — Shape library complete (cylinder, cloud, person, queue,
-  document, page), edge label placement, dashed/dotted styles, dark mode,
-  keyboard shortcuts.
+- **M3** — Shape library (cylinder, cloud, person, document), edge label
+  placement, dashed/dotted styles, dark mode, keyboard shortcuts.
 - **M4** — Standalone HTML export with inlined `svg-pan-zoom`, README,
   screenshots, deploy to GitHub Pages, open-source release.
 

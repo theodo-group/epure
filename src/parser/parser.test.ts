@@ -39,20 +39,12 @@ describe('parser — nodes', () => {
   })
 
   it('parses unquoted multi-word labels', () => {
-    const d = expectOk('queue: Job Queue')
+    const d = expectOk('jobs: Job Queue')
     expect(d.nodes[0]!.label).toBe('Job Queue')
   })
 
-  it('parses all 7 shapes', () => {
-    const shapes = [
-      'rectangle',
-      'cylinder',
-      'cloud',
-      'person',
-      'queue',
-      'document',
-      'page',
-    ] as const
+  it('parses all supported shapes', () => {
+    const shapes = ['rectangle', 'cylinder', 'person'] as const
     const src = shapes
       .map((s, i) => `n${i}: "${s}" { shape: ${s} }`)
       .join('\n')
@@ -169,8 +161,8 @@ describe('parser — fixture smoke test', () => {
     const r = parse(src)
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.diagram.nodes).toHaveLength(14)
-    expect(r.diagram.edges).toHaveLength(15)
+    expect(r.diagram.nodes).toHaveLength(12)
+    expect(r.diagram.edges).toHaveLength(11)
     expect(r.diagram.areas).toHaveLength(2)
   })
 })

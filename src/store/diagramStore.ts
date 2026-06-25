@@ -18,6 +18,32 @@ const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0]!
 
 export type ExportScale = 1 | 2 | 4
 
+export type FontFamilyId =
+  | 'inter'
+  | 'poppins'
+  | 'system'
+  | 'helvetica'
+  | 'georgia'
+  | 'mono'
+
+export const FONT_STACKS: Record<FontFamilyId, string> = {
+  inter: 'Inter, system-ui, sans-serif',
+  poppins: 'Poppins, system-ui, sans-serif',
+  system: 'system-ui, -apple-system, sans-serif',
+  helvetica: 'Helvetica, Arial, sans-serif',
+  georgia: 'Georgia, "Times New Roman", serif',
+  mono: 'ui-monospace, "JetBrains Mono", Menlo, monospace',
+}
+
+export const FONT_LABELS: Record<FontFamilyId, string> = {
+  inter: 'Inter',
+  poppins: 'Poppins',
+  system: 'System',
+  helvetica: 'Helvetica',
+  georgia: 'Georgia',
+  mono: 'Mono',
+}
+
 export interface DiagramState {
   source: string
   layout: LayoutSidecar
@@ -29,6 +55,13 @@ export interface DiagramState {
   showGrid: boolean
   gridSize: number
   exportScale: ExportScale
+  /** Global multiplier applied on top of per-element font sizes. */
+  textScale: number
+  /** Global font family used for all diagram text. */
+  fontFamily: FontFamilyId
+  /** Optional pixel position of the floating style panel. null = anchored
+   *  to the default corner (top-right of the canvas pane). */
+  stylePanelPosition: { left: number; top: number } | null
 }
 
 export interface DiagramActions {
@@ -54,6 +87,9 @@ export interface DiagramActions {
   toggleGrid: () => void
   setGridSize: (n: number) => void
   setExportScale: (s: ExportScale) => void
+  setTextScale: (s: number) => void
+  setFontFamily: (f: FontFamilyId) => void
+  setStylePanelPosition: (pos: { left: number; top: number } | null) => void
   reparse: () => void
   reroute: () => Promise<void>
   loadDocument: (source: string, layout: LayoutSidecar) => void
@@ -82,6 +118,9 @@ export const useDiagramStore = create<DiagramStore>()(
       showGrid: true,
       gridSize: 16,
       exportScale: 2,
+      textScale: 1,
+      fontFamily: 'inter',
+      stylePanelPosition: null,
 
       setSource: (source) => set((s) => ({ ...s, source })),
 
@@ -308,6 +347,17 @@ export const useDiagramStore = create<DiagramStore>()(
         }),
 
       setExportScale: (scale) => set((s) => ({ ...s, exportScale: scale })),
+
+      setTextScale: (scale) =>
+        set((s) => ({
+          ...s,
+          textScale: Math.max(0.6, Math.min(2.4, scale)),
+        })),
+
+      setFontFamily: (fontFamily) => set((s) => ({ ...s, fontFamily })),
+
+      setStylePanelPosition: (stylePanelPosition) =>
+        set((s) => ({ ...s, stylePanelPosition })),
 
       reparse: () => {
         const { source } = get()

@@ -1,56 +1,48 @@
-# system.arch.d2 — fan-out / fan-in fixture
+# system.arch.d2 — cloud reference architecture (icon showcase)
 
-user: End User { shape: person }
+user: User { shape: person }
 
-agent: Jarvis { shape: rectangle }
+cdn: CDN { shape: rectangle }
+gateway: "<b>Traefik</b><br><small>proxy prod</small>" { shape: rectangle }
 
-slack_tool: Slack Tool { shape: rectangle }
-gmail_tool: Gmail Tool { shape: rectangle }
-cal_tool: Calendar Tool { shape: rectangle }
-drive_tool: Drive Tool { shape: rectangle }
-search_tool: Browse Web { shape: rectangle }
+web: Web App { shape: rectangle }
+api: API Service { shape: rectangle }
+auth: Auth { shape: rectangle }
 
-slack: Slack { shape: rectangle }
-gmail: Gmail { shape: rectangle }
-calendar: Calendar { shape: rectangle }
-drive: Google Drive { shape: rectangle }
-web: Web { shape: rectangle }
+bucket: Object Store { shape: rectangle }
+postgres: Postgres { shape: cylinder }
+redis: Cache { shape: cylinder }
+events: Event Bus { shape: rectangle }
+workers: Workers { shape: rectangle }
 
-memory: Memory { shape: cylinder }
-log: Activity Log { shape: cylinder }
+metrics: Observability { shape: rectangle }
 
-user -> agent: "chats"
+user -> cdn: "HTTPS"
+cdn -> gateway
 
-agent -> slack_tool
-agent -> gmail_tool
-agent -> cal_tool
-agent -> drive_tool
-agent -> search_tool
+gateway -> web
+gateway -> api
+gateway -> auth
 
-slack_tool -> slack: "API"
-gmail_tool -> gmail: "API"
-cal_tool -> calendar: "API"
-drive_tool -> drive: "API"
-search_tool -> web: "fetch"
+api -> bucket: "objects"
+api -> postgres: "SQL"
+api -> redis: "cache"
+api -> events: "publish"
 
-agent -> memory: "reads"
+events -> workers: "consume"
 
-slack -> log: "events"
-gmail -> log: "events"
-drive -> log: "events"
+metrics -> api: "scrape"
 
-Tools: "Agent Tools" {
-  slack_tool
-  gmail_tool
-  cal_tool
-  drive_tool
-  search_tool
+Services: "Services" {
+  web
+  api
+  auth
 }
 
-Services: "External Services" {
-  slack
-  gmail
-  calendar
-  drive
-  web
+Data: "Data Stores" {
+  bucket
+  postgres
+  redis
+  events
+  workers
 }

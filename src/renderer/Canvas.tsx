@@ -11,7 +11,7 @@ import {
 import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
 import type { RoutedDiagram, Side } from '@/layout/types'
 
-import { Area } from './Area'
+import { Area, AreaLabel } from './Area'
 import { beginDrag, endDrag } from './dragState'
 import { Edge, EdgeDefs } from './Edge'
 import { Grid } from './Grid'
@@ -52,6 +52,12 @@ interface CanvasProps {
   onFitView?: () => void
   nodes?: Record<string, NodeMeta>
   edges?: Record<string, EdgeMeta>
+  textScale?: number
+  onSetTextScale?: (scale: number) => void
+  fontFamily?: string
+  fontOptions?: Array<{ id: string; label: string; stack: string }>
+  selectedFontId?: string
+  onSetFontFamily?: (id: string) => void
 }
 
 type Tool = 'select' | 'pan'
@@ -91,6 +97,7 @@ const INIT_PADDING = 48
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 8
 const ZOOM_STEP = 1.2
+const TEXT_STEP = 1.15
 
 export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
   (
@@ -113,6 +120,12 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onFitView,
       nodes = {},
       edges = {},
+      textScale = 1,
+      onSetTextScale,
+      fontFamily,
+      fontOptions,
+      selectedFontId,
+      onSetFontFamily,
     },
     ref,
   ) => {
@@ -428,6 +441,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   marker={meta.marker}
                   selected={selectedEdgeIds?.includes(edge.id) ?? false}
                   onSelect={onSelectEdge}
+                  textScale={textScale}
+                  fontFamily={fontFamily}
                 />
               )
             })}
@@ -437,7 +452,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 <Node
                   key={node.id}
                   id={node.id}
-                  shape={meta.shape ?? 'rectangle'}
+                  shape={node.shape ?? meta.shape ?? 'rectangle'}
                   label={meta.label}
                   x={node.x}
                   y={node.y}
@@ -448,14 +463,26 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   borderColor={node.borderColor}
                   borderStyle={node.borderStyle}
                   fillColor={node.fillColor}
+                  icon={node.icon}
+                  iconPosition={node.iconPosition}
                   selected={selectedNodeIds?.includes(node.id) ?? false}
                   onSelect={onSelectNode}
                   onMove={onMoveNode}
                   onResize={onResizeNode}
                   gridSize={diagram.gridSize}
+                  textScale={textScale}
+                  fontFamily={fontFamily}
                 />
               )
             })}
+            {diagram.areas.map((area) => (
+              <AreaLabel
+                key={`label-${area.id}`}
+                area={area}
+                textScale={textScale}
+                fontFamily={fontFamily}
+              />
+            ))}
             {marquee ? (
               <rect
                 x={Math.min(marquee.x1, marquee.x2)}
@@ -521,6 +548,74 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
 
         {/* Bottom-right: zoom dock */}
         <div className="ag-zoom-dock">
+          {fontOptions && onSetFontFamily ? (
+            <select
+              className="ag-font-select"
+              value={selectedFontId}
+              onChange={(e) => onSetFontFamily(e.target.value)}
+              title="Font family"
+              aria-label="Font family"
+              style={{ fontFamily }}
+            >
+              {fontOptions.map((opt) => (
+                <option key={opt.id} value={opt.id} style={{ fontFamily: opt.stack }}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {onSetTextScale ? (
+            <div className="ag-zoom-pill" aria-label="Text size">
+              <button
+                className="ag-zoom-btn"
+                title="Smaller text"
+                type="button"
+                onClick={() => onSetTextScale(textScale / TEXT_STEP)}
+              >
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+                  <text
+                    x="9"
+                    y="13"
+                    textAnchor="middle"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fontSize="10"
+                    fontWeight="600"
+                    fill="currentColor"
+                  >
+                    A
+                  </text>
+                </svg>
+              </button>
+              <button
+                className="ag-zoom-readout"
+                title="Reset text size"
+                type="button"
+                onClick={() => onSetTextScale(1)}
+              >
+                {Math.round(textScale * 100)}%
+              </button>
+              <button
+                className="ag-zoom-btn"
+                title="Larger text"
+                type="button"
+                onClick={() => onSetTextScale(textScale * TEXT_STEP)}
+              >
+                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+                  <text
+                    x="9"
+                    y="14"
+                    textAnchor="middle"
+                    fontFamily="Inter, system-ui, sans-serif"
+                    fontSize="14"
+                    fontWeight="700"
+                    fill="currentColor"
+                  >
+                    A
+                  </text>
+                </svg>
+              </button>
+            </div>
+          ) : null}
           <div className="ag-zoom-pill">
             <button
               className="ag-zoom-btn"

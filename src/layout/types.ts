@@ -1,3 +1,4 @@
+import type { ShapeName } from '@/parser/ast'
 import type {
   EndCap,
   FillColor,
@@ -14,6 +15,15 @@ export interface NodeStyle {
   borderColor?: PaletteColor
   borderStyle?: LineStyle
   fillColor?: FillColor
+  /** Override the shape parsed from the D2 source. Useful from the style
+   *  panel when the user wants to change a node's shape without editing the
+   *  source. Unset → use the AST shape. */
+  shape?: ShapeName
+  /** Icon id from the bundled catalog (e.g. "aws/compute/ec2"). */
+  icon?: string
+  /** Where the icon sits on the node. `corner` (default) is a small badge in
+   *  the bottom-right; `top` puts a larger icon centered above the label. */
+  iconPosition?: 'corner' | 'top'
 }
 
 export interface EdgeStyleSpec {

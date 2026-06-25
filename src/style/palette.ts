@@ -20,21 +20,34 @@ interface PaletteEntry {
 }
 
 export const PALETTE: Record<PaletteColor, PaletteEntry> = {
-  black: { solid: '#1c1917', fill: '#fafaf9' },
-  gray: { solid: '#78716c', fill: '#f5f5f4' },
-  red: { solid: '#dc2626', fill: '#fef2f2' },
-  orange: { solid: '#ea580c', fill: '#fff7ed' },
-  yellow: { solid: '#ca8a04', fill: '#fefce8' },
-  green: { solid: '#16a34a', fill: '#f0fdf4' },
-  teal: { solid: '#0d9488', fill: '#f0fdfa' },
-  blue: { solid: '#2563eb', fill: '#eff6ff' },
-  purple: { solid: '#9333ea', fill: '#faf5ff' },
-  pink: { solid: '#db2777', fill: '#fdf2f8' },
+  // Black/gray stay neutral. Chromatic hues use Tailwind 500 — the most
+  // saturated step before colors start losing chroma to darken — for punchy
+  // strokes, paired with pale 50 fills so colored bodies remain readable.
+  black: { solid: '#0c0a09', fill: '#fafaf9' },
+  gray: { solid: '#78716c', fill: '#e7e5e4' },
+  red: { solid: '#ef4444', fill: '#fef2f2' },
+  orange: { solid: '#f97316', fill: '#fff7ed' },
+  yellow: { solid: '#eab308', fill: '#fefce8' },
+  green: { solid: '#22c55e', fill: '#f0fdf4' },
+  teal: { solid: '#14b8a6', fill: '#f0fdfa' },
+  blue: { solid: '#3b82f6', fill: '#eff6ff' },
+  purple: { solid: '#a855f7', fill: '#faf5ff' },
+  pink: { solid: '#ec4899', fill: '#fdf2f8' },
 }
 
-// Fills additionally allow an explicit transparent (no-fill) choice, distinct
-// from leaving the colour unset (which falls back to the theme default fill).
-export type FillColor = PaletteColor | 'transparent'
+// Fills additionally allow two non-palette choices: `transparent` (see-through,
+// still hit-testable) and `white` (explicit #ffffff — distinct from leaving
+// the colour unset, which falls back to the theme default).
+export type FillColor = PaletteColor | 'transparent' | 'white'
+
+// Resolve a FillColor to a concrete SVG fill string. Returns null when the
+// colour is unset, so callers can apply their own per-context default.
+export const resolveFill = (fc: FillColor | undefined): string | null => {
+  if (fc === undefined) return null
+  if (fc === 'transparent') return 'transparent'
+  if (fc === 'white') return '#ffffff'
+  return fillOf(fc)
+}
 
 export type Size = 'S' | 'M' | 'L' | 'XL'
 

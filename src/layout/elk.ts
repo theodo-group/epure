@@ -227,6 +227,7 @@ export const route = async (
   }
 
   const edgeAnchors = computeEdgeAnchors(elkEdges, edgeMeta, pixelNodes)
+  resolveSegmentOverlaps(edgeAnchors, edgeMeta, pixelNodes, gridSize)
 
   const routedEdges: EdgeRoute[] = []
   for (const e of elkEdges) {
@@ -277,11 +278,13 @@ export const route = async (
       borderColor: layoutNode?.borderColor,
       borderStyle: layoutNode?.borderStyle,
       fillColor: layoutNode?.fillColor,
+      shape: layoutNode?.shape,
+      icon: layoutNode?.icon,
+      iconPosition: layoutNode?.iconPosition,
     }
   })
 
-  const AREA_PAD = 16
-  const AREA_TITLE_H = 28
+  const AREA_PAD = 24
   const areas = diagram.areas.map((a) => {
     const style = layout.areas?.[a.id]
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -301,9 +304,9 @@ export const route = async (
       label: a.label,
       members: a.members,
       x: minX - AREA_PAD,
-      y: minY - AREA_PAD - AREA_TITLE_H,
+      y: minY - AREA_PAD,
       w: maxX - minX + AREA_PAD * 2,
-      h: maxY - minY + AREA_PAD * 2 + AREA_TITLE_H,
+      h: maxY - minY + AREA_PAD * 2,
       borderColor: style?.borderColor,
       borderStyle: style?.borderStyle,
       fillColor: style?.fillColor,
@@ -628,6 +631,158 @@ const buildOrthogonalPath = (
     deduped.push(p)
   }
   return deduped
+}
+
+// After per-edge anchors are computed, look across edges for axis-aligned
+// segments that share a coordinate and intersect. Two unrelated edges whose
+// endpoints happen to land at the same face-center coordinate (common when
+// nodes share a center axis — e.g. a vertical column of nodes all at the
+// same center x) will draw vertical or horizontal legs that overlap. Shift
+// one of the endpoints along its node face so the leg moves off the shared
+// coordinate. Iterates a few times in case a nudge creates a new collision.
+interface AxisSegment {
+  axis: 'V' | 'H'
+  coord: number
+  lo: number
+  hi: number
+  endpoint: 'source' | 'target' | null
+}
+
+const segmentsFor = (
+  hints: EdgeRoutingHints,
+  m: { sourceSide: Side; targetSide: Side },
+  gridSize: number,
+): AxisSegment[] => {
+  const path = buildOrthogonalPath(
+    hints.sourceAnchor,
+    hints.targetAnchor,
+    m.sourceSide,
+    m.targetSide,
+    gridSize,
+    hints.bendCoord,
+  )
+  const segs: AxisSegment[] = []
+  for (let i = 1; i < path.length; i += 1) {
+    const a = path[i - 1]!
+    const b = path[i]!
+    const isFirst = i === 1
+    const isLast = i === path.length - 1
+    const endpoint: 'source' | 'target' | null = isFirst
+      ? 'source'
+      : isLast
+        ? 'target'
+        : null
+    if (a.x === b.x && a.y !== b.y) {
+      segs.push({
+        axis: 'V',
+        coord: a.x,
+        lo: Math.min(a.y, b.y),
+        hi: Math.max(a.y, b.y),
+        endpoint,
+      })
+    } else if (a.y === b.y && a.x !== b.x) {
+      segs.push({
+        axis: 'H',
+        coord: a.y,
+        lo: Math.min(a.x, b.x),
+        hi: Math.max(a.x, b.x),
+        endpoint,
+      })
+    }
+  }
+  return segs
+}
+
+const nudgeAnchorAlongFace = (
+  node: Rect,
+  side: Side,
+  current: Pt,
+  attempts: number[],
+): Pt => {
+  const horiz = isHorizontalSide(side)
+  const [lo, hi] = faceRange(node, side)
+  const cur = horiz ? current.y : current.x
+  for (const delta of attempts) {
+    const next = cur + delta
+    if (next >= lo && next <= hi) {
+      return horiz ? { x: current.x, y: next } : { x: next, y: current.y }
+    }
+  }
+  return current
+}
+
+const resolveSegmentOverlaps = (
+  edgeAnchors: Map<string, EdgeRoutingHints>,
+  edgeMeta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
+  nodes: Record<string, Rect>,
+  gridSize: number,
+): void => {
+  const OVERLAP_TOLERANCE = 4 // segments closer than this are considered identical
+  const nudgeAmount = Math.max(gridSize / 2, 16)
+  const NUDGE_ATTEMPTS = [nudgeAmount, -nudgeAmount, nudgeAmount * 2, -nudgeAmount * 2]
+  const MAX_ITERATIONS = 6
+
+  for (let iter = 0; iter < MAX_ITERATIONS; iter += 1) {
+    const segs = new Map<string, AxisSegment[]>()
+    for (const [edgeId, hints] of edgeAnchors) {
+      const m = edgeMeta.get(edgeId)!
+      segs.set(edgeId, segmentsFor(hints, m, gridSize))
+    }
+
+    type Conflict = {
+      edgeId: string
+      endpoint: 'source' | 'target'
+    }
+    let conflict: Conflict | null = null
+    const edgeIds = [...edgeAnchors.keys()]
+    outer: for (let i = 0; i < edgeIds.length; i += 1) {
+      for (let j = i + 1; j < edgeIds.length; j += 1) {
+        const e1 = edgeIds[i]!
+        const e2 = edgeIds[j]!
+        const segs1 = segs.get(e1)!
+        const segs2 = segs.get(e2)!
+        for (const s1 of segs1) {
+          for (const s2 of segs2) {
+            if (s1.axis !== s2.axis) continue
+            if (Math.abs(s1.coord - s2.coord) > OVERLAP_TOLERANCE) continue
+            const lo = Math.max(s1.lo, s2.lo)
+            const hi = Math.min(s1.hi, s2.hi)
+            if (hi - lo <= OVERLAP_TOLERANCE) continue
+            // Prefer to nudge the endpoint-segment (the one that touches a
+            // node face) — those have a clear nudge axis (along the face).
+            // Skip pairs where neither segment is an endpoint segment (both
+            // are bend legs, harder to safely move).
+            if (s2.endpoint) {
+              conflict = { edgeId: e2, endpoint: s2.endpoint }
+              break outer
+            }
+            if (s1.endpoint) {
+              conflict = { edgeId: e1, endpoint: s1.endpoint }
+              break outer
+            }
+          }
+        }
+      }
+    }
+
+    if (!conflict) return
+
+    const m = edgeMeta.get(conflict.edgeId)!
+    const hints = edgeAnchors.get(conflict.edgeId)!
+    const isSource = conflict.endpoint === 'source'
+    const side = isSource ? m.sourceSide : m.targetSide
+    const nodeId = isSource ? m.source : m.target
+    const node = nodes[nodeId]
+    if (!node) return
+    const currentAnchor = isSource ? hints.sourceAnchor : hints.targetAnchor
+    const nudged = nudgeAnchorAlongFace(node, side, currentAnchor, NUDGE_ATTEMPTS)
+    if (nudged === currentAnchor) return
+    edgeAnchors.set(conflict.edgeId, {
+      ...hints,
+      sourceAnchor: isSource ? nudged : hints.sourceAnchor,
+      targetAnchor: isSource ? hints.targetAnchor : nudged,
+    })
+  }
 }
 
 const connectionSideFromSide = (side: Side): ConnectionSide => {

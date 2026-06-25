@@ -21,15 +21,7 @@ const SHAPE_KEYWORDS = new Set([
   'direction',
 ])
 
-const SHAPE_VALUES = new Set([
-  'rectangle',
-  'cylinder',
-  'cloud',
-  'person',
-  'queue',
-  'document',
-  'page',
-])
+const SHAPE_VALUES = new Set(['rectangle', 'cylinder', 'person'])
 
 const isIdStart = (c: string) => /[A-Za-z_]/.test(c)
 const isIdPart = (c: string) => /[A-Za-z0-9_-]/.test(c)

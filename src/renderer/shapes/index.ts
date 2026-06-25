@@ -1,7 +1,4 @@
 export { Rectangle } from './rectangle'
 export { Cylinder } from './cylinder'
 export { Person } from './person'
-export { Queue } from './queue'
-export { Document } from './document'
-export { Page } from './page'
 export type { ShapeProps } from './rectangle'

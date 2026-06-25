@@ -1,0 +1,313 @@
+// Build the bundled icon catalog from three sources, merged into one catalog:
+//   1. mingrammer/diagrams — cloud / on-prem / k8s PNGs (largest set)
+//   2. simple-icons — ~3.2k brand SVGs, recoloured with each brand's hex
+//   3. @lobehub/icons-static-svg — AI/LLM brand SVGs (colour variant preferred)
+//
+// For every source file this script writes the processed asset to
+// `public/icons/<provider>/<category>/<name>.<ext>` and records
+// `{ id, name, provider, category, file }` metadata.
+//
+// The metadata is emitted to `src/icons/catalog.generated.ts` — a small,
+// eagerly-loadable index (no image bytes). The icon image itself is served as a
+// static file from `public/icons/...` at runtime, and inlined as a data URI
+// only at export time (see src/export/inlineImages.ts).
+//
+// Mingrammer source: a checkout of https://github.com/mingrammer/diagrams.
+// Point ICON_SRC at its `resources/` directory (default: /tmp/diagrams/resources).
+// To refresh:
+//   git clone --depth 1 https://github.com/mingrammer/diagrams /tmp/diagrams
+//   node scripts/build-icon-catalog.mjs
+
+import { execFile } from 'node:child_process'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
+
+const execFileP = promisify(execFile)
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const ROOT = path.resolve(__dirname, '..')
+
+const SRC = process.env.ICON_SRC || '/tmp/diagrams/resources'
+const OUT_DIR = path.join(ROOT, 'public', 'icons')
+const OUT_TS = path.join(ROOT, 'src', 'icons', 'catalog.generated.ts')
+const MAX_PX = 96
+const CONCURRENCY = 8
+
+// Tokens rendered fully uppercase in humanized display names.
+const ACRONYMS = new Set(
+  (
+    'aws gcp oci ibm k8s k3s ec2 ec2a s3 rds sns sqs sqs vpc vpn ebs efs ecs eks ' +
+    'ecr elb iam kms waf dns cdn api sql ml ai db vm os ip lb nat nacl acl sso ' +
+    'mfa hsm sts ad cli etl ci cd qldb emr msk gpu cpu dax ssd hdd jwt saml ' +
+    'oauth http https tcp udp grpc rest ddos hpc vdi iot ar vr nfv cdn pdns ' +
+    'dms ses sso waf xr llm rpa'
+  ).split(/\s+/),
+)
+
+const TITLE = {
+  alibabacloud: 'Alibaba Cloud',
+  aws: 'AWS',
+  azure: 'Azure',
+  digitalocean: 'DigitalOcean',
+  elastic: 'Elastic',
+  firebase: 'Firebase',
+  gcp: 'GCP',
+  generic: 'Generic',
+  gis: 'GIS',
+  ibm: 'IBM',
+  k8s: 'Kubernetes',
+  oci: 'Oracle Cloud',
+  onprem: 'On-Prem',
+  openstack: 'OpenStack',
+  outscale: 'Outscale',
+  programming: 'Programming',
+  saas: 'SaaS',
+  brand: 'Brands',
+  ai: 'AI / LLM',
+}
+
+const humanize = (base) =>
+  base
+    .replace(/_/g, '-')
+    .split('-')
+    .filter(Boolean)
+    .map((w) =>
+      ACRONYMS.has(w.toLowerCase())
+        ? w.toUpperCase()
+        : w.charAt(0).toUpperCase() + w.slice(1),
+    )
+    .join(' ')
+
+async function walk(dir) {
+  const out = []
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...(await walk(full)))
+    else if (entry.isFile() && entry.name.toLowerCase().endsWith('.png'))
+      out.push(full)
+  }
+  return out
+}
+
+async function pool(items, worker, concurrency) {
+  let i = 0
+  let done = 0
+  const total = items.length
+  const runners = Array.from({ length: Math.min(concurrency, total) }, async () => {
+    while (i < total) {
+      const idx = i++
+      await worker(items[idx], idx)
+      done++
+      if (done % 200 === 0) process.stdout.write(`  …${done}/${total}\n`)
+    }
+  })
+  await Promise.all(runners)
+}
+
+// Generate brand SVGs from the `simple-icons` npm package. Each icon ships as
+// a single `<path>` plus a brand hex; we wrap them in a self-contained <svg>
+// with the hex baked into `fill=` so the file renders coloured by default
+// (matching the existing mingrammer aesthetic of full-colour logos).
+async function buildSimpleIcons(meta) {
+  const siModule = await import('simple-icons')
+  const all = siModule.default ?? siModule
+  const provider = 'simpleicons'
+  const category = 'brand'
+  const dir = path.join(OUT_DIR, provider, category)
+  await fs.mkdir(dir, { recursive: true })
+
+  let count = 0
+  for (const key of Object.keys(all)) {
+    const icon = all[key]
+    if (!icon || typeof icon !== 'object' || !icon.slug || !icon.path) continue
+    const fill = `#${icon.hex || '000000'}`
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
+      `<title>${escapeXml(icon.title)}</title>` +
+      `<path fill="${fill}" d="${icon.path}"/></svg>`
+    const file = `${provider}/${category}/${icon.slug}.svg`
+    await fs.writeFile(path.join(OUT_DIR, file), svg)
+    meta.push({
+      id: `${provider}/${category}/${icon.slug}`,
+      name: icon.title,
+      provider,
+      category,
+      file,
+    })
+    count++
+  }
+  console.log(`Simple Icons: wrote ${count} brand SVGs.`)
+}
+
+// Generate AI/LLM brand SVGs from `@lobehub/icons-static-svg`. The package
+// ships three variants per brand: plain (monochrome, currentColor), -color
+// (full colour), and -text (logo + wordmark). For diagram nodes we want the
+// coloured logomark, so prefer `<name>-color.svg` when available, fall back to
+// `<name>.svg` (recoloured to black) otherwise, and skip `-text` wordmarks.
+async function buildLobeIcons(meta) {
+  const provider = 'lobe'
+  const category = 'ai'
+  const srcDir = path.join(
+    ROOT,
+    'node_modules',
+    '@lobehub',
+    'icons-static-svg',
+    'icons',
+  )
+  const destDir = path.join(OUT_DIR, provider, category)
+  await fs.mkdir(destDir, { recursive: true })
+
+  const files = (await fs.readdir(srcDir))
+    .filter((f) => f.endsWith('.svg') && !f.endsWith('-text.svg'))
+    .sort()
+
+  // Group by base name; prefer the -color variant.
+  const chosen = new Map()
+  for (const f of files) {
+    const base = f.replace(/(-color)?\.svg$/, '')
+    const isColor = f.endsWith('-color.svg')
+    const cur = chosen.get(base)
+    if (!cur || (isColor && !cur.isColor)) chosen.set(base, { file: f, isColor })
+  }
+
+  let count = 0
+  for (const [base, { file, isColor }] of chosen) {
+    let svg = await fs.readFile(path.join(srcDir, file), 'utf8')
+    if (!isColor) {
+      // The plain variant uses fill="currentColor", which doesn't resolve when
+      // the SVG is loaded through <image>/<img>. Bake in black so the logo is
+      // visible on the white badge chip.
+      svg = svg.replace(/fill="currentColor"/g, 'fill="#000000"')
+    }
+    const slug = base
+    const outFile = `${provider}/${category}/${slug}.svg`
+    await fs.writeFile(path.join(OUT_DIR, outFile), svg)
+    meta.push({
+      id: `${provider}/${category}/${slug}`,
+      name: humanize(slug),
+      provider,
+      category,
+      file: outFile,
+    })
+    count++
+  }
+  console.log(`Lobe Icons: wrote ${count} AI/LLM SVGs.`)
+}
+
+const escapeXml = (s) =>
+  String(s).replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`)
+
+async function main() {
+  await fs.access(SRC).catch(() => {
+    throw new Error(
+      `Icon source not found: ${SRC}\nClone it first:\n  git clone --depth 1 https://github.com/mingrammer/diagrams /tmp/diagrams`,
+    )
+  })
+
+  const allPngs = (await walk(SRC)).sort()
+  const relSet = new Set(allPngs.map((p) => path.relative(SRC, p)))
+
+  // Drop "-rounded" duplicates when the un-rounded variant exists — they are
+  // visually redundant and only inflate the catalog.
+  const kept = allPngs.filter((p) => {
+    const rel = path.relative(SRC, p)
+    if (rel.endsWith('-rounded.png')) {
+      const base = rel.replace(/-rounded\.png$/, '.png')
+      if (relSet.has(base)) return false
+    }
+    return true
+  })
+
+  console.log(`Found ${allPngs.length} PNGs, keeping ${kept.length} after dedupe.`)
+  await fs.rm(OUT_DIR, { recursive: true, force: true })
+
+  const meta = []
+  await pool(
+    kept,
+    async (srcPath) => {
+      const rel = path.relative(SRC, srcPath) // e.g. aws/compute/ec2.png
+      const segs = rel.split(path.sep)
+      const provider = segs[0]
+      const base = path.basename(rel, '.png')
+      // Provider cover image lives at <provider>/<provider>.png (2 segments);
+      // everything else is <provider>/<category>/<name>.png.
+      const category = segs.length >= 3 ? segs[1] : provider
+      const id = rel.slice(0, -'.png'.length).split(path.sep).join('/')
+      const name =
+        segs.length >= 3 ? humanize(base) : TITLE[provider] || humanize(base)
+
+      const dest = path.join(OUT_DIR, rel)
+      await fs.mkdir(path.dirname(dest), { recursive: true })
+      await execFileP('sips', ['-Z', String(MAX_PX), srcPath, '--out', dest], {
+        maxBuffer: 1 << 24,
+      })
+      // Quantize to an 8-bit palette to shrink the file (typically 50-70%
+      // smaller). pngquant exits non-zero and leaves `dest` untouched when it
+      // can't hit the quality floor — that's fine, we keep the sips output.
+      await execFileP('pngquant', [
+        '--quality=55-90',
+        '--strip',
+        '--skip-if-larger',
+        '--force',
+        '--output',
+        dest,
+        '--',
+        dest,
+      ]).catch(() => {})
+
+      meta.push({ id, name, provider, category, file: rel.split(path.sep).join('/') })
+    },
+    CONCURRENCY,
+  )
+
+  await buildSimpleIcons(meta)
+  await buildLobeIcons(meta)
+
+  meta.sort(
+    (a, b) =>
+      a.provider.localeCompare(b.provider) ||
+      a.category.localeCompare(b.category) ||
+      a.name.localeCompare(b.name),
+  )
+
+  const header = `// AUTO-GENERATED by scripts/build-icon-catalog.mjs — do not edit by hand.
+// Source: https://github.com/mingrammer/diagrams (resources/), downscaled to
+// ${MAX_PX}px. ${meta.length} icons. Regenerate with: node scripts/build-icon-catalog.mjs
+
+export interface IconMeta {
+  /** Stable id, e.g. "aws/compute/ec2". Stored in the layout JSON. */
+  id: string
+  /** Humanized display name. */
+  name: string
+  /** Top-level provider key, e.g. "aws". */
+  provider: string
+  /** Sub-category, e.g. "compute". */
+  category: string
+  /** Path under public/icons/, e.g. "aws/compute/ec2.png". */
+  file: string
+}
+
+export const ICON_CATALOG: IconMeta[] = ${JSON.stringify(meta, null, 0)}
+`
+
+  await fs.mkdir(path.dirname(OUT_TS), { recursive: true })
+  await fs.writeFile(OUT_TS, header)
+
+  // Report output size.
+  let bytes = 0
+  for (const m of meta) bytes += (await fs.stat(path.join(OUT_DIR, m.file))).size
+  console.log(
+    `Wrote ${meta.length} icons → public/icons (${(bytes / 1e6).toFixed(1)} MB) ` +
+      `and ${path.relative(ROOT, OUT_TS)} (${(header.length / 1024).toFixed(0)} KB).`,
+  )
+  const byProv = {}
+  for (const m of meta) byProv[m.provider] = (byProv[m.provider] || 0) + 1
+  console.log('Per provider:', JSON.stringify(byProv))
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

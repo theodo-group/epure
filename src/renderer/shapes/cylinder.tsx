@@ -15,7 +15,6 @@ export const Cylinder: FC<ShapeProps> = ({
   const rx = w / 2
   const ry = Math.min(h * 0.12, 12)
   const topCy = y + ry
-  const bottomCy = y + h - ry
   const bodyH = h - ry * 2
 
   const path = [
@@ -44,16 +43,6 @@ export const Cylinder: FC<ShapeProps> = ({
         stroke={stroke}
         strokeWidth={strokeWidth}
         strokeDasharray={strokeDasharray}
-      />
-      <ellipse
-        cx={x + rx}
-        cy={bottomCy}
-        rx={rx}
-        ry={ry}
-        fill='none'
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeDasharray='3 3'
       />
     </g>
   )
