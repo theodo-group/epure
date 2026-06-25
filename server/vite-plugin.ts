@@ -82,7 +82,7 @@ export const epureBridge = (): Plugin => {
       // Load bridge-core through Vite so its `@/`-aliased src imports resolve.
       const { BridgeCore: BridgeCoreImpl } = (await server.ssrLoadModule(
         '/server/core/bridge.ts',
-      )) as typeof import('./core/bridge')
+      )) as { BridgeCore: typeof BridgeCore }
       core = new BridgeCoreImpl({ pair, onFileChanged: ws.broadcast })
       void core.start()
       server.config.logger.info(`  ➜  Épure bridge: ${pair.stem} (${realPath})`)

@@ -66,14 +66,16 @@ export const useBridge = (): BridgeUiState => {
   const [remoteError, setRemoteError] = useState<string | null>(null)
 
   const clientRef = useRef<BridgeClient | null>(null)
-  // Latest deferred remote frame per kind, awaiting a quiet window.
-  const pendingRef = useRef<Map<FileKind, string>>(new Map())
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     const { applyRemote } = useDiagramStore.getState()
     const loadDocument = useDiagramStore.getState().loadDocument
     let disposed = false
+    // Latest deferred remote frame per kind, awaiting a quiet window. Scoped to
+    // this effect run (not a ref), so a StrictMode remount can never replay a
+    // previous mount's stale "disk changed".
+    const pending = new Map<FileKind, string>()
 
     const triggerFlash = () => {
       setFlash(true)
@@ -109,7 +111,7 @@ export const useBridge = (): BridgeUiState => {
       setRemoteError(null)
       if (content === null) return // file deleted: keep current buffer
       if (interaction.isBusy()) {
-        pendingRef.current.set(kind, content)
+        pending.set(kind, content)
         setDiskChanged(true)
         return
       }
@@ -117,9 +119,9 @@ export const useBridge = (): BridgeUiState => {
     }
 
     const flushPending = () => {
-      if (pendingRef.current.size === 0 || interaction.isBusy()) return
-      for (const [kind, content] of pendingRef.current) applyKind(kind, content)
-      pendingRef.current.clear()
+      if (pending.size === 0 || interaction.isBusy()) return
+      for (const [kind, content] of pending) applyKind(kind, content)
+      pending.clear()
       setDiskChanged(false)
     }
 
@@ -159,8 +161,8 @@ export const useBridge = (): BridgeUiState => {
           // history) — but still honors the interaction guard so a socket blip
           // mid-drag/edit doesn't yank the canvas. Defer to the next quiet window.
           if (interaction.isBusy()) {
-            if (byKind.d2?.content != null) pendingRef.current.set('d2', source)
-            pendingRef.current.set('layout', layoutToText(layout))
+            if (byKind.d2?.content != null) pending.set('d2', source)
+            pending.set('layout', layoutToText(layout))
             setDiskChanged(true)
             return
           }
@@ -186,9 +188,8 @@ export const useBridge = (): BridgeUiState => {
       disposed = true
       clientRef.current?.close()
       clientRef.current = null
-      // Drop any deferred remote frames so a StrictMode remount can't replay a
-      // stale "disk changed" against the freshly-hydrated store.
-      pendingRef.current.clear()
+      // `pending` is scoped to this effect run, so it's discarded with the
+      // closure — nothing to clear. Just reset the pill the next mount re-derives.
       setDiskChanged(false)
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointerup', onPointerUp)
