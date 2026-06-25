@@ -7,7 +7,7 @@ import { parse } from './index'
 
 // Vitest sets cwd to the project root; resolve the fixture from there to
 // sidestep the `about:blank` import.meta.url under jsdom.
-const fixturePath = resolve(process.cwd(), 'fixtures/system.arch.d2')
+const fixturePath = resolve(process.cwd(), 'fixtures/system.epr.d2')
 
 function expectOk(source: string) {
   const result = parse(source)
@@ -156,7 +156,7 @@ describe('parser — errors', () => {
 })
 
 describe('parser — fixture smoke test', () => {
-  it('parses fixtures/system.arch.d2 cleanly', () => {
+  it('parses fixtures/system.epr.d2 cleanly', () => {
     const src = readFileSync(fixturePath, 'utf8')
     const r = parse(src)
     expect(r.ok).toBe(true)

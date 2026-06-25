@@ -17,11 +17,11 @@ const emptyLayout = (gridSize = 40): LayoutSidecar => ({
   edges: {},
 })
 
-const stripArchExt = (name: string): string =>
+const stripEprExt = (name: string): string =>
   name
-    .replace(/\.arch\.zip$/i, '')
+    .replace(/\.epr\.zip$/i, '')
     .replace(/\.zip$/i, '')
-    .replace(/\.arch$/i, '')
+    .replace(/\.epr$/i, '')
 
 const isLayoutSidecar = (value: unknown): value is LayoutSidecar => {
   if (!value || typeof value !== 'object') return false
@@ -43,21 +43,21 @@ const parseLayout = (raw: string): LayoutSidecar => {
   return emptyLayout()
 }
 
-export const readArchZip = async (
+export const readEprZip = async (
   blob: Blob,
-  filename = 'system.arch',
+  filename = 'system.epr',
 ): Promise<LoadedDocument> => {
   const buf = new Uint8Array(await blob.arrayBuffer())
   const entries = unzipSync(buf)
   const d2 = entries[D2_NAME]
   const layoutRaw = entries[LAYOUT_NAME]
   if (!d2 || !layoutRaw) {
-    throw new Error(`Invalid .arch.zip: expected ${D2_NAME} and ${LAYOUT_NAME}`)
+    throw new Error(`Invalid .epr.zip: expected ${D2_NAME} and ${LAYOUT_NAME}`)
   }
   return {
     source: strFromU8(d2),
     layout: parseLayout(strFromU8(layoutRaw)),
-    filename: stripArchExt(filename),
+    filename: stripEprExt(filename),
   }
 }
 
@@ -82,15 +82,15 @@ export const openWithFileSystemAccess = async (): Promise<LoadedDocument | null>
       const [handle] = await w.showOpenFilePicker!({
         types: [
           {
-            description: 'archgrid diagram',
-            accept: { 'application/zip': ['.zip', '.arch.zip'] },
+            description: 'epure diagram',
+            accept: { 'application/zip': ['.zip', '.epr.zip'] },
           },
         ],
         multiple: false,
       })
       if (!handle) return null
       const file = await handle.getFile()
-      const doc = await readArchZip(file, file.name)
+      const doc = await readEprZip(file, file.name)
       return { ...doc, handle }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return null
@@ -101,7 +101,7 @@ export const openWithFileSystemAccess = async (): Promise<LoadedDocument | null>
   return new Promise<LoadedDocument | null>((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.zip,.arch.zip,application/zip'
+    input.accept = '.zip,.epr.zip,application/zip'
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) {
@@ -109,7 +109,7 @@ export const openWithFileSystemAccess = async (): Promise<LoadedDocument | null>
         return
       }
       try {
-        const doc = await readArchZip(file, file.name)
+        const doc = await readEprZip(file, file.name)
         resolve(doc)
       } catch (err) {
         reject(err)
