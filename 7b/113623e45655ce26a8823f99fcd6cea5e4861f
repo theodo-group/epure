@@ -1,0 +1,38 @@
+.impeccable/live/config.json
+  s_936e5b830b3330::t_81721496a97129 1-6
+PRODUCT.md
+  s_936e5b830b3330::t_694892f2fbc2c9 1-66
+DESIGN.md
+  s_936e5b830b3330::t_fdeade03c1c96b 1-262
+.impeccable/design.json
+  s_936e5b830b3330::t_92b22662778b9d 1-191
+src/comments/CommentsPanel.tsx
+  s_936e5b830b3330::t_baff3bdaf95bfa 19-23,62-79,174-205
+.gitignore
+  s_936e5b830b3330::t_277f9271bfbd77 11-16
+  s_a16d14ce04d0c2::t_d3df7802c901a1 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7b113623e45655ce26a8823f99fcd6cea5e4861f",
+  "prompts": {},
+  "sessions": {
+    "s_936e5b830b3330": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f3c643d6-c1cb-4c5a-b396-745c1b6b4c8f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_a16d14ce04d0c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "47017a6f-57d8-4a8b-b414-353fcab24d53",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
