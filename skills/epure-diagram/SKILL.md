@@ -30,6 +30,12 @@ and git to see.
 
 If the user wants to *keep working on* the diagram or have it *in the repo*, use this skill.
 
+## Running the `epure` command
+
+Every `epure …` command below assumes the CLI is on PATH. If `epure --version` fails, either run each
+command via npx — `npx github:theodo-group/epure …` (works with no install) — or install it once for the
+session with `npm i -g github:theodo-group/epure` and then use the short `epure …` form.
+
 ## Launch the live editor (idempotent, background)
 
 Run once at the start of a diagram session. It is safe to run repeatedly — a second run for the same
