@@ -3,11 +3,13 @@ name: epure-diagram
 description: >-
   Create or edit a LIVE, grid-snapped architecture diagram that is tracked in THIS git repo and
   rendered in the Épure editor — a reviewable file pair (<name>.epr.d2 + <name>.epr.layout.json) that
-  you edit on disk while the user watches it update in a browser. Use this WHENEVER the diagram should
-  live in the repo, be diffable in a PR, or stay open and editable in Épure: "make/edit an epure
-  diagram", "draw the architecture as an .epr.d2", "open this in Épure", "update the diagram file". Do
-  NOT use this for a one-shot, self-contained HTML diagram with no repo footprint — for that use the
-  `architecture-diagram` skill instead. This skill is for the editable, git-tracked, two-file format.
+  you edit on disk while the user watches it update in a browser. Use this WHENEVER the user wants an
+  architecture diagram, system diagram, component diagram, functional architecture, "boxes and arrows"
+  of how a product/system is built, a diagram of services/agents/tools/databases and how they connect,
+  or to recreate / restyle such a diagram — even if they just say "draw the architecture", "diagram how
+  this system works", "visualize the architecture", "sketch the system", "make/edit an epure diagram",
+  "draw the architecture as an .epr.d2", "open this in Épure", or "update the diagram file". The diagram
+  lives in the repo, is diffable in a PR, and stays editable in Épure.
 ---
 
 # epure-diagram
@@ -22,19 +24,25 @@ You edit these files directly. When the Épure server is running, every save app
 user's browser, and any tweak they make in the UI (drag, restyle) is written back to these files for you
 and git to see.
 
-## When to use this vs `architecture-diagram`
+## When to use this
 
-- **`epure-diagram` (this skill):** the diagram lives in the repo as the `.epr.*` pair, is diffable in a
-  PR, and/or is open in the Épure editor for live back-and-forth. Editable, persistent, git-tracked.
-- **`architecture-diagram`:** a single standalone `.html` file, no repo footprint, not editable in Épure.
+Reach for this skill for any architecture or system diagram: the diagram lives in the repo as the
+`.epr.*` pair, is diffable in a PR, and/or is open in the Épure editor for live back-and-forth —
+editable, persistent, git-tracked. It's the right choice whenever the user wants to *keep working on*
+the diagram, have it *in the repo*, or watch it update live as you edit.
 
-If the user wants to *keep working on* the diagram or have it *in the repo*, use this skill.
+## Running Épure (no install needed)
 
-## Running the `epure` command
+Every command in this skill is shown with the `npx` launcher, which fetches-and-runs Épure on demand —
+the user never has to install anything, and the only prerequisite is Node.js (which ships `npx`):
 
-Every `epure …` command below assumes the CLI is on PATH. If `epure --version` fails, either run each
-command via npx — `npx github:theodo-group/epure …` (works with no install) — or install it once for the
-session with `npm i -g github:theodo-group/epure` and then use the short `epure …` form.
+```bash
+npx -y github:theodo-group/epure <args>
+```
+
+`-y` skips npx's confirmation prompt so it runs unattended; the first call downloads Épure and later
+calls reuse the cache. Always use the `github:` spec shown above — the bare `epure` name on npm is **not**
+this tool.
 
 ## Launch the live editor (idempotent, background)
 
@@ -42,7 +50,7 @@ Run once at the start of a diagram session. It is safe to run repeatedly — a s
 file reuses the existing server:
 
 ```bash
-epure ./docs/diagrams/<name>.epr.d2 &
+npx -y github:theodo-group/epure ./docs/diagrams/<name>.epr.d2 &
 ```
 
 It prints exactly one machine-readable line to stdout — parse the URL from it:
@@ -51,8 +59,9 @@ It prints exactly one machine-readable line to stdout — parse the URL from it:
 epure: ready url=http://127.0.0.1:52219/ reused=false
 ```
 
-Open/print that URL for the user. Then edit the pair; saves sync live. (`epure <file>` seeds a starter
-pair if the files don't exist yet; `epure new <file>` scaffolds without clobbering.)
+Open/print that URL for the user. Then edit the pair; saves sync live.
+(`npx -y github:theodo-group/epure <file>` seeds a starter pair if the files don't exist yet; append
+`new` to the same command to scaffold without clobbering.)
 
 ## The `.epr.d2` topology (a tiny D2 subset)
 
@@ -139,7 +148,7 @@ discuss visuals with the user — render it to a PNG and open that image. No
 browser needed; the output is always fit to the diagram's content:
 
 ```bash
-epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
+npx -y github:theodo-group/epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
 ```
 
 Then view `/tmp/<name>.png`. Use this after edits to verify the result actually
@@ -150,8 +159,8 @@ lighter.
 ## Guardrails — run before finishing
 
 ```bash
-epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
-epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
+npx -y github:theodo-group/epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
+npx -y github:theodo-group/epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
 ```
 
 `validate` confirms every `nodes`/`edges`/`areas` key in the layout references a real node/edge/area in
@@ -175,8 +184,8 @@ clicks **Send to Claude** in the editor):
    is what the user wants changed.
 2. For each `status:"open"` comment, edit the `.epr.d2` / `.epr.layout.json` pair to satisfy it.
 3. Write the comments file back with that comment's `status` set to `"resolved"` (keep everything else
-   byte-identical; `epure fmt` isn't needed for comments — preserve the structure). The pin turns green
+   byte-identical; the `fmt` step isn't needed for comments — preserve the structure). The pin turns green
    in the user's editor instantly.
 
 Resolve only what you actually addressed; leave the rest `open`. It's plain files-as-API — no extra
-tooling, and `epure export` lets you check the result visually before reporting back.
+tooling, and the `export` command lets you check the result visually before reporting back.
