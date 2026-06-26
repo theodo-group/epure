@@ -6,6 +6,7 @@
 //   epure validate <path...>  validate pair(s); non-zero exit on problems
 //   epure fmt <file...>       rewrite layout(s) in canonical form
 //   epure skill install       copy the epure-diagram skill to ~/.claude/skills
+//                             (--local installs into ./.claude/skills instead)
 //
 // Deliberately no daemon / discovery file / lockfile / multiplex. One server
 // per diagram on a deterministic port; the OS port-bind is the only lock.
@@ -233,16 +234,22 @@ const cmdFmt = async (paths: string[]): Promise<number> => {
   return 0
 }
 
-const cmdSkillInstall = async (): Promise<number> => {
+const cmdSkillInstall = async (args: string[]): Promise<number> => {
   const src = resolve(HERE, '../skills/epure-diagram/SKILL.md')
   if (!existsSync(src)) {
     log('skill source not found in this package')
     return 1
   }
-  const destDir = join(homedir(), '.claude', 'skills', 'epure-diagram')
+  // `--local` (a.k.a. --project/--here) installs into the current repo's
+  // .claude/skills so it can be committed and shared; default is the global
+  // ~/.claude/skills for every project on this machine.
+  const local = args.some((a) => a === '--local' || a === '--project' || a === '--here')
+  const destDir = local
+    ? resolve(process.cwd(), '.claude', 'skills', 'epure-diagram')
+    : join(homedir(), '.claude', 'skills', 'epure-diagram')
   await mkdir(destDir, { recursive: true })
   await copyFile(src, join(destDir, 'SKILL.md'))
-  log(`installed epure-diagram skill to ${destDir}`)
+  log(`installed epure-diagram skill to ${destDir}${local ? ' (this repo)' : ''}`)
   return 0
 }
 
@@ -364,10 +371,10 @@ const main = async (): Promise<void> => {
       break
     case 'skill':
       if (rest[0] !== 'install') {
-        log('usage: epure skill install')
+        log('usage: epure skill install [--local]')
         process.exit(1)
       }
-      process.exit(await cmdSkillInstall())
+      process.exit(await cmdSkillInstall(rest))
       break
     default:
       // Default command: `epure <file>` starts the server (stays foreground).
