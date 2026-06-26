@@ -2,12 +2,13 @@
 # Topology only. All visual styling lives in architecture.epr.layout.json.
 
 user: User                                          { shape: person }
-cli:  "CLI · <b>epure</b>"
+cli:  "<b>CLI</b><br><small>epure</small>"
 
 # --- Live bridge server (Node) ---
-http:       "HTTP Server<br><small>sirv · static SPA</small>"
+http:       "HTTP Server<br><small>sirv · static SPA · /poll</small>"
 ws:         "WebSocket Bridge<br><small>ws · token · origin</small>"
 bridgecore: "Bridge Core<br><small>chokidar · echo-suppress · coherent write</small>"
+feedback:   "Feedback Queue<br><small>live poll · ephemeral</small>"
 
 # --- Browser app (React SPA) ---
 app:     "React SPA"
@@ -28,7 +29,6 @@ png:    ".png"                                      { shape: rectangle }
 # --- File pair on disk (git-tracked) ---
 d2:       ".epr.d2<br><small>topology</small>"      { shape: cylinder }
 layout:   ".epr.layout.json<br><small>visuals</small>" { shape: cylinder }
-comments: ".epr.comments.json<br><small>pins</small>"  { shape: cylinder }
 
 # --- edges: data flow ---
 user -> cli:  "run"
@@ -49,7 +49,10 @@ bclient <-> ws:      "WebSocket"
 ws         <-> bridgecore: "frames"
 bridgecore <-> d2
 bridgecore <-> layout
-bridgecore <-> comments
+
+# --- live feedback (ephemeral; never on disk) ---
+ws   -> feedback: "submit"
+cli  <-> feedback: "poll · reply"
 
 elk    -> export: "render model"
 export -> png:    "PNG bytes"
@@ -59,6 +62,7 @@ Server: "Live Bridge Server (Node)" {
   http
   ws
   bridgecore
+  feedback
 }
 Browser: "Browser App — React SPA" {
   app
@@ -75,5 +79,4 @@ Engine: "Diagram Engine" {
 Files: "File Pair on Disk (git)" {
   d2
   layout
-  comments
 }
