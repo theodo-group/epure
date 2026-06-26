@@ -1,0 +1,79 @@
+# Épure — software architecture
+# Topology only. All visual styling lives in architecture.epr.layout.json.
+
+user: User                                          { shape: person }
+cli:  "CLI · <b>epure</b>"
+
+# --- Live bridge server (Node) ---
+http:       "HTTP Server<br><small>sirv · static SPA</small>"
+ws:         "WebSocket Bridge<br><small>ws · token · origin</small>"
+bridgecore: "Bridge Core<br><small>chokidar · echo-suppress · coherent write</small>"
+
+# --- Browser app (React SPA) ---
+app:     "React SPA"
+editor:  "CodeMirror Editors<br><small>D2 + layout JSON</small>"
+store:   "Zustand Store<br><small>+ undo/redo (zundo)</small>"
+canvas:  "Canvas Renderer<br><small>SVG · pan/zoom</small>"
+bclient: "Bridge Client"
+
+# --- Diagram engine (shared by SPA + export) ---
+parser:    "D2 Parser<br><small>Chevrotain</small>"
+normalize: "Normalize<br><small>+ grid snap</small>"
+elk:       "ELK Router<br><small>libavoid WASM</small>"
+
+# --- Headless export (epure export) ---
+export: "Headless Export<br><small>SSR SVG · resvg → PNG</small>"
+png:    ".png"                                      { shape: rectangle }
+
+# --- File pair on disk (git-tracked) ---
+d2:       ".epr.d2<br><small>topology</small>"      { shape: cylinder }
+layout:   ".epr.layout.json<br><small>visuals</small>" { shape: cylinder }
+comments: ".epr.comments.json<br><small>pins</small>"  { shape: cylinder }
+
+# --- edges: data flow ---
+user -> cli:  "run"
+user -> app:  "edits"
+cli  -> http: "starts · serves"
+cli  -> export: "export"
+http -> app:  "serves SPA"
+
+editor  -> store:   "edits"
+store   -> canvas:  "diagram state"
+store   -> parser:  "D2 source"
+parser  -> normalize
+normalize -> elk
+elk     -> canvas:  "routed geometry"
+store   <-> bclient: "apply / hydrate"
+bclient <-> ws:      "WebSocket"
+
+ws         <-> bridgecore: "frames"
+bridgecore <-> d2
+bridgecore <-> layout
+bridgecore <-> comments
+
+elk    -> export: "render model"
+export -> png:    "PNG bytes"
+
+# --- groups ---
+Server: "Live Bridge Server (Node)" {
+  http
+  ws
+  bridgecore
+}
+Browser: "Browser App — React SPA" {
+  app
+  editor
+  store
+  canvas
+  bclient
+}
+Engine: "Diagram Engine" {
+  parser
+  normalize
+  elk
+}
+Files: "File Pair on Disk (git)" {
+  d2
+  layout
+  comments
+}
