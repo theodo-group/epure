@@ -118,7 +118,8 @@ Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
   - style (all optional): `textSize` (`S|M|L|XL`), `textColor` & `borderColor` (palette), `fillColor`
     (palette + `transparent`,`white`), `borderStyle` (`solid|dashed|dotted`), `shape`
     (`rectangle|cylinder|person`, overrides the `.d2`), `icon` (catalog id string, e.g.
-    `"aws/compute/lambda"`), `iconPosition` (`corner|top`).
+    `"aws/compute/lambda"` — run `npx @theodo/epure icons <query>` to search the 6 000+ catalog),
+    `iconPosition` (`corner|top`).
 - **`edges`** — keyed by **`"src->tgt"`** (the node-id pair). Optional: `color` (palette), `lineStyle`
   (`solid|dashed|dotted`), `width` (`S|M|L|XL`), `startCap`/`endCap` (`none|arrow|dot|diamond`),
   `sourceSide`/`targetSide` (`N|S|E|W`). Edge geometry is auto-routed; sides are hints.

@@ -5,6 +5,7 @@
 //   epure export <file>       render a fit-to-content PNG (so Claude Code can see it)
 //   epure validate <path...>  validate pair(s); non-zero exit on problems
 //   epure fmt <file...>       rewrite layout(s) in canonical form
+//   epure icons [query]       list available icons (providers, or search)
 //   epure skill install       copy the epure-diagram skill to ~/.claude/skills
 //                             (--local installs into ./.claude/skills instead)
 //
@@ -25,6 +26,7 @@ import { validateLayoutJson } from '../src/file/layoutSchema'
 import { setLibavoidWasmPath } from '../src/layout/elk'
 import type { LayoutSidecar } from '../src/layout/types'
 
+import { ICON_CATALOG, searchIcons, PROVIDERS } from '../src/icons'
 import { resolvePair, type ResolvedPair, EXT } from '../server/core/pair'
 import { portForPath } from '../server/core/port'
 import { validatePair, type ValidationIssue } from '../server/core/validate'
@@ -337,6 +339,48 @@ const expandToPairs = async (targets: string[]): Promise<ResolvedPair[]> => {
   return pairs
 }
 
+const cmdIcons = (args: string[], json: boolean): number => {
+  let provider: string | undefined
+  let limit = 200
+  const queryParts: string[] = []
+
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i]!
+    if (a === '--provider' || a === '-p') provider = args[++i]
+    else if (a === '--limit' || a === '-n') limit = Number(args[++i]) || 200
+    else if (!a.startsWith('-')) queryParts.push(a)
+  }
+
+  const query = queryParts.join(' ')
+
+  if (!query && !provider) {
+    if (json) {
+      process.stdout.write(JSON.stringify(PROVIDERS) + '\n')
+    } else {
+      process.stdout.write(`${ICON_CATALOG.length} icons across ${PROVIDERS.length} providers:\n\n`)
+      for (const p of PROVIDERS)
+        process.stdout.write(`  ${p.key.padEnd(16)} ${p.label.padEnd(18)} ${p.count} icons\n`)
+      process.stdout.write(`\nUsage: epure icons <query> [--provider <key>] [--limit <n>]\n`)
+    }
+    return 0
+  }
+
+  const results = searchIcons(query, { provider, limit })
+  if (json) {
+    process.stdout.write(JSON.stringify(results) + '\n')
+  } else {
+    if (results.length === 0) {
+      process.stdout.write('no icons found\n')
+      return 1
+    }
+    for (const m of results)
+      process.stdout.write(`${m.id.padEnd(52)} ${m.name}\n`)
+    if (results.length >= limit)
+      process.stdout.write(`\n(limited to ${limit} — use --limit or narrow the query)\n`)
+  }
+  return 0
+}
+
 // ── dispatch ────────────────────────────────────────────────────────────────
 
 const main = async (): Promise<void> => {
@@ -347,7 +391,7 @@ const main = async (): Promise<void> => {
 
   if (!first || first === '--help' || first === '-h') {
     process.stdout.write(
-      'usage: epure <file> | new <file> | export <file> | validate <path...> | fmt <file...> | skill install\n',
+      'usage: epure <file> | new <file> | export <file> | validate <path...> | fmt <file...> | icons [query] | skill install\n',
     )
     process.exit(first ? 0 : 1)
   }
@@ -368,6 +412,9 @@ const main = async (): Promise<void> => {
       break
     case 'export':
       process.exit(await cmdExport(rest))
+      break
+    case 'icons':
+      process.exit(cmdIcons(rest, json))
       break
     case 'skill':
       if (rest[0] !== 'install') {

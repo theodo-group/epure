@@ -10,7 +10,7 @@ export { ICON_CATALOG }
 
 // Vite serves public/ at the app base path; honour a non-root base (e.g. when
 // deployed under a GitHub Pages subpath).
-const BASE = import.meta.env.BASE_URL || '/'
+const BASE = import.meta.env?.BASE_URL || '/'
 
 /** Static URL for an icon file path (e.g. "aws/compute/ec2.png"). */
 export const iconUrl = (file: string): string =>
