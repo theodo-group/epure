@@ -214,14 +214,24 @@ export const route = async (
 
   const edgeMeta = new Map<
     string,
-    { source: string; target: string; sourceSide: Side; targetSide: Side }
+    {
+      source: string
+      target: string
+      sourceSide: Side
+      targetSide: Side
+      // Whether each side was pinned in the layout sidecar (vs. auto-derived).
+      // An explicit side is authoritative: geometry won't change it and the
+      // libavoid face-adoption step below leaves it alone.
+      explicitSource: boolean
+      explicitTarget: boolean
+    }
   >()
 
   const elkEdges: ElkEdge[] = diagram.edges.map((e, i) => {
-    // Auto-pick the most logical sides based on relative position. Whichever
-    // axis (x or y) separates the two nodes more dictates the side; the
-    // target gets the opposite side. The layout's stored sides are no
-    // longer authoritative — geometry is.
+    // Default sides from relative position: whichever axis (x or y) separates
+    // the two nodes more dictates the side; the target gets the opposite side.
+    // A `sourceSide`/`targetSide` pinned in the layout sidecar overrides this
+    // guess and is honored end-to-end.
     const src = pixelNodes[e.source]!
     const tgt = pixelNodes[e.target]!
     const srcCx = src.x + src.w / 2
@@ -239,12 +249,19 @@ export const route = async (
       sourceSide = dy >= 0 ? 'S' : 'N'
       targetSide = dy >= 0 ? 'N' : 'S'
     }
+    const stored = layout.edges[edgeKey(e.source, e.target)]
+    const explicitSource = stored?.sourceSide !== undefined
+    const explicitTarget = stored?.targetSide !== undefined
+    if (explicitSource) sourceSide = stored!.sourceSide!
+    if (explicitTarget) targetSide = stored!.targetSide!
     const id = makeEdgeId(e.source, e.target, i)
     edgeMeta.set(id, {
       source: e.source,
       target: e.target,
       sourceSide,
       targetSide,
+      explicitSource,
+      explicitTarget,
     })
     return {
       id,
@@ -328,11 +345,26 @@ export const route = async (
         result.targetPoint,
       ])
       if (poly.length < 2) continue
-      meta.sourceSide = sideFromSegment(poly[0]!, poly[1]!)
-      meta.targetSide = sideFromSegment(
+      const libSourceSide = sideFromSegment(poly[0]!, poly[1]!)
+      const libTargetSide = sideFromSegment(
         poly[poly.length - 1]!,
         poly[poly.length - 2]!,
       )
+      // A pinned side is authoritative. libavoid ignores the ports we supply and
+      // attaches wherever is cheapest, so when its face disagrees with the pin it
+      // can't honor it — fall back to the synthetic path, which leaves/enters
+      // perpendicular to the pinned face (accepting any crossing the pin implies)
+      // rather than silently re-routing onto a different face. When libavoid's
+      // face already AGREES with the pin (the common case — sensible pins), keep
+      // its obstacle-avoiding detour: same face, no overlap with its neighbours.
+      if (
+        (meta.explicitSource && libSourceSide !== meta.sourceSide) ||
+        (meta.explicitTarget && libTargetSide !== meta.targetSide)
+      ) {
+        continue
+      }
+      if (!meta.explicitSource) meta.sourceSide = libSourceSide
+      if (!meta.explicitTarget) meta.targetSide = libTargetSide
       libRoutes.set(e.id, poly)
     }
   }
@@ -373,9 +405,12 @@ export const route = async (
         bendCoord,
       )
       // Safety net: port distribution may have nudged a synthetic path into a
-      // node the centre path cleared. Swap in libavoid's route if so.
+      // node the centre path cleared. Swap in libavoid's route if so — unless a
+      // side was pinned, in which case the chosen face wins over avoidance.
       if (
         libavoidOk &&
+        !meta.explicitSource &&
+        !meta.explicitTarget &&
         pathCrossesForeignNode(points, pixelNodes, meta.source, meta.target)
       ) {
         const result = routes.get(e.id)
@@ -965,6 +1000,23 @@ const segmentsFor = (
   return segs
 }
 
+// Axis-aligned segments of an already-rendered polyline (e.g. a libavoid route).
+// These edges aren't moved by the resolver, but other edges must still avoid
+// running on top of them, so we expose their legs as fixed obstacles.
+const segmentsFromPolyline = (poly: Pt[]): AxisSegment[] => {
+  const segs: AxisSegment[] = []
+  for (let i = 1; i < poly.length; i += 1) {
+    const a = poly[i - 1]!
+    const b = poly[i]!
+    if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) >= 0.5) {
+      segs.push({ axis: 'V', coord: a.x, lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), endpoint: null })
+    } else if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) >= 0.5) {
+      segs.push({ axis: 'H', coord: a.y, lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), endpoint: null })
+    }
+  }
+  return segs
+}
+
 const nudgeAnchorAlongFace = (
   node: Rect,
   side: Side,
@@ -996,7 +1048,100 @@ const resolveSegmentOverlaps = (
   const OVERLAP_TOLERANCE = 4 // segments closer than this are considered identical
   const nudgeAmount = Math.max(gridSize / 2, 16)
   const NUDGE_ATTEMPTS = [nudgeAmount, -nudgeAmount, nudgeAmount * 2, -nudgeAmount * 2]
-  const MAX_ITERATIONS = 6
+  // Two parallel BEND legs that merely run close (e.g. a counter-directional
+  // A→B / B→A pair) still read as one overlapping line, so we don't just break
+  // the 4px tie — we open a full grid cell between them.
+  const BEND_MIN_GAP = gridSize
+  // One conflict is resolved per pass; the diagram has enough edges that a few
+  // relocations can cascade, so allow a generous (still bounded) budget.
+  const MAX_ITERATIONS = 16
+  // Endpoint nudges move a fixed step (not to a guaranteed-clear slot), so two
+  // legs on one face can ping-pong forever. Cap each so the loop can't spin on
+  // an unsolvable face and starve the bend relocations.
+  const MAX_ENDPOINT_NUDGES = 3
+  const endpointNudges = new Map<string, number>()
+
+  const bendCoordOf = (h: EdgeRoutingHints, axis: 'H' | 'V'): number =>
+    h.bendCoord ??
+    (axis === 'V'
+      ? (h.sourceAnchor.x + h.targetAnchor.x) / 2
+      : (h.sourceAnchor.y + h.targetAnchor.y) / 2)
+
+  // libavoid-routed edges aren't moved here, but their rendered legs are fixed
+  // obstacles every relocation must avoid — otherwise a nudge can shove a
+  // synthetic edge straight onto a route the resolver can't see.
+  const fixedSegments: AxisSegment[] = []
+  for (const poly of skip.values()) fixedSegments.push(...segmentsFromPolyline(poly))
+
+  const spanOverlap = (a: AxisSegment, b: AxisSegment): number =>
+    Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo)
+
+  // Two orthogonal legs cross when a vertical's x falls strictly inside a
+  // horizontal's x-range and that horizontal's y falls strictly inside the
+  // vertical's y-range. Strict bounds so a shared corner/T-junction isn't a
+  // crossing.
+  const segmentsCross = (a: AxisSegment, b: AxisSegment): boolean => {
+    if (a.axis === b.axis) return false
+    const v = a.axis === 'V' ? a : b
+    const h = a.axis === 'V' ? b : a
+    return v.coord > h.lo && v.coord < h.hi && h.coord > v.lo && h.coord < v.hi
+  }
+
+  // Slide a bend leg to a coordinate that (a) clears every other leg by a full
+  // gap and (b) introduces no edge crossing. Picking the nearest clear slot
+  // alone isn't enough: separating a counter-directional A→B / B→A pair to the
+  // wrong side makes the two links cross instead of nest. So among clear slots
+  // we prefer the nearest *crossing-free* one, falling back to fewest crossings.
+  const relocateBendLeg = (
+    edgeId: string,
+    leg: AxisSegment,
+    segs: Map<string, AxisSegment[]>,
+  ): boolean => {
+    const hints = edgeAnchors.get(edgeId)
+    const meta = edgeMeta.get(edgeId)
+    if (!hints || !meta) return false
+    const axis = leg.axis
+    const span = axis === 'V'
+      ? [hints.sourceAnchor.x, hints.targetAnchor.x]
+      : [hints.sourceAnchor.y, hints.targetAnchor.y]
+    const margin = Math.min(nudgeAmount, (Math.max(...span) - Math.min(...span)) / 3)
+    const lo = Math.min(...span) + margin
+    const hi = Math.max(...span) - margin
+    if (hi <= lo) return false
+    const otherSegs: AxisSegment[] = [...fixedSegments]
+    for (const [oid, osegs] of segs) if (oid !== edgeId) otherSegs.push(...osegs)
+    const blockers = otherSegs
+      .filter((os) => os.axis === axis && spanOverlap(os, leg) > OVERLAP_TOLERANCE)
+      .map((os) => os.coord)
+    const clear = (c: number): boolean =>
+      c >= lo && c <= hi && blockers.every((b) => Math.abs(c - b) >= BEND_MIN_GAP - 1)
+    const crossingsAt = (c: number): number => {
+      let n = 0
+      for (const ms of segmentsFor({ ...hints, bendCoord: c }, meta, gridSize)) {
+        for (const os of otherSegs) if (segmentsCross(ms, os)) n += 1
+      }
+      return n
+    }
+    const cur = bendCoordOf(hints, axis)
+    const step = Math.max(8, gridSize / 4)
+    let best: { c: number; cross: number } | null = null
+    for (let d = step; d <= hi - lo; d += step) {
+      for (const c of [cur + d, cur - d]) {
+        if (!clear(c)) continue
+        const cross = crossingsAt(c)
+        if (cross === 0) {
+          edgeAnchors.set(edgeId, { ...hints, bendCoord: c })
+          return true
+        }
+        if (!best || cross < best.cross) best = { c, cross }
+      }
+    }
+    if (best) {
+      edgeAnchors.set(edgeId, { ...hints, bendCoord: best.c })
+      return true
+    }
+    return false
+  }
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter += 1) {
     const segs = new Map<string, AxisSegment[]>()
@@ -1006,59 +1151,75 @@ const resolveSegmentOverlaps = (
       segs.set(edgeId, segmentsFor(hints, m, gridSize))
     }
 
-    type Conflict = {
-      edgeId: string
-      endpoint: 'source' | 'target'
+    // Every leg this movable edge could collide with: other movable edges' legs
+    // plus the fixed libavoid routes.
+    const others = (selfId: string): AxisSegment[] => {
+      const out: AxisSegment[] = [...fixedSegments]
+      for (const [oid, osegs] of segs) if (oid !== selfId) out.push(...osegs)
+      return out
     }
-    let conflict: Conflict | null = null
-    const edgeIds = [...segs.keys()]
-    outer: for (let i = 0; i < edgeIds.length; i += 1) {
-      for (let j = i + 1; j < edgeIds.length; j += 1) {
-        const e1 = edgeIds[i]!
-        const e2 = edgeIds[j]!
-        const segs1 = segs.get(e1)!
-        const segs2 = segs.get(e2)!
-        for (const s1 of segs1) {
-          for (const s2 of segs2) {
-            if (s1.axis !== s2.axis) continue
-            if (Math.abs(s1.coord - s2.coord) > OVERLAP_TOLERANCE) continue
-            const lo = Math.max(s1.lo, s2.lo)
-            const hi = Math.min(s1.hi, s2.hi)
-            if (hi - lo <= OVERLAP_TOLERANCE) continue
-            // Prefer to nudge the endpoint-segment (the one that touches a
-            // node face) — those have a clear nudge axis (along the face).
-            // Skip pairs where neither segment is an endpoint segment (both
-            // are bend legs, harder to safely move).
-            if (s2.endpoint) {
-              conflict = { edgeId: e2, endpoint: s2.endpoint }
-              break outer
-            }
-            if (s1.endpoint) {
-              conflict = { edgeId: e1, endpoint: s1.endpoint }
-              break outer
-            }
+
+    // Collect ALL conflicts this pass (endpoint legs preferred — nudging along a
+    // node face is the cheapest move). We then try them in order and act on the
+    // first that actually makes progress: skipping an unsolvable one instead of
+    // aborting is what lets a later, solvable conflict still get fixed.
+    const endpointConflicts: { edgeId: string; endpoint: 'source' | 'target' }[] = []
+    const bendConflicts: { edgeId: string; leg: AxisSegment }[] = []
+    for (const [e1, segs1] of segs) {
+      const rest = others(e1)
+      for (const s1 of segs1) {
+        for (const s2 of rest) {
+          if (s1.axis !== s2.axis) continue
+          if (spanOverlap(s1, s2) <= OVERLAP_TOLERANCE) continue // no shared span
+          const coordGap = Math.abs(s1.coord - s2.coord)
+          // Only (near-)coincident legs count as overlapping — legs that merely
+          // run close are left alone so existing tight bundles aren't spread
+          // apart. A flagged bend leg is then relocated to a clear GAP, not just
+          // off the shared coordinate, so the fix is unambiguously visible.
+          if (coordGap > OVERLAP_TOLERANCE) continue
+          // s2 may be a fixed (immovable) leg, so only s1 — always movable — is a
+          // candidate; the other edge's conflicts surface when it is scanned.
+          if (s1.endpoint) {
+            endpointConflicts.push({ edgeId: e1, endpoint: s1.endpoint })
+          } else {
+            bendConflicts.push({ edgeId: e1, leg: s1 })
           }
+          break // one conflict per leg is enough to drive a fix
         }
       }
     }
 
-    if (!conflict) return
-
-    const m = edgeMeta.get(conflict.edgeId)!
-    const hints = edgeAnchors.get(conflict.edgeId)!
-    const isSource = conflict.endpoint === 'source'
-    const side = isSource ? m.sourceSide : m.targetSide
-    const nodeId = isSource ? m.source : m.target
-    const node = nodes[nodeId]
-    if (!node) return
-    const currentAnchor = isSource ? hints.sourceAnchor : hints.targetAnchor
-    const nudged = nudgeAnchorAlongFace(node, side, currentAnchor, NUDGE_ATTEMPTS)
-    if (nudged === currentAnchor) return
-    edgeAnchors.set(conflict.edgeId, {
-      ...hints,
-      sourceAnchor: isSource ? nudged : hints.sourceAnchor,
-      targetAnchor: isSource ? hints.targetAnchor : nudged,
-    })
+    // Resolve one endpoint AND one bend per pass — independently — so an
+    // oscillating face can never starve the bend relocations.
+    let progressed = false
+    for (const c of endpointConflicts) {
+      const key = `${c.edgeId}:${c.endpoint}`
+      if ((endpointNudges.get(key) ?? 0) >= MAX_ENDPOINT_NUDGES) continue
+      const m = edgeMeta.get(c.edgeId)!
+      const hints = edgeAnchors.get(c.edgeId)!
+      const isSource = c.endpoint === 'source'
+      const node = nodes[isSource ? m.source : m.target]
+      if (!node) continue
+      const side = isSource ? m.sourceSide : m.targetSide
+      const currentAnchor = isSource ? hints.sourceAnchor : hints.targetAnchor
+      const nudged = nudgeAnchorAlongFace(node, side, currentAnchor, NUDGE_ATTEMPTS)
+      if (nudged === currentAnchor) continue // can't move this one — try the next
+      endpointNudges.set(key, (endpointNudges.get(key) ?? 0) + 1)
+      edgeAnchors.set(c.edgeId, {
+        ...hints,
+        sourceAnchor: isSource ? nudged : hints.sourceAnchor,
+        targetAnchor: isSource ? hints.targetAnchor : nudged,
+      })
+      progressed = true
+      break
+    }
+    for (const c of bendConflicts) {
+      if (relocateBendLeg(c.edgeId, c.leg, segs)) {
+        progressed = true
+        break
+      }
+    }
+    if (!progressed) return // nothing left we can improve
   }
 }
 
