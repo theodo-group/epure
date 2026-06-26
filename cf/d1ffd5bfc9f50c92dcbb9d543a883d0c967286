@@ -1,0 +1,131 @@
+src/feedback/useFeedback.ts
+  s_daae0451d0e602::t_e046944a7000c9 1-4,12-18,20-36,39-56,58-60,62,74-84,97-129,131-140,142-153
+  s_daae0451d0e602::t_50de66994a2b91 5-11,19,37-38,57,61,67-68,72-73,88-89,130,141
+  s_daae0451d0e602::t_e756a11c82adad 94-95
+  s_daae0451d0e602::t_3a88f31576441e 63-66,69-71
+  s_daae0451d0e602::t_73e614588a1ee4 85-87,90-93,96
+server/core/feedback.test.ts
+  s_daae0451d0e602::t_eb45ccb80b02ae 21,25-26
+  s_daae0451d0e602::t_bd461d2e99dda4 1-3,10-20,22-24,27-55,69-138,188
+  s_daae0451d0e602::t_c884357049ac74 56-68
+  s_daae0451d0e602::t_cce9e93871247e 139-187
+  s_daae0451d0e602::t_877e85f41e942b 4-9
+server/core/feedback.ts
+  s_daae0451d0e602::t_9e94f280b73059 90-96,101
+  s_daae0451d0e602::t_fd1e1263769aae 118-123,133-138
+  s_daae0451d0e602::t_01157f1ec62e87 37-40
+  s_daae0451d0e602::t_ad85b082a2a02c 1-13,15-28,30-36,41-64,69-89,97-100,102-117,124-129,131-132,139-164,167-170,177-178,182-184,186,188-201
+  s_daae0451d0e602::t_dab37d1ea36207 14
+  s_daae0451d0e602::t_173fc08e908ed5 29
+  s_daae0451d0e602::t_91365035eb0d1e 65-68
+  s_daae0451d0e602::t_6a9de94f9e6bcd 165-166,171-176,179-181,185,187
+  s_daae0451d0e602::t_350d002595d04e 130
+src/bridge/sync.ts
+  s_daae0451d0e602::t_253e4ffc014434 15-17
+src/renderer/Canvas.tsx
+  s_daae0451d0e602::t_9b4a4a5b103588 609-628
+  s_daae0451d0e602::t_3bc858b0bc2a68 130-187
+  s_daae0451d0e602::t_32fadf8fa10b13 16
+  s_daae0451d0e602::t_e86df4853c7bdb 67-74
+  s_daae0451d0e602::t_fd72d2581f1307 216-219
+  s_daae0451d0e602::t_31d0142885e130 347-356,361-363,365
+src/App.tsx
+  s_daae0451d0e602::t_ed063ac927b8ce 150-153
+  s_daae0451d0e602::t_dfa2e2f470f9d0 508-511,514
+  s_daae0451d0e602::t_3d9d0e8f3cf901 33-34
+server/ws.ts
+  s_daae0451d0e602::t_22f1cc66728af2 149-154
+  s_daae0451d0e602::t_5276ce1bf0910c 93-97
+  s_daae0451d0e602::t_e4a88ec99e3f0d 119-121,127
+  s_daae0451d0e602::t_dc7ce5f835c6df 19,33-36
+src/bridge/useBridge.test.tsx
+  s_daae0451d0e602::t_ce489f46b7a889 176-193,198-202
+  s_daae0451d0e602::t_4275f5d945f83c 194-197
+server/core/pair.ts
+  s_daae0451d0e602::t_777bb3c73f3cb3 1-2
+  s_daae0451d0e602::t_280cc5f7fd68b4 31-33
+server/standalone.ts
+  s_daae0451d0e602::t_8269e85b25bec8 237
+  s_daae0451d0e602::t_296a78b2e53b0e 11,13,17-41
+  s_daae0451d0e602::t_9bbf1d1f4739e2 109-131
+  s_daae0451d0e602::t_9d530fc921c07b 148-157,166,171-202,206,208,215-216,220
+  s_daae0451d0e602::t_6612e02d771796 158-165,167-170
+  s_daae0451d0e602::t_474332c6717e4f 42
+src/feedback/FeedbackToolbar.tsx
+  s_daae0451d0e602::t_feb3da7195bc05 129,131,133,136,139-167
+  s_daae0451d0e602::t_5769ccdb1a530b 39-49
+  s_daae0451d0e602::t_e3b9710f3359f4 1-38,50-128,130,132,134-135,137-138,168-277
+bin/epure.ts
+  s_daae0451d0e602::t_59fa6995ffa451 628-630
+  s_daae0451d0e602::t_2c057e1e5932da 321-322
+  s_daae0451d0e602::t_f10d2198442898 416-426
+  s_daae0451d0e602::t_5392cdf06ec696 486-491
+  s_daae0451d0e602::t_a8404e24368f08 408,412-415
+  s_daae0451d0e602::t_cb8709c50587ba 310-320,323-338,349-407,409-411,427-433,438-439,441-448,450-485,492-500,505-506,512-520
+  s_daae0451d0e602::t_bee347245294de 449
+  s_daae0451d0e602::t_636e7a3f6eed49 501-504,507-511
+  s_daae0451d0e602::t_dafd274743dfc5 18
+  s_daae0451d0e602::t_3199f23bb73e58 6
+  s_daae0451d0e602::t_fd1e7a09254d4d 339-348
+  s_daae0451d0e602::t_c35e1071fbd9bc 434-437,440
+server/core/frames.ts
+  s_daae0451d0e602::t_5fb13718fcea75 24
+src/bridge/protocol.ts
+  s_daae0451d0e602::t_bc468c794b690f 47-97
+  s_daae0451d0e602::t_9c51c767463cca 6-9,13-14,16
+  s_daae0451d0e602::t_ad03dcca4a596d 138-145
+  s_daae0451d0e602::t_14b7db37f7d26d 129-137,146-160,162
+  s_daae0451d0e602::t_72291ec8b9f29d 161
+src/feedback/useFeedback.test.tsx
+  s_daae0451d0e602::t_b434820047e361 1-73
+src/bridge/BridgeClient.ts
+  s_daae0451d0e602::t_a319463d10902c 45-46,49-50
+  s_daae0451d0e602::t_58fbf1c4c5784d 13
+  s_daae0451d0e602::t_18c6dc89a00b08 227-229
+  s_daae0451d0e602::t_290e0a855922e3 224-226,230-232
+  s_daae0451d0e602::t_8f10402d756d18 136-145
+  s_daae0451d0e602::t_eae494ef58166d 47-48
+server/vite-plugin.ts
+  s_daae0451d0e602::t_aaef65cf62b3f1 78,98
+  s_daae0451d0e602::t_9edc7f7787921c 108
+  s_daae0451d0e602::t_07ee25001be7e7 19
+  s_daae0451d0e602::t_5050d80f24cd3f 74-77,85-94
+src/App.css
+  s_daae0451d0e602::t_28192f6dffd9e3 935-941
+  s_daae0451d0e602::t_82e0d6838b6f7f 942-948
+server/standalone.test.ts
+  s_daae0451d0e602::t_0b38e27257b3d6 26-51
+  s_daae0451d0e602::t_e99338ac437f3e 118,133,147
+  s_daae0451d0e602::t_c980a0421c4792 151-176
+  s_daae0451d0e602::t_48f308948e39d0 116-117,119-132,134-146,148-150,177-183
+  s_daae0451d0e602::t_5ef7d575307ec8 1
+src/bridge/useBridge.ts
+  s_daae0451d0e602::t_b797f57168bff2 152-158,160-161
+  s_daae0451d0e602::t_8218572ad10cf8 49-50
+  s_daae0451d0e602::t_1f9c38988d6008 159
+  s_daae0451d0e602::t_ca1a9880195c30 75,77
+  s_daae0451d0e602::t_ad52ea3757a6ba 47-48,51-54
+  s_daae0451d0e602::t_90b3b7b02b007f 261
+  s_daae0451d0e602::t_2f85cc1a32bfa2 76
+  s_daae0451d0e602::t_1d713494d964a8 246-260,262-264
+  s_daae0451d0e602::t_afa4184e83ab8a 12,22
+  s_daae0451d0e602::t_bcdfee5033d643 123,126
+server/core/bridge.ts
+  s_daae0451d0e602::t_5b17a660b2ec81 161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "cfd1ffd5bfc9f50c92dcbb9d543a883d0c967286",
+  "prompts": {},
+  "sessions": {
+    "s_daae0451d0e602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e146484a-debe-488e-8b58-e3b18612ca6d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
