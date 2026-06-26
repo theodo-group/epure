@@ -21,8 +21,7 @@ export interface ContentVerdict {
    * are semantically identical:
    *   - `layout` is canonicalized, so the UI's `JSON.stringify` and CC's
    *     hand-formatting collapse to one key (kills the formatting oscillation),
-   *   - `d2` is the human source itself, so the key is the raw bytes,
-   *   - `comments` is raw JSON text (reserved; not yet shipped).
+   *   - `d2` is the human source itself, so the key is the raw bytes.
    * `null` when the content is invalid (an invalid file is never "written by
    * us" and never suppresses a future valid write).
    */
@@ -50,15 +49,6 @@ export const verdictFor = (kind: FileKind, content: string): ContentVerdict => {
         valid: false,
         error: first ? formatError(first.message, first.range.start) : 'invalid layout',
         key: null,
-      }
-    }
-    case 'comments': {
-      // Reserved sidecar: only a well-formedness check until the feature ships.
-      try {
-        JSON.parse(content)
-        return { valid: true, key: content }
-      } catch (e) {
-        return { valid: false, error: (e as Error).message, key: null }
       }
     }
   }

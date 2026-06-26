@@ -12,9 +12,9 @@ import type { FileKind } from './protocol'
 
 /**
  * Normalized identity of a kind's content. Two contents with the same key are
- * semantically identical: layout is canonicalized; d2/comments are raw.
- * Returns null when the content is invalid (an invalid buffer has no identity
- * and is never written to disk).
+ * semantically identical: layout is canonicalized; d2 is raw. Returns null when
+ * the content is invalid (an invalid buffer has no identity and is never
+ * written to disk).
  */
 export const contentKey = (kind: FileKind, content: string): string | null => {
   switch (kind) {
@@ -24,13 +24,6 @@ export const contentKey = (kind: FileKind, content: string): string | null => {
       const result = validateLayoutJson(content)
       return result.value ? canonicalizeLayout(result.value) : null
     }
-    case 'comments':
-      try {
-        JSON.parse(content)
-        return content
-      } catch {
-        return null
-      }
   }
 }
 

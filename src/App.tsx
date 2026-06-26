@@ -30,8 +30,8 @@ import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { useBridge } from '@/bridge/useBridge'
 import { readInjectedBridge } from '@/bridge/config'
 import { interaction } from '@/bridge/interaction'
-import { useCommentsStore } from '@/comments/store'
-import { CommentsPanel } from '@/comments/CommentsPanel'
+import { useFeedback } from '@/feedback/useFeedback'
+import { FeedbackToolbar } from '@/feedback/FeedbackToolbar'
 
 import fixtureSource from '../fixtures/system.epr.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.epr.layout.json?raw'
@@ -147,13 +147,10 @@ export const App = () => {
   // returns presentational status for the footer pill.
   const bridge = useBridge()
 
-  // Comments (pins) live in their own store, synced to the .epr.comments.json
-  // sidecar by the bridge.
-  const comments = useCommentsStore((s) => s.comments)
-  const commentMode = useCommentsStore((s) => s.commentMode)
-  const selectedCommentId = useCommentsStore((s) => s.selectedId)
-  const addComment = useCommentsStore((s) => s.addComment)
-  const selectComment = useCommentsStore((s) => s.selectComment)
+  // Live feedback (impeccable-style): the toolbar's pick/insert/text submissions
+  // ride the bridge socket to the server queue; the host Claude Code drains them
+  // over `epure poll`. Ephemeral — nothing is written to disk.
+  const feedback = useFeedback(bridge)
 
   // Hydrate from localStorage on mount, falling back to the bundled fixture.
   // In bridge mode the WS hydrate is authoritative — skip localStorage entirely
@@ -508,16 +505,13 @@ export const App = () => {
               onFitView={() => setFitVersion((v) => v + 1)}
               nodes={nodesMeta}
               edges={edgesMeta}
-              comments={comments}
-              commentMode={commentMode}
-              selectedCommentId={selectedCommentId}
-              onPlaceComment={(gridX, gridY, ref) =>
-                addComment(ref ? { x: gridX, y: gridY, ref } : { x: gridX, y: gridY })
-              }
-              onSelectComment={selectComment}
+              feedbackMode={feedback.mode}
+              feedbackTarget={feedback.target}
+              onPick={feedback.pick}
+              onInsertPoint={feedback.insertPoint}
             />
             <StylePanel />
-            <CommentsPanel docName={bridge.active ? bridge.filename : undefined} bridged={bridge.active} />
+            {bridge.active ? <FeedbackToolbar fb={feedback} /> : null}
           </Panel>
         </PanelGroup>
       </div>

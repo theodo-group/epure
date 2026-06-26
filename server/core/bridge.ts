@@ -158,7 +158,7 @@ export class BridgeCore {
   }
 
   /** Validate content for a kind and return the exact bytes to persist:
-   *  canonical form for layout, the raw human source for d2/comments. */
+   *  canonical form for layout, the raw human source for d2. */
   private finalBytes(kind: FileKind, content: string): string {
     if (kind === 'layout') {
       const result = validateLayoutJson(content)

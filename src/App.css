@@ -932,3 +932,17 @@ body.epure-dragging * {
   -webkit-user-select: none !important;
   cursor: grabbing !important;
 }
+
+/* Live-feedback status dot: amber pulses while no agent is attached to the poll. */
+@keyframes ep-fb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.ep-fb-dot--idle { animation: ep-fb-pulse 1.4s ease-in-out infinite; }
+
+/* Live-feedback "Claude is thinking…" pulse while an event is being worked on. */
+@keyframes ep-fb-think {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.ep-fb-thinking { animation: ep-fb-think 1s ease-in-out infinite; }
