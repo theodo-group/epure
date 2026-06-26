@@ -1,0 +1,36 @@
+README.md
+  s_daae0451d0e602::t_70fffc5cbce3f2 13-14
+  s_daae0451d0e602::t_4db0bbcdd0eab9 33-34
+docs/diagrams/architecture.epr.d2
+  s_daae0451d0e602::t_e87e9daf05d7f3 8,11
+  s_daae0451d0e602::t_94c6f7ef42671b 65
+  s_daae0451d0e602::t_599835f1d07681 53-55
+  s_daae0451d0e602::t_eef3754d2d9615 5
+  s_daae0451d0e602::t_741ddcaa96092f 52
+docs/diagrams/architecture.epr.layout.json
+  s_daae0451d0e602::t_9c414fe124890d 13-14,21
+  s_daae0451d0e602::t_de53e81f7d4ca2 28
+  s_daae0451d0e602::t_f76c7c98059ec9 6
+  s_daae0451d0e602::t_f449c216d81c61 42-43
+  s_daae0451d0e602::t_86b3f4ba7e82a6 8
+  s_daae0451d0e602::t_dffc866e979af0 27
+skills/epure-diagram/SKILL.md
+  s_daae0451d0e602::t_8fe2499137c5d2 181,183-185,187-191,193,196,198,202,204-210,212-213,215-217,219,221-223,225-226
+  s_daae0451d0e602::t_acf2514e53d6ba 176-180,182,186,192,194-195,197,199-201,203,211,214,218,220,224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "4833dc447518cdd80e6630d9ac1b82154873743a",
+  "prompts": {},
+  "sessions": {
+    "s_daae0451d0e602": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e146484a-debe-488e-8b58-e3b18612ca6d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
