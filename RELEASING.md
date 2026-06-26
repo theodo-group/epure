@@ -7,26 +7,33 @@ account and works the moment the repo is public:
 npm i -g github:theodo-group/epure   # self-builds via the `prepare` script
 ```
 
-## Publishing to npm (optional, for a shorter `npx epure`)
+## Publishing to npm
 
-The bare name `epure` on npm is taken by an unrelated abandoned package, so a
-plain `npm publish` will fail. Pick one:
-
-1. **Scoped name** (recommended): set `"name": "@theodo/epure"` (or your org
-   scope) in `package.json`, then:
-   ```sh
-   npm login
-   npm publish --access public
-   ```
-   Users then run `npx @theodo/epure …` (the `epure` *binary* name is unchanged).
-
-2. **Claim/dispute `epure`** via npm support, then publish unscoped.
-
-`prepack` builds `dist/` + `dist-server/` automatically, and the `files` field
-ships only those plus `skills/`. Verify the tarball before publishing:
+The package is already named **`@theodo/epure`** (the bare `epure` name is held
+by an unrelated abandoned package). Publishing is one step once you're logged in
+to an account with access to the `@theodo` npm org:
 
 ```sh
-npm pack --dry-run
+npm login           # interactive — browser + OTP
+npm publish         # publishConfig already sets access: public
+```
+
+The bin name stays `epure`; users then run `npx @theodo/epure …` or
+`npm i -g @theodo/epure`. `prepack` builds `dist/` + `dist-server/`
+automatically and the `files` field ships only those plus `skills/`. Inspect the
+tarball first with `npm pack --dry-run` (note: it's ~7 MB — the bundled icon
+catalog dominates).
+
+## Live editor demo
+
+The static editor is deployed to GitHub Pages from the `gh-pages` branch:
+<https://theodo-group.github.io/epure/>. To redeploy after SPA changes:
+
+```sh
+npx vite build --base=/epure/ && touch dist/.nojekyll
+( cd dist && git init -q && git checkout -qb gh-pages && git add -A \
+  && git commit -qm deploy && git push -qf <repo-url> gh-pages:gh-pages && rm -rf .git )
+npm run build   # restore dist/ to the default base for the CLI
 ```
 
 ## Cutting a version
