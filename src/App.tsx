@@ -23,7 +23,7 @@ import {
   saveStoredHistory,
   type StoredDoc,
 } from '@/file/localStore'
-import { validateLayoutJson } from '@/file/layoutSchema'
+import { locateLayoutKeyRanges, validateLayoutJson } from '@/file/layoutSchema'
 import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
@@ -100,6 +100,7 @@ export const App = () => {
   const setSelection = useDiagramStore((s) => s.setSelection)
   const moveNode = useDiagramStore((s) => s.moveNode)
   const moveNodes = useDiagramStore((s) => s.moveNodes)
+  const setEdgeLabelOffset = useDiagramStore((s) => s.setEdgeLabelOffset)
   const resizeNode = useDiagramStore((s) => s.resizeNode)
   const areaDragStartRef = useRef<Record<string, { cx: number; cy: number }>>({})
   const [fitVersion, setFitVersion] = useState(0)
@@ -200,14 +201,30 @@ export const App = () => {
     reparse()
   }, [source, reparse])
 
-  // Mirror the canvas selection into the d2 editor as range highlights so the
-  // user can see which lines define the selected element(s). Edge ids encode
-  // the AST index after `#`; node/area ids match their declarations directly.
-  // Skipped while the layout JSON tab is active — those ranges don't map.
+  // Mirror the canvas selection into whichever editor tab is active as range
+  // highlights, so the user can see which declaration defines the selected
+  // element(s). On the d2 tab we use the AST source ranges; on the layout JSON
+  // tab we locate the matching keys in the sidecar (nodes/edges/areas). Edge ids
+  // encode the AST index after `#` — the d2 ranges are per-edge, while the
+  // layout keys the style by `source->target` (shared across parallel edges).
   useEffect(() => {
     const handle = editorRef.current
     if (!handle) return
-    if (activeTab !== 'd2') return
+
+    if (activeTab === 'layout') {
+      // Strip the `#index` ordinal so selected siblings collapse onto their
+      // shared style key. Areas/nodes match their layout keys directly.
+      const edgeKeys = selectedEdgeIds.map((id) => id.split('#')[0]!)
+      handle.highlightRanges(
+        locateLayoutKeyRanges(layoutText, {
+          nodes: selectedNodeIds,
+          edges: edgeKeys,
+          areas: selectedAreaIds,
+        }),
+      )
+      return
+    }
+
     if (!parseResult.ok) {
       handle.highlightRanges([])
       return
@@ -237,6 +254,7 @@ export const App = () => {
     selectedEdgeIds,
     parseResult,
     activeTab,
+    layoutText,
   ])
 
   // Reroute whenever a successful parse or layout lands.
@@ -452,6 +470,7 @@ export const App = () => {
                 moveNodes(moves)
               }}
               onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
+              onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
               onMarqueeSelect={(nodeIds, areaIds, additive) => {
                 if (additive) {
                   const st = useDiagramStore.getState()

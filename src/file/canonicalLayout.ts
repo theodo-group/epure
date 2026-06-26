@@ -34,6 +34,7 @@ const NODE_FIELD_ORDER = [
 const EDGE_FIELD_ORDER = [
   'sourceSide', 'targetSide',
   'color', 'lineStyle', 'width', 'startCap', 'endCap',
+  'labelDx', 'labelDy',
 ] as const
 
 const AREA_FIELD_ORDER = [

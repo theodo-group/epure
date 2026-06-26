@@ -1,9 +1,11 @@
-import type { FC } from 'react'
+import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { EdgeDirection, EdgeStyle } from '@/parser/ast'
+import type { Crossing } from '@/layout/crossings'
 import type { EdgeRoute } from '@/layout/types'
 import type { EndCap, LineStyle, Size } from '@/style/palette'
 import { dashArrayFor, solidOf, STROKE_WIDTH } from '@/style/palette'
+import { beginDrag, endDrag } from './dragState'
 
 interface EdgeProps {
   edge: EdgeRoute
@@ -14,7 +16,23 @@ interface EdgeProps {
   onSelect?: (id: string, additive: boolean) => void
   textScale?: number
   fontFamily?: string
+  /** Grid pitch (px); used to convert a label drag into integer grid units. */
+  gridSize?: number
+  /** Drag the label to a new offset (grid units). Absent → label is static
+   *  (e.g. the headless export). */
+  onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
+  /** Points where this edge passes UNDER another edge. A soft transparent gap
+   *  is faded into the stroke at each, so crossings read clearly. Computed once
+   *  per diagram by `computeCrossings` and shared by the canvas and the export
+   *  so the two never diverge. */
+  crossings?: Crossing[]
 }
+
+// Encode an edge id into a string safe for an SVG element id / `url(#…)` ref:
+// edge ids contain `->` and `#`, which break fragment references. Injective, so
+// distinct edge ids stay distinct (no mask collisions).
+const safeId = (id: string): string =>
+  id.replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.charCodeAt(0)}_`)
 
 // Shared SVG defs for the canvas: the soft-blur used by node icon badges and
 // a diffuse drop shadow applied to every node body.
@@ -35,6 +53,15 @@ export const EdgeDefs: FC = () => (
     <filter id='ep-icon-halo' x='-50%' y='-50%' width='200%' height='200%'>
       <feGaussianBlur stdDeviation='5' />
     </filter>
+    {/* Used as a luminance mask to fade a soft transparent gap into an edge
+        where it passes under another: black core (hidden) fading out to a white
+        rim (visible). Object-bounding-box units, so it scales to each gap
+        circle. See the `crossings` handling in <Edge>. */}
+    <radialGradient id='ep-edge-fade'>
+      <stop offset='0' stopColor='#000' />
+      <stop offset='0.55' stopColor='#000' />
+      <stop offset='1' stopColor='#fff' />
+    </radialGradient>
   </defs>
 )
 
@@ -44,6 +71,17 @@ const pointsToPath = (points: { x: number; y: number }[]) =>
     : points
         .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
         .join(' ')
+
+// Size of the white label pill, centered on the edge's labelAnchor. Exported so
+// the editor's fit-to-view and the headless export frame labels with the exact
+// geometry rendered here (no divergence, no duplicated magic numbers).
+export const labelPillSize = (
+  label: string,
+  textScale = 1,
+): { w: number; h: number } => ({
+  w: Math.max(20 * textScale, label.length * 6 * textScale + 12 * textScale),
+  h: 16 * textScale,
+})
 
 // Compute the unit-vector direction at one end of a polyline, using the
 // last (or first) two distinct points.
@@ -129,7 +167,61 @@ export const Edge: FC<EdgeProps> = ({
   onSelect,
   textScale = 1,
   fontFamily = 'Inter, system-ui, sans-serif',
+  gridSize = 40,
+  onMoveLabel,
+  crossings,
 }) => {
+  // Cumulative-from-origin label drag: capture the committed offset and the
+  // starting pointer once, then add the snapped pointer delta on every move.
+  // Each move commits to the store, which re-routes and shifts labelAnchor —
+  // mirrors how Node dragging works (src/renderer/Node.tsx).
+  const labelDragging = useRef(false)
+  const labelStart = useRef({ mx: 0, my: 0, dx: 0, dy: 0 })
+  const handleLabelDown = useCallback(
+    (event: MouseEvent<SVGGElement>) => {
+      if (!onMoveLabel) return
+      event.stopPropagation()
+      onSelect?.(edge.id, false)
+      const svg = (event.target as SVGElement).ownerSVGElement
+      const inv = svg?.getScreenCTM()?.inverse()
+      if (!svg || !inv) return
+      const grid = gridSize || 40
+      labelDragging.current = true
+      beginDrag()
+      const pt = svg.createSVGPoint()
+      pt.x = event.clientX
+      pt.y = event.clientY
+      const sp = pt.matrixTransform(inv)
+      labelStart.current = {
+        mx: sp.x,
+        my: sp.y,
+        dx: edge.labelDx ?? 0,
+        dy: edge.labelDy ?? 0,
+      }
+      const onPointerMove = (e: globalThis.MouseEvent) => {
+        if (!labelDragging.current) return
+        const curInv = svg.getScreenCTM()?.inverse()
+        if (!curInv) return
+        const mp = svg.createSVGPoint()
+        mp.x = e.clientX
+        mp.y = e.clientY
+        const cur = mp.matrixTransform(curInv)
+        const ndx = labelStart.current.dx + Math.round((cur.x - labelStart.current.mx) / grid)
+        const ndy = labelStart.current.dy + Math.round((cur.y - labelStart.current.my) / grid)
+        onMoveLabel(edge.id, ndx, ndy)
+      }
+      const onPointerUp = () => {
+        labelDragging.current = false
+        endDrag()
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+      }
+      window.addEventListener('mousemove', onPointerMove)
+      window.addEventListener('mouseup', onPointerUp)
+    },
+    [edge.id, edge.labelDx, edge.labelDy, gridSize, onMoveLabel, onSelect],
+  )
+
   const color = solidOf(edge.color)
   const width = STROKE_WIDTH[(edge.width ?? 'M') as Size]
   const lineStyle: LineStyle = edge.lineStyle ?? STYLE_FROM_PARSER[parserStyle]
@@ -149,8 +241,58 @@ export const Edge: FC<EdgeProps> = ({
   const endPt = edge.points[edge.points.length - 1] ?? { x: 0, y: 0 }
   const path = pointsToPath(edge.points)
 
+  // Where this edge crosses under another, fade a soft transparent gap into the
+  // stroke via a luminance mask: a white field (fully visible) minus a gradient
+  // disc per crossing (hidden core fading out to nothing at the rim). The mask
+  // region must comfortably cover the stroke — including the selection halo and
+  // round caps — so it doesn't clip the line; pad by the widest gap + that.
+  const fades = crossings ?? []
+  const maskId = fades.length > 0 ? `ep-fade-${safeId(edge.id)}` : undefined
+  let maskRegion: { x: number; y: number; w: number; h: number } | undefined
+  if (maskId && edge.points.length > 0) {
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+    for (const p of edge.points) {
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x)
+      maxY = Math.max(maxY, p.y)
+    }
+    const pad = Math.max(...fades.map((f) => f.r)) + width + 8
+    maskRegion = {
+      x: minX - pad,
+      y: minY - pad,
+      w: maxX - minX + pad * 2,
+      h: maxY - minY + pad * 2,
+    }
+  }
+  const maskRef = maskId ? `url(#${maskId})` : undefined
+
   return (
     <g data-edge-id={edge.id}>
+      {maskId && maskRegion ? (
+        <mask
+          id={maskId}
+          maskUnits='userSpaceOnUse'
+          x={maskRegion.x}
+          y={maskRegion.y}
+          width={maskRegion.w}
+          height={maskRegion.h}
+        >
+          <rect
+            x={maskRegion.x}
+            y={maskRegion.y}
+            width={maskRegion.w}
+            height={maskRegion.h}
+            fill='#fff'
+          />
+          {fades.map((f, i) => (
+            <circle key={i} cx={f.x} cy={f.y} r={f.r} fill='url(#ep-edge-fade)' />
+          ))}
+        </mask>
+      ) : null}
       {selected ? (
         <path
           d={path}
@@ -161,6 +303,7 @@ export const Edge: FC<EdgeProps> = ({
           strokeLinecap='round'
           strokeLinejoin='round'
           pointerEvents='none'
+          mask={maskRef}
         />
       ) : null}
       <path
@@ -172,6 +315,7 @@ export const Edge: FC<EdgeProps> = ({
         strokeLinecap='round'
         strokeLinejoin='round'
         pointerEvents='none'
+        mask={maskRef}
       />
       {renderCap(startCap, startPt, startDir, color, width)}
       {renderCap(endCap, endPt, endDir, color, width)}
@@ -194,10 +338,14 @@ export const Edge: FC<EdgeProps> = ({
       {label && edge.labelAnchor ? (
         (() => {
           const fontSize = 11 * textScale
-          const pillH = 16 * textScale
-          const pillW = Math.max(20 * textScale, label.length * 6 * textScale + 12 * textScale)
+          const { w: pillW, h: pillH } = labelPillSize(label, textScale)
+          const draggable = !!onMoveLabel
           return (
-            <g transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}>
+            <g
+              transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}
+              onMouseDown={draggable ? handleLabelDown : undefined}
+              style={draggable ? { cursor: 'move' } : undefined}
+            >
               <rect
                 x={-pillW / 2}
                 y={-pillH / 2}
@@ -206,7 +354,7 @@ export const Edge: FC<EdgeProps> = ({
                 rx={4}
                 ry={4}
                 fill='#ffffff'
-                pointerEvents='none'
+                pointerEvents={draggable ? 'all' : 'none'}
               />
               <text
                 textAnchor='middle'

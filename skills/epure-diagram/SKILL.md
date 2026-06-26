@@ -122,7 +122,9 @@ Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
     `iconPosition` (`corner|top`).
 - **`edges`** — keyed by **`"src->tgt"`** (the node-id pair). Optional: `color` (palette), `lineStyle`
   (`solid|dashed|dotted`), `width` (`S|M|L|XL`), `startCap`/`endCap` (`none|arrow|dot|diamond`),
-  `sourceSide`/`targetSide` (`N|S|E|W`). Edge geometry is auto-routed; sides are hints.
+  `sourceSide`/`targetSide` (`N|S|E|W`), `labelDx`/`labelDy` (integer grid units, may be negative —
+  nudge the label off its auto-anchor; drag the label in the editor or set them here). Edge geometry is
+  auto-routed; sides are hints.
 - **`areas`** — keyed by area id from the `.epr.d2`. **Style only**: `borderColor`, `borderStyle`,
   `fillColor`. The area's box is computed from its members' positions — do NOT put `x/y/w/h/members`
   here (membership lives in the `.d2`).

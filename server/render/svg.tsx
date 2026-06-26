@@ -10,8 +10,9 @@ import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { Area, AreaLabel } from '../../src/renderer/Area'
-import { Edge, EdgeDefs } from '../../src/renderer/Edge'
+import { Edge, EdgeDefs, labelPillSize } from '../../src/renderer/Edge'
 import { Node } from '../../src/renderer/Node'
+import { computeCrossings } from '../../src/layout/crossings'
 import type { RoutedDiagram } from '../../src/layout/types'
 import type { EdgeMeta, NodeMeta } from '../../src/renderer/Canvas'
 
@@ -19,9 +20,14 @@ import type { RenderModel } from './model'
 
 const DEFAULT_PADDING = 32
 
-// Tight bounding box of everything drawn — areas, nodes, and every edge point.
-// Mirrors the editor's fit logic so the export frames the diagram identically.
-const computeBounds = (diagram: RoutedDiagram) => {
+// Tight bounding box of everything drawn — areas, nodes, every edge point, and
+// every edge-label pill. Mirrors the editor's fit logic so the export frames the
+// diagram identically. Label pills matter because a user can nudge a label
+// (labelDx/labelDy) well off its edge; left out of the bounds it would clip.
+const computeBounds = (
+  diagram: RoutedDiagram,
+  edgeMeta: Record<string, Partial<EdgeMeta>>,
+) => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -44,7 +50,17 @@ const computeBounds = (diagram: RoutedDiagram) => {
     // Labels below person nodes and corner badges overhang slightly.
     grow(n.x + n.w, n.y + n.h + 18)
   }
-  for (const e of diagram.edges) for (const p of e.points) grow(p.x, p.y)
+  for (const e of diagram.edges) {
+    for (const p of e.points) grow(p.x, p.y)
+    // The label pill (centered on labelAnchor). The export renders Edge at the
+    // default textScale of 1, so size the pill the same way.
+    const label = edgeMeta[e.id]?.label
+    if (label && e.labelAnchor) {
+      const { w: pillW, h: pillH } = labelPillSize(label)
+      grow(e.labelAnchor.x - pillW / 2, e.labelAnchor.y - pillH / 2)
+      grow(e.labelAnchor.x + pillW / 2, e.labelAnchor.y + pillH / 2)
+    }
+  }
 
   if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
@@ -59,7 +75,9 @@ export interface SvgOptions {
 export const renderSvgString = (model: RenderModel, opts: SvgOptions = {}): string => {
   const { routed, nodes, edges } = model
   const pad = opts.padding ?? DEFAULT_PADDING
-  const b = computeBounds(routed)
+  const b = computeBounds(routed, edges)
+  // Same crossing pass the live canvas runs, so the export fades identical gaps.
+  const crossings = computeCrossings(routed.edges)
   const x = b.x - pad
   const y = b.y - pad
   const w = Math.max(1, b.w + pad * 2)
@@ -79,7 +97,16 @@ export const renderSvgString = (model: RenderModel, opts: SvgOptions = {}): stri
       ))}
       {routed.edges.map((edge) => {
         const m: Partial<EdgeMeta> = edges[edge.id] ?? {}
-        return <Edge key={edge.id} edge={edge} label={m.label} style={m.style} marker={m.marker} />
+        return (
+          <Edge
+            key={edge.id}
+            edge={edge}
+            label={m.label}
+            style={m.style}
+            marker={m.marker}
+            crossings={crossings.get(edge.id)}
+          />
+        )
       })}
       {routed.nodes.map((node) => {
         const m: Partial<NodeMeta> = nodes[node.id] ?? {}

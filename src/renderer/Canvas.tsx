@@ -3,12 +3,14 @@ import {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEvent,
 } from 'react'
 
 import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
+import { computeCrossings } from '@/layout/crossings'
 import type { RoutedDiagram, Side } from '@/layout/types'
 
 import { CommentsLayer } from '@/comments/CommentsLayer'
@@ -16,7 +18,7 @@ import type { EprComment } from '@/comments/types'
 
 import { Area, AreaLabel } from './Area'
 import { beginDrag, endDrag } from './dragState'
-import { Edge, EdgeDefs } from './Edge'
+import { Edge, EdgeDefs, labelPillSize } from './Edge'
 import { Grid } from './Grid'
 import { Node } from './Node'
 
@@ -48,6 +50,8 @@ interface CanvasProps {
   ) => void
   onMoveNode?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
   onResizeNode?: (id: string, side: Side, pxX: number, pxY: number) => void
+  /** Drag an edge label to a new offset (grid units, relative to its anchor). */
+  onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
   onAreaDragStart?: (areaId: string) => void
   onAreaDragMove?: (areaId: string, dxPixels: number, dyPixels: number) => void
   /** Increment to refit the view to current content bounds. */
@@ -71,7 +75,11 @@ interface CanvasProps {
 
 type Tool = 'select' | 'pan'
 
-const computeBounds = (diagram: RoutedDiagram) => {
+const computeBounds = (
+  diagram: RoutedDiagram,
+  edges: Record<string, EdgeMeta> = {},
+  textScale = 1,
+) => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -95,6 +103,16 @@ const computeBounds = (diagram: RoutedDiagram) => {
       minY = Math.min(minY, p.y)
       maxX = Math.max(maxX, p.x)
       maxY = Math.max(maxY, p.y)
+    }
+    // Keep a nudged label (labelDx/labelDy) fully inside the fit frame, using
+    // the same pill geometry the export frames with so the two never diverge.
+    const label = edges[e.id]?.label
+    if (e.labelAnchor && label) {
+      const { w: pillW, h: pillH } = labelPillSize(label, textScale)
+      minX = Math.min(minX, e.labelAnchor.x - pillW / 2)
+      minY = Math.min(minY, e.labelAnchor.y - pillH / 2)
+      maxX = Math.max(maxX, e.labelAnchor.x + pillW / 2)
+      maxY = Math.max(maxY, e.labelAnchor.y + pillH / 2)
     }
   }
 
@@ -123,6 +141,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onMarqueeSelect,
       onMoveNode,
       onResizeNode,
+      onMoveLabel,
       onAreaDragStart,
       onAreaDragMove,
       fitVersion,
@@ -155,6 +174,14 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
 
     const panActive = tool === 'pan' || spaceHeld
 
+    // Soft transparent gaps where edges cross under one another. Computed once
+    // over the whole edge set (a per-edge <Edge> can't see its neighbours) and
+    // shared with the headless export so the two render identically.
+    const crossings = useMemo(
+      () => computeCrossings(diagram.edges),
+      [diagram.edges],
+    )
+
     // Track container size.
     useLayoutEffect(() => {
       const svg = svgRef.current
@@ -172,7 +199,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     }, [])
 
     const fitNow = () => {
-      const b = computeBounds(diagram)
+      const b = computeBounds(diagram, edges, textScale)
       if (b.w === 0 && b.h === 0) return
       const zoom = Math.min(
         container.w / Math.max(1, b.w + INIT_PADDING * 2),
@@ -475,6 +502,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   onSelect={onSelectEdge}
                   textScale={textScale}
                   fontFamily={fontFamily}
+                  gridSize={diagram.gridSize}
+                  onMoveLabel={onMoveLabel}
+                  crossings={crossings.get(edge.id)}
                 />
               )
             })}

@@ -67,6 +67,16 @@ describe('validateLayoutJson', () => {
     expect(r.errors[0]!.message).toMatch(/Unknown edge field "thickness"/)
   })
 
+  it('accepts integer label offsets on an edge, including negatives', () => {
+    const v = ok('{"gridSize":40,"nodes":{},"edges":{"a->b":{"labelDx":-3,"labelDy":2}}}')
+    expect(v.edges['a->b']).toMatchObject({ labelDx: -3, labelDy: 2 })
+  })
+
+  it('rejects a non-integer label offset', () => {
+    const r = validateLayoutJson('{"gridSize":40,"nodes":{},"edges":{"a->b":{"labelDx":1.5}}}')
+    expect(r.errors.some((e) => /labelDx must be an integer/.test(e.message))).toBe(true)
+  })
+
   it('flags wrong types', () => {
     const text = `{"gridSize":"forty","nodes":{},"edges":{}}`
     const r = validateLayoutJson(text)
