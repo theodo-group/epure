@@ -20,11 +20,6 @@ describe('contentKey', () => {
     expect(contentKey('layout', messy)).toBe(canonical)
     expect(contentKey('layout', '{ bad json')).toBeNull()
   })
-
-  it('keys comments by raw JSON, null on malformed', () => {
-    expect(contentKey('comments', '[]')).toBe('[]')
-    expect(contentKey('comments', '{nope')).toBeNull()
-  })
 })
 
 describe('isValid + layoutToText', () => {

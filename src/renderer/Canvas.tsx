@@ -13,8 +13,7 @@ import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
 import { computeCrossings } from '@/layout/crossings'
 import type { RoutedDiagram, Side } from '@/layout/types'
 
-import { CommentsLayer } from '@/comments/CommentsLayer'
-import type { EprComment } from '@/comments/types'
+import type { FeedbackTarget } from '@/bridge/protocol'
 
 import { Area, AreaLabel } from './Area'
 import { beginDrag, endDrag } from './dragState'
@@ -65,12 +64,14 @@ interface CanvasProps {
   fontOptions?: Array<{ id: string; label: string; stack: string }>
   selectedFontId?: string
   onSetFontFamily?: (id: string) => void
-  comments?: EprComment[]
-  commentMode?: boolean
-  selectedCommentId?: string | null
-  /** Place a new pin: (gridX, gridY in grid units, optional element ref). */
-  onPlaceComment?: (gridX: number, gridY: number, ref?: string) => void
-  onSelectComment?: (id: string) => void
+  /** Live-feedback tool: 'pick' selects an element, 'insert' drops a point. */
+  feedbackMode?: 'off' | 'pick' | 'insert'
+  /** The current feedback anchor, highlighted on the canvas. */
+  feedbackTarget?: FeedbackTarget | null
+  /** Pick mode: the element ref (node id / `src->tgt` edge key / area id) hit. */
+  onPick?: (ref: string) => void
+  /** Insert mode: a net-new point in grid units. */
+  onInsertPoint?: (gridX: number, gridY: number) => void
 }
 
 type Tool = 'select' | 'pan'
@@ -126,6 +127,64 @@ const MAX_ZOOM = 8
 const ZOOM_STEP = 1.2
 const TEXT_STEP = 1.15
 
+// The feedback anchor highlight (blue, like the selection ring). A picked
+// node/area gets an outline box; a picked edge or an inserted point gets a ring.
+// Strokes divide by zoom so the outline stays a constant on-screen weight.
+const FEEDBACK_BLUE = '#3b82f6'
+const FeedbackHighlight = ({
+  target,
+  diagram,
+  zoom,
+}: {
+  target: FeedbackTarget
+  diagram: RoutedDiagram
+  zoom: number
+}) => {
+  const grid = diagram.gridSize || 40
+  const sw = 2 / zoom
+  if (target.kind === 'point') {
+    return (
+      <circle
+        cx={target.x * grid}
+        cy={target.y * grid}
+        r={9 / zoom}
+        fill="none"
+        stroke={FEEDBACK_BLUE}
+        strokeWidth={sw}
+        strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+      />
+    )
+  }
+  if (target.kind === 'element') {
+    const box =
+      diagram.nodes.find((n) => n.id === target.ref) ??
+      diagram.areas.find((a) => a.id === target.ref)
+    if (box) {
+      const pad = 4 / zoom
+      return (
+        <rect
+          x={box.x - pad}
+          y={box.y - pad}
+          width={box.w + 2 * pad}
+          height={box.h + 2 * pad}
+          fill="none"
+          stroke={FEEDBACK_BLUE}
+          strokeWidth={sw}
+          rx={4 / zoom}
+        />
+      )
+    }
+    const edge = diagram.edges.find((e) => e.id.split('#')[0] === target.ref)
+    const at = edge?.labelAnchor ?? edge?.points[Math.floor(edge.points.length / 2)]
+    if (at) {
+      return (
+        <circle cx={at.x} cy={at.y} r={9 / zoom} fill="none" stroke={FEEDBACK_BLUE} strokeWidth={sw} />
+      )
+    }
+  }
+  return null
+}
+
 export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
   (
     {
@@ -154,11 +213,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       fontOptions,
       selectedFontId,
       onSetFontFamily,
-      comments = [],
-      commentMode = false,
-      selectedCommentId = null,
-      onPlaceComment,
-      onSelectComment,
+      feedbackMode = 'off',
+      feedbackTarget = null,
+      onPick,
+      onInsertPoint,
     },
     ref,
   ) => {
@@ -286,22 +344,25 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       }
     }
 
-    // In comment mode, a canvas click becomes a pin. Resolve the diagram coords
-    // (stored in grid units) and the element under the cursor (so the comment
-    // anchors to a node/edge/area and survives moves) via the topmost data-id.
-    const placeCommentAt = (clientX: number, clientY: number) => {
-      const { x, y } = clientToSvg(clientX, clientY)
-      const grid = diagram.gridSize || 40
-      let ref: string | undefined
+    // Feedback pick/insert. Insert drops a net-new point (grid units); pick
+    // resolves the element under the cursor via the topmost data-id, so the
+    // feedback anchors to a node/edge/area and survives later moves.
+    const handleFeedbackClick = (clientX: number, clientY: number) => {
+      if (feedbackMode === 'insert') {
+        const { x, y } = clientToSvg(clientX, clientY)
+        const grid = diagram.gridSize || 40
+        onInsertPoint?.(x / grid, y / grid)
+        return
+      }
       for (const el of document.elementsFromPoint(clientX, clientY)) {
         const node = el.closest('[data-node-id]')?.getAttribute('data-node-id')
         const area = el.closest('[data-area-id]')?.getAttribute('data-area-id')
         const edge = el.closest('[data-edge-id]')?.getAttribute('data-edge-id')
-        if (node) { ref = node; break }
-        if (area) { ref = area; break }
-        if (edge) { ref = edge.split('#')[0]; break } // edge key, not routed id
+        if (node) { onPick?.(node); return }
+        if (area) { onPick?.(area); return }
+        if (edge) { onPick?.(edge.split('#')[0]!); return } // edge key, not routed id
       }
-      onPlaceComment?.(x / grid, y / grid, ref)
+      // Clicked empty canvas in pick mode → nothing to anchor to; ignore.
     }
 
     // Background mousedown — pan when the pan tool is active or Space is held,
@@ -545,16 +606,26 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 fontFamily={fontFamily}
               />
             ))}
-            <CommentsLayer
-              comments={comments}
-              routed={diagram}
-              selectedId={selectedCommentId}
-              onSelect={(id) => onSelectComment?.(id)}
-              commentMode={commentMode}
-              viewBox={{ x: viewBoxX, y: viewBoxY, w: viewBoxW, h: viewBoxH }}
-              onPlace={placeCommentAt}
-              zoom={z}
-            />
+            <g data-feedback-layer="">
+              {feedbackTarget ? (
+                <FeedbackHighlight target={feedbackTarget} diagram={diagram} zoom={z} />
+              ) : null}
+              {feedbackMode !== 'off' ? (
+                <rect
+                  x={viewBoxX}
+                  y={viewBoxY}
+                  width={viewBoxW}
+                  height={viewBoxH}
+                  fill="transparent"
+                  style={{ cursor: 'crosshair' }}
+                  onMouseDown={(e: MouseEvent<SVGRectElement>) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    handleFeedbackClick(e.clientX, e.clientY)
+                  }}
+                />
+              ) : null}
+            </g>
             {marquee ? (
               <rect
                 x={Math.min(marquee.x1, marquee.x2)}

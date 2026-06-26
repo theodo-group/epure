@@ -3,6 +3,7 @@
 //   epure <file>              start the live bridge server (default)
 //   epure new <file>          scaffold a new pair from a seed (won't clobber)
 //   epure export <file>       render a fit-to-content PNG (so Claude Code can see it)
+//   epure poll <file>         long-poll the live toolbar for the next feedback event
 //   epure validate <path...>  validate pair(s); non-zero exit on problems
 //   epure fmt <file...>       rewrite layout(s) in canonical form
 //   epure icons [query]       list available icons (providers, or search)
@@ -14,7 +15,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
-import { get } from 'node:http'
+import { get, request } from 'node:http'
 import { mkdir, copyFile, readFile, stat, writeFile } from 'node:fs/promises'
 import { existsSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -306,6 +307,217 @@ const cmdExport = async (args: string[]): Promise<number> => {
   return 0
 }
 
+// ── poll (live feedback) ──────────────────────────────────────────────────────
+//
+// The agent leg of the impeccable-style live toolbar. The browser submits
+// feedback over the WebSocket; the server queues it; Claude Code drains it here.
+// Mirrors impeccable's `live-poll.mjs`: a one-shot long-poll that prints one
+// event JSON line, plus a `--reply` mode. Uses node:http directly (like the
+// health probe) — no undici 300s ceiling, but we cap each request so a half-open
+// socket can't hang the loop.
+
+const POLL_SLICE_MS = 25_000
+const POLL_TOTAL_MS = 600_000 // 10 min, then emit a `timeout` line so CC re-polls
+/** Flags that terminate an optional trailing `--reply` message. */
+const POLL_FLAGS = new Set(['--reply', '--wait', '--port'])
+
+type PollSliceResult =
+  | { kind: 'event'; value: unknown }
+  | { kind: 'retry' }
+  | { kind: 'gone' }
+
+const pollSlice = (port: number, sliceMs: number): Promise<PollSliceResult> =>
+  new Promise((resolvePromise) => {
+    const req = get(
+      {
+        host: '127.0.0.1',
+        port,
+        path: `/__epure/poll?timeout=${sliceMs}`,
+        timeout: sliceMs + 5_000,
+      },
+      (res) => {
+        // A non-JSON 200 means this isn't the live-feedback endpoint — almost
+        // always an OLDER epure server whose SPA fallback returns index.html for
+        // the unknown route. Treat it as "gone" (a clear one-line message) so we
+        // never hot-loop forever JSON-parsing HTML.
+        const contentType = res.headers['content-type'] ?? ''
+        if (res.statusCode !== 200 || !contentType.includes('application/json')) {
+          res.resume()
+          resolvePromise({ kind: 'gone' })
+          return
+        }
+        let body = ''
+        res.on('data', (c) => (body += c))
+        res.on('end', () => {
+          try {
+            resolvePromise({ kind: 'event', value: JSON.parse(body) })
+          } catch {
+            resolvePromise({ kind: 'retry' })
+          }
+        })
+      },
+    )
+    // ECONNREFUSED means the server is gone for good; anything else is a blip.
+    req.on('error', (e) =>
+      resolvePromise(
+        (e as NodeJS.ErrnoException).code === 'ECONNREFUSED'
+          ? { kind: 'gone' }
+          : { kind: 'retry' },
+      ),
+    )
+    req.on('timeout', () => {
+      req.destroy()
+      resolvePromise({ kind: 'retry' })
+    })
+  })
+
+const postReply = (
+  port: number,
+  payload: { id: string; status: 'done' | 'error'; message?: string },
+): Promise<boolean> =>
+  new Promise((resolvePromise) => {
+    const data = JSON.stringify(payload)
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port,
+        path: '/__epure/poll',
+        method: 'POST',
+        timeout: 5_000,
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(data),
+        },
+      },
+      (res) => {
+        res.resume()
+        resolvePromise(res.statusCode === 200)
+      },
+    )
+    req.on('error', () => resolvePromise(false))
+    req.on('timeout', () => {
+      req.destroy()
+      resolvePromise(false)
+    })
+    req.end(data)
+  })
+
+const cmdPoll = async (args: string[]): Promise<number> => {
+  let file: string | undefined
+  let portOverride: number | undefined
+  let waitAfter = false
+  let reply: { id: string; status: 'done' | 'error'; message?: string } | undefined
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i]!
+    if (a === '--wait') {
+      // With --reply: ack then long-poll for the next event in one round-trip.
+      waitAfter = true
+    } else if (a === '--port') {
+      const raw = args[(i += 1)]
+      portOverride = Number(raw)
+      if (
+        raw === undefined ||
+        !Number.isInteger(portOverride) ||
+        portOverride <= 0 ||
+        portOverride > 65535
+      ) {
+        log('usage: epure poll <file> --port <1-65535>')
+        return 1
+      }
+    } else if (a === '--reply') {
+      const id = args[(i += 1)]
+      const status = args[(i += 1)]
+      if (!id || (status !== 'done' && status !== 'error')) {
+        log('usage: epure poll <file> --reply <id> <done|error> [message]')
+        return 1
+      }
+      // Optional trailing message — only when the file is already set (so a
+      // bare `--reply id done mydiagram` treats `mydiagram` as the file), and
+      // terminated only by a KNOWN flag (not any '--' token), so a reply message
+      // that itself starts with '--' is preserved rather than silently dropped.
+      let message: string | undefined
+      const next = args[i + 1]
+      if (file !== undefined && next !== undefined && !POLL_FLAGS.has(next)) {
+        message = args[(i += 1)]
+      }
+      reply = { id, status, ...(message ? { message } : {}) }
+    } else if (!a.startsWith('-') && !file) {
+      file = a
+    }
+  }
+  if (!file) {
+    log('usage: epure poll <file> [--reply <id> <done|error> [message]] [--wait] [--port N]')
+    return 1
+  }
+
+  const pair = resolvePair(file)
+  let realPath: string
+  try {
+    realPath = realpathSync(pair.paths.d2)
+  } catch {
+    log(`no diagram at ${pair.paths.d2} — is the server running?`)
+    return 1
+  }
+  const port = portOverride ?? portForPath(realPath)
+
+  // Confirm a server is there AND that it serves THIS diagram — never poll a
+  // colliding diagram's server (it would feed CC the wrong feedback).
+  const occupant = await probeHealth(port)
+  if (occupant === null) {
+    log(
+      `no Épure server reachable on port ${port}. Start it with \`epure ${file}\`. ` +
+        `If it fell back to an ephemeral port, pass --port from its ready line.`,
+    )
+    return 1
+  }
+  if (occupant !== realPath) {
+    log(
+      `port ${port} serves a different diagram (${occupant}). ` +
+        `Pass --port from this diagram's serve output.`,
+    )
+    return 1
+  }
+
+  if (reply) {
+    if (!(await postReply(port, reply))) {
+      log('reply failed — the server may have stopped')
+      return 1
+    }
+    // --wait: keep going and long-poll for the next event below, so a single
+    // foreground call acks the last note and returns the next one inline.
+    if (!waitAfter) {
+      process.stdout.write(JSON.stringify({ ok: true }) + '\n')
+      return 0
+    }
+  }
+
+  // Long-poll: loop 25s slices until a real event/exit, or emit `timeout` after
+  // the total budget so the caller re-polls.
+  const deadline = Date.now() + POLL_TOTAL_MS
+  while (Date.now() < deadline) {
+    const slice = Math.min(POLL_SLICE_MS, deadline - Date.now())
+    const result = await pollSlice(port, slice)
+    if (result.kind === 'gone') {
+      log(
+        `the Épure server on port ${port} isn't serving live feedback ` +
+          `(stopped, or an older version) — restart it with \`epure ${file}\``,
+      )
+      return 1
+    }
+    if (result.kind === 'retry') {
+      // A transient blip (reset, malformed body). Back off so we never hot-loop.
+      await new Promise((r) => setTimeout(r, 500))
+      continue
+    }
+    const value = result.value as { type?: string } | null
+    if (value?.type === 'timeout') continue
+    process.stdout.write(JSON.stringify(value) + '\n')
+    return 0
+  }
+  process.stdout.write(JSON.stringify({ type: 'timeout' }) + '\n')
+  return 0
+}
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const formatIssue = (i: ValidationIssue): string =>
@@ -391,7 +603,7 @@ const main = async (): Promise<void> => {
 
   if (!first || first === '--help' || first === '-h') {
     process.stdout.write(
-      'usage: epure <file> | new <file> | export <file> | validate <path...> | fmt <file...> | icons [query] | skill install\n',
+      'usage: epure <file> | new <file> | export <file> | poll <file> | validate <path...> | fmt <file...> | icons [query] | skill install\n',
     )
     process.exit(first ? 0 : 1)
   }
@@ -412,6 +624,9 @@ const main = async (): Promise<void> => {
       break
     case 'export':
       process.exit(await cmdExport(rest))
+      break
+    case 'poll':
+      process.exit(await cmdPoll(rest))
       break
     case 'icons':
       process.exit(cmdIcons(rest, json))

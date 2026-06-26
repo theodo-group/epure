@@ -10,6 +10,7 @@ import { wsEndpoint } from './config'
 import { contentKey } from './sync'
 import {
   PROTOCOL_VERSION,
+  type FeedbackTarget,
   type FileFrame,
   type FileKind,
   type ServerMsg,
@@ -41,6 +42,12 @@ export interface BridgeClientCallbacks {
   onStatus(status: BridgeStatus): void
   onApplied?(kinds: FileKind[]): void
   onRejected?(reason: string, error?: string): void
+  /** An agent attached to / detached from the poll. Drives the toolbar dot. */
+  onFeedbackStatus?(agentPolling: boolean): void
+  /** The agent drained a submitted event and is now working on it. */
+  onFeedbackPickedUp?(id: string): void
+  /** The agent resolved a submitted feedback event. */
+  onFeedbackResolved?(id: string, status: 'done' | 'error', message?: string): void
 }
 
 export interface BridgeClientOptions extends BridgeClientCallbacks {
@@ -126,6 +133,16 @@ export class BridgeClient {
     return { sent: toSend.map((f) => f.kind), invalid }
   }
 
+  /** Submit one toolbar feedback note over the socket. Ephemeral — it rides the
+   *  WS but never touches the file `apply` path. Returns false if not connected. */
+  submitFeedback(id: string, text: string, target: FeedbackTarget): boolean {
+    if (!this.socket) return false
+    this.socket.send(
+      JSON.stringify({ type: 'feedback', doc: this.opts.config.doc, id, text, target }),
+    )
+    return true
+  }
+
   // ── internals ─────────────────────────────────────────────────────────────
 
   private open(): void {
@@ -203,6 +220,15 @@ export class BridgeClient {
         // A bad token won't fix itself on retry — stop reconnecting.
         if (msg.reason === 'unauthorized') this.closedByUs = true
         this.opts.onRejected?.(msg.reason, msg.error)
+        break
+      case 'feedbackStatus':
+        this.opts.onFeedbackStatus?.(msg.agentPolling)
+        break
+      case 'feedbackPickedUp':
+        this.opts.onFeedbackPickedUp?.(msg.id)
+        break
+      case 'feedbackResolved':
+        this.opts.onFeedbackResolved?.(msg.id, msg.status, msg.message)
         break
     }
   }

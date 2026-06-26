@@ -173,6 +173,33 @@ describe('useBridge', () => {
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(7)
   })
 
+  it('tracks the agent dot, matches a resolution, and serializes a feedback submit', async () => {
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+
+    // The agent attaches/detaches → drives the dot.
+    await act(async () => lastSocket().emit({ type: 'feedbackStatus', agentPolling: true }))
+    expect(result.current.agentPolling).toBe(true)
+
+    // A submit serializes the right WS frame (ephemeral, not an `apply`).
+    await act(async () => {
+      result.current.submitFeedback('fb9', 'make it teal', { kind: 'element', ref: 'a' })
+    })
+    const feedbackFrames = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'feedback')
+    expect(feedbackFrames).toEqual([
+      { type: 'feedback', doc: 'sys', id: 'fb9', text: 'make it teal', target: { kind: 'element', ref: 'a' } },
+    ])
+
+    // Pickup flips the toolbar to "thinking".
+    await act(async () => lastSocket().emit({ type: 'feedbackPickedUp', id: 'fb9' }))
+    expect(result.current.lastPickedUp).toBe('fb9')
+
+    // The agent's reply surfaces as the last resolution.
+    await act(async () => lastSocket().emit({ type: 'feedbackResolved', id: 'fb9', status: 'done', message: 'teal' }))
+    expect(result.current.lastResolved).toMatchObject({ id: 'fb9', status: 'done', message: 'teal' })
+  })
+
   it('keeps last-good content and flags an error when disk is invalid', async () => {
     const { result } = renderHook(() => useBridge())
     await connect()

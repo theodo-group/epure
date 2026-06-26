@@ -16,6 +16,7 @@ import type { Plugin } from 'vite'
 // alias) never follows this into `src/`. The value is loaded at dev time via
 // `server.ssrLoadModule`, which DOES resolve the alias.
 import type { BridgeCore } from './core/bridge'
+import { createFeedbackHub, type FeedbackHub } from './core/feedback'
 import { resolvePair } from './core/pair'
 import { configBody, injectBridge, type BridgeRuntime } from './inject'
 import { attachBridgeWs, isLocalRequest } from './ws'
@@ -70,15 +71,31 @@ export const epureBridge = (): Plugin => {
       const httpServer = server.httpServer as HttpServer | null
       if (!httpServer) return
 
+      // Dev parity: the toolbar's WS submit works under `pnpm dev` and feeds a
+      // local hub. There's no `/__epure/poll` route here (standalone owns the
+      // agent leg), so events just queue — fine, since CC always drives the
+      // real diagram through the standalone server.
+      let hub: FeedbackHub
       const ws = attachBridgeWs(
         httpServer,
         {
           doc: () => pair.stem,
           hydrate: () => core!.hydrate(),
           apply: (files) => core!.applyInbound(files),
+          feedback: (msg) =>
+            hub.submit({
+              type: 'feedback',
+              id: msg.id,
+              doc: msg.doc,
+              text: msg.text,
+              target: msg.target,
+              createdAt: new Date().toISOString(),
+            }),
+          onReadyChanged: (count) => hub.onBrowsersChanged(count),
         },
         token,
       )
+      hub = createFeedbackHub((msg) => ws.broadcast(msg))
       // Load bridge-core through Vite so its `@/`-aliased src imports resolve.
       const { BridgeCore: BridgeCoreImpl } = (await server.ssrLoadModule(
         '/server/core/bridge.ts',
@@ -88,6 +105,7 @@ export const epureBridge = (): Plugin => {
       server.config.logger.info(`  ➜  Épure bridge: ${pair.stem} (${realPath})`)
 
       const dispose = async () => {
+        hub.stop()
         await ws.close()
         await core?.stop()
       }

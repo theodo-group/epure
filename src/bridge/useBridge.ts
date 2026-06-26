@@ -9,19 +9,17 @@
 //   - subscribe to store source/layout; send the dirty kinds (validity-gated,
 //     echo-suppressed by BridgeClient's per-kind last-applied-hash).
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useDiagramStore } from '@/store/diagramStore'
 import type { LayoutSidecar } from '@/layout/types'
 import { validateLayoutJson } from '@/file/layoutSchema'
-import { useCommentsStore } from '@/comments/store'
-import { parseComments, serializeComments } from '@/comments/serialize'
 
 import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeClient'
 import { detectBridge } from './config'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
-import type { FileFrame, FileKind } from './protocol'
+import type { FeedbackResolvedMsg, FeedbackTarget, FileFrame, FileKind } from './protocol'
 
 // Test-only seam: inject a fake WebSocket factory so the hook is drivable in
 // jsdom (which has no WebSocket). Unset in production → BridgeClient's default.
@@ -46,6 +44,14 @@ export interface BridgeUiState {
   invalidUnsaved: boolean
   /** Disk holds invalid content (CC wrote garbage); UI keeps last-good. */
   remoteError: string | null
+  /** An agent is attached to the live-feedback poll (drives the toolbar dot). */
+  agentPolling: boolean
+  /** The id of the most recently picked-up event (Claude started working). */
+  lastPickedUp: string | null
+  /** The most recent feedback resolution from the agent (matched by id). */
+  lastResolved: FeedbackResolvedMsg | null
+  /** Send a toolbar feedback note over the socket. No-op when not bridged. */
+  submitFeedback: (id: string, text: string, target: FeedbackTarget) => boolean
 }
 
 const FLASH_MS = 1200
@@ -66,6 +72,9 @@ export const useBridge = (): BridgeUiState => {
   const [diskChanged, setDiskChanged] = useState(false)
   const [invalidUnsaved, setInvalidUnsaved] = useState(false)
   const [remoteError, setRemoteError] = useState<string | null>(null)
+  const [agentPolling, setAgentPolling] = useState(false)
+  const [lastPickedUp, setLastPickedUp] = useState<string | null>(null)
+  const [lastResolved, setLastResolved] = useState<FeedbackResolvedMsg | null>(null)
 
   const clientRef = useRef<BridgeClient | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -99,10 +108,6 @@ export const useBridge = (): BridgeUiState => {
         if (!value) return
         client?.markRemote('layout', content)
         applyRemote({ layout: value })
-      } else if (kind === 'comments') {
-        // Comments live in their own store, never the diagram/undo history.
-        client?.markRemote('comments', content)
-        useCommentsStore.getState().setComments(parseComments(content))
       }
       triggerFlash()
     }
@@ -115,12 +120,10 @@ export const useBridge = (): BridgeUiState => {
       }
       setRemoteError(null)
       if (content === null) {
-        // File deleted. Comments: clear the list; d2/layout: keep last buffer.
-        if (kind === 'comments') useCommentsStore.getState().setComments([])
+        // File deleted — keep the last good buffer in the store.
         return
       }
-      // Comments don't touch the canvas/editor, so they never need deferring.
-      if (kind !== 'comments' && interaction.isBusy()) {
+      if (interaction.isBusy()) {
         pending.set(kind, content)
         setDiskChanged(true)
         return
@@ -146,7 +149,16 @@ export const useBridge = (): BridgeUiState => {
       const client = new BridgeClient({
         config,
         ...(testSocketFactory ? { socketFactory: testSocketFactory } : {}),
-        onStatus: setStatus,
+        onStatus: (s) => {
+          setStatus(s)
+          // A dropped socket means we no longer know the agent's state; the dot
+          // re-syncs from the server's broadcast on reconnect.
+          if (s === 'disconnected') setAgentPolling(false)
+        },
+        onFeedbackStatus: setAgentPolling,
+        onFeedbackPickedUp: setLastPickedUp,
+        onFeedbackResolved: (id, status, message) =>
+          setLastResolved({ type: 'feedbackResolved', id, status, ...(message ? { message } : {}) }),
         onApplied: () => setInvalidUnsaved(false),
         onRejected: (reason, err) => {
           if (reason === 'unauthorized') setStatus('disconnected')
@@ -156,10 +168,6 @@ export const useBridge = (): BridgeUiState => {
           const byKind = Object.fromEntries(files.map((f) => [f.kind, f]))
           const source = byKind.d2?.content ?? ''
           const layout = layoutFromFrame(byKind.layout?.content ?? null)
-          // Comments are independent of undo/defer — apply straight away.
-          const commentsText = byKind.comments?.content ?? null
-          client.markRemote('comments', commentsText ?? serializeComments([]))
-          useCommentsStore.getState().setComments(parseComments(commentsText))
           // Key against the *store-resulting* content BEFORE the store write, so
           // the synchronous outbound subscriber dedups. Critical for an absent
           // layout file, where the store holds a synthesized default that must
@@ -230,18 +238,28 @@ export const useBridge = (): BridgeUiState => {
       if (sent.length > 0 || invalid.length > 0) interaction.noteActivity()
       setInvalidUnsaved(invalid.includes('d2'))
     })
-    // Outbound for the comments sidecar (its own store).
-    const unsubComments = useCommentsStore.subscribe((state, prev) => {
-      if (state.comments === prev.comments) return
-      clientRef.current?.apply([
-        { kind: 'comments', content: serializeComments(state.comments) },
-      ])
-    })
     return () => {
       unsub()
-      unsubComments()
     }
   }, [active])
 
-  return { active, status, filename, flash, diskChanged, invalidUnsaved, remoteError }
+  const submitFeedback = useCallback(
+    (id: string, text: string, target: FeedbackTarget): boolean =>
+      clientRef.current?.submitFeedback(id, text, target) ?? false,
+    [],
+  )
+
+  return {
+    active,
+    status,
+    filename,
+    flash,
+    diskChanged,
+    invalidUnsaved,
+    remoteError,
+    agentPolling,
+    lastPickedUp,
+    lastResolved,
+    submitFeedback,
+  }
 }
