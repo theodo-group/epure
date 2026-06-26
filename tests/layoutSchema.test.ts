@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateLayoutJson } from '@/file/layoutSchema'
+import { locateLayoutKeyRanges, validateLayoutJson } from '@/file/layoutSchema'
 
 const ok = (text: string) => {
   const r = validateLayoutJson(text)
@@ -88,5 +88,60 @@ describe('validateLayoutJson', () => {
 }`
     const r = validateLayoutJson(text)
     expect(r.errors.some((e) => /Unknown icon/.test(e.message))).toBe(true)
+  })
+})
+
+describe('locateLayoutKeyRanges', () => {
+  const text = JSON.stringify(
+    {
+      gridSize: 40,
+      nodes: {
+        a: { cx: 1, cy: 1, w: 2, h: 2 },
+        b: { cx: 5, cy: 5, w: 2, h: 2 },
+      },
+      edges: { 'a->b': { color: 'blue' } },
+      areas: { Services: { fillColor: 'purple' } },
+    },
+    null,
+    2,
+  )
+  // Pull the substring a range points at, so assertions read off real content.
+  const slice = (r: { from: number; to: number }) => text.slice(r.from, r.to)
+
+  it('spans a node entry from its key quote to the end of its value', () => {
+    const [r] = locateLayoutKeyRanges(text, { nodes: ['a'] })
+    expect(r).toBeDefined()
+    expect(slice(r!)).toBe('"a": {\n      "cx": 1,\n      "cy": 1,\n      "w": 2,\n      "h": 2\n    }')
+  })
+
+  it('locates edges and areas by their map keys', () => {
+    const edge = locateLayoutKeyRanges(text, { edges: ['a->b'] })
+    expect(edge).toHaveLength(1)
+    expect(slice(edge[0]!)).toBe('"a->b": {\n      "color": "blue"\n    }')
+
+    const area = locateLayoutKeyRanges(text, { areas: ['Services'] })
+    expect(area).toHaveLength(1)
+    expect(slice(area[0]!).startsWith('"Services"')).toBe(true)
+  })
+
+  it('returns a range per requested key across sections', () => {
+    const ranges = locateLayoutKeyRanges(text, {
+      nodes: ['a', 'b'],
+      edges: ['a->b'],
+    })
+    expect(ranges).toHaveLength(3)
+  })
+
+  it('skips absent keys, absent sections, and duplicate requests', () => {
+    expect(locateLayoutKeyRanges(text, { nodes: ['missing'] })).toEqual([])
+    // No `areas` section present → nothing, no throw.
+    const noAreas = '{"gridSize":40,"nodes":{},"edges":{}}'
+    expect(locateLayoutKeyRanges(noAreas, { areas: ['x'] })).toEqual([])
+    // Duplicate ids collapse to one range (one entry in the JSON).
+    expect(locateLayoutKeyRanges(text, { nodes: ['a', 'a'] })).toHaveLength(1)
+  })
+
+  it('returns [] on unparseable text instead of throwing', () => {
+    expect(locateLayoutKeyRanges('{ not valid json', { nodes: ['a'] })).toEqual([])
   })
 })

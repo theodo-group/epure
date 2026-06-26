@@ -540,3 +540,54 @@ export const validateLayoutJson = (text: string): LayoutValidationResult => {
   }
   return { value: nodeToValue(root) as LayoutSidecar, errors: [] }
 }
+
+export interface LayoutKeyTargets {
+  /** Node ids — keys of the `nodes` map. */
+  nodes?: Iterable<string>
+  /** Edge style keys (`source->target`, no `#index`) — keys of `edges`. */
+  edges?: Iterable<string>
+  /** Area ids — keys of the optional `areas` map. */
+  areas?: Iterable<string>
+}
+
+/**
+ * Locate the source ranges (character offsets) of specific keys inside the
+ * `nodes` / `edges` / `areas` maps of a layout JSON document, so the canvas
+ * selection can be mirrored into the layout editor as highlights — the JSON
+ * counterpart of the d2 declaration highlights. Each range spans from the key's
+ * opening quote to the end of its value. Missing keys, missing sections, and
+ * unparseable text are silently skipped (the latter returns `[]`), so it is
+ * safe to call on the editor's in-progress (possibly invalid) buffer.
+ */
+export const locateLayoutKeyRanges = (
+  text: string,
+  targets: LayoutKeyTargets,
+): { from: number; to: number }[] => {
+  let root: JsonNode
+  try {
+    root = new JsonParser(text).parse()
+  } catch {
+    return []
+  }
+  if (root.kind !== 'object') return []
+  const sections = root.entries
+  const out: { from: number; to: number }[] = []
+  const collect = (name: string, wanted: Iterable<string> | undefined): void => {
+    if (!wanted) return
+    const keys = wanted instanceof Set ? wanted : new Set(wanted)
+    if (keys.size === 0) return
+    const section = sections.find((e) => e.key === name)
+    if (!section || section.value.kind !== 'object') return
+    for (const entry of section.value.entries) {
+      if (!keys.has(entry.key)) continue
+      out.push({
+        from: entry.keyRange.start.offset,
+        to: entry.value.range.end.offset,
+      })
+    }
+  }
+  collect('nodes', targets.nodes)
+  collect('edges', targets.edges)
+  collect('areas', targets.areas)
+  return out
+}
