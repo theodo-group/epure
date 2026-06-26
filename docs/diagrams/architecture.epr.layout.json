@@ -3,29 +3,29 @@
   "nodes": {
     "app": { "cx": 32, "cy": 3, "w": 5, "h": 2, "borderColor": "purple" },
     "bclient": { "cx": 32, "cy": 22, "w": 6, "h": 2, "borderColor": "purple" },
-    "bridgecore": { "cx": 18, "cy": 18, "w": 7, "h": 3, "borderColor": "blue" },
+    "bridgecore": { "cx": 18, "cy": 18, "w": 7, "h": 3, "textSize": "L", "borderColor": "blue", "icon": "simpleicons/brand/nodedotjs", "iconPosition": "top" },
     "canvas": { "cx": 32, "cy": 18, "w": 6, "h": 3, "borderColor": "purple" },
-    "cli": { "cx": 6, "cy": 6, "w": 6, "h": 2, "borderColor": "black" },
-    "comments": { "cx": 26, "cy": 27, "w": 7, "h": 3, "borderColor": "teal", "shape": "cylinder" },
+    "cli": { "cx": 6, "cy": 6, "w": 4, "h": 2, "borderColor": "black", "icon": "programming/language/bash", "iconPosition": "top" },
     "d2": { "cx": 10, "cy": 27, "w": 6, "h": 3, "borderColor": "teal", "shape": "cylinder" },
     "editor": { "cx": 32, "cy": 8, "w": 6, "h": 3, "borderColor": "purple" },
     "elk": { "cx": 43, "cy": 16, "w": 6, "h": 3, "borderColor": "orange" },
     "export": { "cx": 43, "cy": 31, "w": 9, "h": 3, "borderColor": "green" },
-    "http": { "cx": 18, "cy": 6, "w": 6, "h": 3, "borderColor": "blue" },
+    "feedback": { "cx": 18, "cy": 22, "w": 7, "h": 2, "textSize": "L", "borderColor": "blue" },
+    "http": { "cx": 18, "cy": 6, "w": 6, "h": 3, "textSize": "L", "borderColor": "blue" },
     "layout": { "cx": 18, "cy": 27, "w": 7, "h": 3, "borderColor": "teal", "shape": "cylinder" },
     "normalize": { "cx": 43, "cy": 11, "w": 6, "h": 3, "borderColor": "orange" },
     "parser": { "cx": 43, "cy": 6, "w": 6, "h": 3, "borderColor": "orange" },
     "png": { "cx": 52, "cy": 31, "w": 4, "h": 2, "borderColor": "green", "fillColor": "green" },
     "store": { "cx": 32, "cy": 13, "w": 6, "h": 3, "borderColor": "purple" },
     "user": { "cx": -1, "cy": 3, "w": 2, "h": 2, "borderColor": "gray" },
-    "ws": { "cx": 18, "cy": 12, "w": 6, "h": 3, "borderColor": "blue" }
+    "ws": { "cx": 18, "cy": 12, "w": 6, "h": 3, "textSize": "L", "borderColor": "blue" }
   },
   "edges": {
     "bclient->ws": { "sourceSide": "W", "targetSide": "E", "color": "blue" },
-    "bridgecore->comments": { "color": "teal" },
     "bridgecore->d2": { "color": "teal" },
     "bridgecore->layout": { "color": "teal" },
-    "cli->export": { "lineStyle": "dashed" },
+    "cli->export": { "lineStyle": "dashed", "sourceSide": "E" },
+    "cli->feedback": { "lineStyle": "dashed" },
     "cli->http": { "sourceSide": "E" },
     "editor->store": { "sourceSide": "S", "targetSide": "N" },
     "elk->canvas": { "sourceSide": "W", "targetSide": "E", "color": "orange" },
@@ -39,7 +39,8 @@
     "store->parser": { "sourceSide": "E", "targetSide": "W" },
     "user->app": { "sourceSide": "E", "targetSide": "W" },
     "user->cli": { "sourceSide": "S", "targetSide": "N" },
-    "ws->bridgecore": { "sourceSide": "S", "targetSide": "N", "color": "blue" }
+    "ws->bridgecore": { "sourceSide": "S", "targetSide": "N", "color": "blue" },
+    "ws->feedback": { "sourceSide": "W", "targetSide": "W", "color": "blue" }
   },
   "areas": {
     "Browser": { "borderColor": "purple", "fillColor": "purple" },
