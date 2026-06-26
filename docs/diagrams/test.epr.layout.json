@@ -6,8 +6,8 @@
     "d2file": { "cx": 26, "cy": 11, "w": 4, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
     "editor": { "cx": 10, "cy": 13, "w": 4, "h": 2, "borderColor": "purple", "icon": "programming/framework/react", "iconPosition": "top" },
     "layout": { "cx": 26, "cy": 15, "w": 5, "h": 2, "borderColor": "teal", "fillColor": "transparent" },
-    "parser": { "cx": 34, "cy": 7, "w": 4, "h": 2, "borderColor": "orange" },
-    "router": { "cx": 34, "cy": 19, "w": 4, "h": 2, "borderColor": "orange" }
+    "parser": { "cx": 34, "cy": 19, "w": 4, "h": 2, "borderColor": "orange" },
+    "router": { "cx": 34, "cy": 7, "w": 4, "h": 2, "borderColor": "orange" }
   },
   "edges": {
     "bridge->d2file": { "sourceSide": "E", "targetSide": "W", "color": "teal" },
@@ -16,8 +16,8 @@
     "d2file->parser": { "sourceSide": "E", "targetSide": "W", "color": "orange" },
     "editor->bridge": { "sourceSide": "E", "targetSide": "W", "color": "blue", "lineStyle": "dashed" },
     "layout->router": { "sourceSide": "E", "targetSide": "W", "color": "orange" },
-    "parser->editor": { "sourceSide": "N", "targetSide": "N", "color": "purple" },
-    "router->editor": { "sourceSide": "S", "targetSide": "S", "color": "purple" }
+    "parser->editor": { "sourceSide": "S", "targetSide": "S", "color": "purple" },
+    "router->editor": { "sourceSide": "N", "targetSide": "N", "color": "purple" }
   },
   "areas": {
     "Core": { "borderColor": "orange", "fillColor": "orange" },
