@@ -72,6 +72,10 @@ export interface DiagramActions {
   moveNodes: (positions: Record<string, { cx: number; cy: number }>) => void
   resizeNode: (id: string, side: Side, pxX: number, pxY: number) => void
   setEdgeSide: (edgeKey: string, end: 'source' | 'target', side: Side) => void
+  /** Nudge an edge's label off its routed anchor, in grid units. Pass a routed
+   *  edge id (`src->tgt#i`) — the ordinal is stripped, so the offset is shared
+   *  by every parallel edge of the pair. `(0, 0)` clears the override. */
+  setEdgeLabelOffset: (edgeId: string, labelDx: number, labelDy: number) => void
   setNodeSize: (id: string, w: number, h: number) => void
   selectNode: (id: string | undefined, additive?: boolean) => void
   selectArea: (id: string | undefined, additive?: boolean) => void
@@ -234,6 +238,23 @@ export const useDiagramStore = create<DiagramStore>()(
             ...s,
             layout: { ...s.layout, edges: { ...s.layout.edges, [edgeKey]: next } },
           }
+        }),
+
+      setEdgeLabelOffset: (edgeId, labelDx, labelDy) =>
+        set((s) => {
+          const key = edgeStyleKey(edgeId)
+          const edges = { ...s.layout.edges }
+          const next = { ...edges[key] }
+          // Drop each axis when it returns to 0 (and the whole entry if it ends
+          // up empty) so absent == 0 == auto-anchor and the sidecar diff stays
+          // minimal — a pure vertical nudge never writes "labelDx": 0.
+          if (labelDx === 0) delete next.labelDx
+          else next.labelDx = labelDx
+          if (labelDy === 0) delete next.labelDy
+          else next.labelDy = labelDy
+          if (Object.keys(next).length === 0) delete edges[key]
+          else edges[key] = next
+          return { ...s, layout: { ...s.layout, edges } }
         }),
 
       setNodeSize: (id, w, h) =>

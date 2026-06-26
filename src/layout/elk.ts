@@ -425,9 +425,19 @@ export const route = async (
       }
     }
 
-    const labelAnchor = chooseLabelAnchor(points, pixelNodes)
-
     const styleSpec = layout.edges[edgeKey(meta.source, meta.target)]
+
+    // Auto-anchor, then apply the user's persisted nudge (grid units → pixels).
+    // Doing it here means the editor and the headless PNG export — which both
+    // route through this function and render the same Edge component — agree on
+    // the final position with no duplicated offset logic.
+    const baseAnchor = chooseLabelAnchor(points, pixelNodes)
+    const labelDx = styleSpec?.labelDx ?? 0
+    const labelDy = styleSpec?.labelDy ?? 0
+    const labelAnchor = baseAnchor
+      ? { x: baseAnchor.x + labelDx * gridSize, y: baseAnchor.y + labelDy * gridSize }
+      : undefined
+
     routedEdges.push({
       id: e.id,
       source: { nodeId: meta.source, side: meta.sourceSide },
@@ -439,6 +449,10 @@ export const route = async (
       width: styleSpec?.width,
       startCap: styleSpec?.startCap,
       endCap: styleSpec?.endCap,
+      // Surfaced so the label drag handle can read the committed offset as its
+      // starting point (the anchor above already bakes it in).
+      labelDx: styleSpec?.labelDx,
+      labelDy: styleSpec?.labelDy,
     })
   }
 

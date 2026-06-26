@@ -267,7 +267,7 @@ const NODE_FIELDS = new Set([
 export const SHAPES = new Set(['rectangle', 'cylinder', 'person'])
 const EDGE_FIELDS = new Set([
   'color', 'lineStyle', 'width', 'startCap', 'endCap',
-  'sourceSide', 'targetSide',
+  'sourceSide', 'targetSide', 'labelDx', 'labelDy',
 ])
 const AREA_FIELDS = new Set(['borderColor', 'borderStyle', 'fillColor'])
 const ROOT_FIELDS = new Set(['gridSize', 'nodes', 'edges', 'areas'])
@@ -406,6 +406,11 @@ const validateEdge = (node: JsonNode, key: string, ctx: Ctx): void => {
       case 'sourceSide':
       case 'targetSide':
         validateEnum(entry.value, SIDES, entry.key, ctx)
+        break
+      case 'labelDx':
+      case 'labelDy':
+        // Label nudge in grid units; integers, negative allowed.
+        validateNumber(entry.value, entry.key, ctx, { integer: true })
         break
       default:
         if (!EDGE_FIELDS.has(entry.key)) {

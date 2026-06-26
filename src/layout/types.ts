@@ -32,6 +32,12 @@ export interface EdgeStyleSpec {
   width?: Size
   startCap?: EndCap
   endCap?: EndCap
+  /** Nudge the label off its auto-computed anchor, in grid units (integers,
+   *  may be negative). Absent → label sits at the routed default. Shared by
+   *  every parallel edge of the same source→target pair (like the other
+   *  style fields). */
+  labelDx?: number
+  labelDy?: number
 }
 
 export interface AreaStyleSpec {

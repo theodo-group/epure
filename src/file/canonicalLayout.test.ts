@@ -51,6 +51,19 @@ describe('canonicalizeLayout', () => {
     }
   })
 
+  it('round-trips a negative label offset on an edge after its style fields', () => {
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {},
+      edges: { 'a->b': { color: 'teal', labelDy: -2, labelDx: 3 } },
+    }
+    const out = canonicalizeLayout(layout)
+    // Style first, then label offsets in (dx, dy) order.
+    expect(out).toContain('"a->b": { "color": "teal", "labelDx": 3, "labelDy": -2 }')
+    // Fixed point survives the new fields.
+    expect(canonicalizeLayout(parse(out))).toBe(out)
+  })
+
   it('sorts record ids deterministically, including numeric-looking ids', () => {
     const a = canonicalizeLayout({
       gridSize: 10,
