@@ -1,0 +1,33 @@
+src/layout/elk.ts
+  s_7664e43ca22491::t_1486071215fc04 161,505-527,862
+  s_7664e43ca22491::t_169e570f75b915 393
+  s_7664e43ca22491::t_efc8b6deefe167 841-861
+  s_7664e43ca22491::t_1d258631236f54 480-490
+  s_7664e43ca22491::t_54858c0cc1bd2f 116-160
+  s_7664e43ca22491::t_e17412df279330 346-349,363-390,398-399
+  s_7664e43ca22491::t_ab944ba53e663b 578-590
+  s_7664e43ca22491::t_bed43ca32f6278 298-339,341
+  s_7664e43ca22491::t_fffecf55be92c0 1014
+  s_7664e43ca22491::t_3ac8b492ec3abf 991-994,1004
+  s_7664e43ca22491::t_dfef7fbfd35910 354-357
+  s_7664e43ca22491::t_c5aa6978d8281b 350-353,358-362
+  s_7664e43ca22491::t_509405d6772a84 162
+  s_7664e43ca22491::t_817eb5ca37483c 528
+  s_7664e43ca22491::t_bc3355d4a1c70f 863
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "3518e1fe3301228322a1a2dde6df7d236700e54e",
+  "prompts": {},
+  "sessions": {
+    "s_7664e43ca22491": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24099311-5a0f-4c10-9889-a6a8abc0c164",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
