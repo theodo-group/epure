@@ -1,5 +1,10 @@
 // Floating comments panel: toggle comment mode, list/edit/resolve/delete pins,
 // and hand the batch to Claude Code. Reads the comments store directly.
+//
+// Layout: anchored bottom-right but lifted ABOVE the canvas zoom dock (which
+// owns bottom:16) so the two never collide. It hugs its content when collapsed
+// and only takes a fixed width once the note list is showing. Chrome uses the
+// shared --ep-* design tokens so it matches the dock it sits next to.
 
 import { useState } from 'react'
 
@@ -12,6 +17,11 @@ interface CommentsPanelProps {
 }
 
 const targetLabel = (ref: string | undefined): string => (ref ? ref : 'canvas')
+
+// Comment-status colours are domain-specific (they match the canvas pins), so
+// they stay literal rather than using the chrome tokens.
+const STATUS_AMBER = '#f59e0b'
+const STATUS_GREEN = '#22c55e'
 
 export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
   const comments = useCommentsStore((s) => s.comments)
@@ -29,6 +39,7 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
   // Show the list whenever the user is placing or has a pin selected, even if
   // they last collapsed it — so a freshly-dropped pin is immediately editable.
   const expanded = open || commentMode || selectedId !== null
+  const listVisible = expanded && comments.length > 0
   const openCount = comments.filter((c) => c.status === 'open').length
 
   const sendToClaude = async () => {
@@ -44,8 +55,11 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
   }
 
   return (
-    <div className="ep-comments-panel" style={panelStyle}>
-      <div style={headerStyle}>
+    <div
+      className="ep-comments-panel"
+      style={{ ...panelStyle, width: listVisible ? 340 : 'auto' }}
+    >
+      <div style={{ ...headerStyle, borderBottom: listVisible ? '1px solid var(--ep-border)' : 'none' }}>
         <button
           type="button"
           onClick={() => setCommentMode(!commentMode)}
@@ -57,21 +71,23 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
         <button type="button" onClick={() => setOpen((o) => !o)} style={ghostBtn} title="Show comments">
           {comments.length} {comments.length === 1 ? 'note' : 'notes'} {expanded ? '▾' : '▸'}
         </button>
-        <div style={{ flex: 1 }} />
         {comments.length > 0 ? (
-          <button
-            type="button"
-            onClick={sendToClaude}
-            disabled={openCount === 0}
-            style={sendBtnStyle(openCount > 0)}
-            title={bridged ? 'Copy a prompt to hand the comments to Claude Code' : 'Connect via `epure <file>` to share with Claude Code'}
-          >
-            {sent ? '✓ Copied' : `Send ${openCount} to Claude`}
-          </button>
+          <>
+            <div style={{ flex: 1, minWidth: 8 }} />
+            <button
+              type="button"
+              onClick={sendToClaude}
+              disabled={openCount === 0}
+              style={sendBtnStyle(openCount > 0)}
+              title={bridged ? 'Copy a prompt to hand the comments to Claude Code' : 'Connect via `epure <file>` to share with Claude Code'}
+            >
+              {sent ? '✓ Copied' : `Send ${openCount} to Claude`}
+            </button>
+          </>
         ) : null}
       </div>
 
-      {expanded && comments.length > 0 ? (
+      {listVisible ? (
         <div style={listStyle}>
           {comments.map((c, i) => (
             <div
@@ -81,7 +97,7 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <span style={badgeStyle(c.status)}>{i + 1}</span>
-                <span style={{ fontSize: 11, color: '#6b7280', fontFamily: 'monospace' }}>
+                <span style={{ fontSize: 11, color: 'var(--ep-text-muted)', fontFamily: 'var(--ep-mono)' }}>
                   {targetLabel(c.target.ref)}
                 </span>
                 <div style={{ flex: 1 }} />
@@ -113,18 +129,22 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
   )
 }
 
-// ── inline styles (kept local; consistent with BridgeStatus) ─────────────────
+// ── inline styles ────────────────────────────────────────────────────────────
+// Chrome uses the shared --ep-* tokens (matching the zoom dock / style panel);
+// status colours stay literal (they mirror the canvas pins).
 
 const panelStyle: React.CSSProperties = {
   position: 'absolute',
-  right: 12,
-  bottom: 12,
-  width: 280,
-  background: '#ffffff',
-  border: '1px solid #e5e7eb',
+  right: 16,
+  bottom: 64, // lifted clear of the zoom dock (bottom:16, ~40px tall)
+  maxWidth: 'calc(100% - 32px)',
+  background: 'var(--ep-surface)',
+  border: '1px solid var(--ep-border)',
   borderRadius: 10,
-  boxShadow: '0 4px 16px rgba(15,23,42,0.12)',
+  boxShadow: 'var(--ep-shadow-card)',
+  fontFamily: 'var(--ep-sans)',
   fontSize: 13,
+  color: 'var(--ep-text)',
   zIndex: 20,
   overflow: 'hidden',
 }
@@ -133,41 +153,48 @@ const headerStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 6,
   padding: 8,
-  borderBottom: '1px solid #f1f5f9',
+  whiteSpace: 'nowrap',
 }
 const listStyle: React.CSSProperties = { maxHeight: 320, overflowY: 'auto', padding: 6 }
-const modeBtnStyle = (active: boolean): React.CSSProperties => ({
+
+const btnBase: React.CSSProperties = {
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   border: 'none',
-  borderRadius: 7,
-  padding: '5px 9px',
-  cursor: 'pointer',
+  borderRadius: 8,
+  padding: '5px 10px',
   fontWeight: 600,
-  background: active ? '#f59e0b' : '#f1f5f9',
-  color: active ? '#ffffff' : '#334155',
+  cursor: 'pointer',
+}
+const modeBtnStyle = (active: boolean): React.CSSProperties => ({
+  ...btnBase,
+  minWidth: 96, // reserve for "Placing…" so toggling doesn't shift the row
+  textAlign: 'center',
+  background: active ? STATUS_AMBER : 'var(--ep-bg)',
+  color: active ? '#ffffff' : 'var(--ep-text-tertiary)',
 })
 const sendBtnStyle = (enabled: boolean): React.CSSProperties => ({
-  border: 'none',
-  borderRadius: 7,
-  padding: '5px 9px',
+  ...btnBase,
   cursor: enabled ? 'pointer' : 'default',
-  fontWeight: 600,
-  background: enabled ? '#3b82f6' : '#e5e7eb',
-  color: enabled ? '#ffffff' : '#9ca3af',
+  background: enabled ? 'var(--ep-accent)' : 'var(--ep-bg)',
+  color: enabled ? '#ffffff' : 'var(--ep-text-subtle)',
 })
 const ghostBtn: React.CSSProperties = {
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   border: 'none',
   background: 'transparent',
   cursor: 'pointer',
-  color: '#475569',
+  color: 'var(--ep-text-muted)',
   fontSize: 12,
 }
-const ghostBtnSm: React.CSSProperties = { ...ghostBtn, padding: '2px 4px', lineHeight: 1 }
+const ghostBtnSm: React.CSSProperties = { ...ghostBtn, padding: '2px 4px', lineHeight: 1, fontSize: 13 }
 const itemStyle = (selected: boolean, resolved: boolean): React.CSSProperties => ({
-  border: `1px solid ${selected ? '#93c5fd' : '#eef2f7'}`,
+  border: `1px solid ${selected ? 'var(--ep-accent-border)' : 'var(--ep-border)'}`,
   borderRadius: 8,
   padding: 7,
   marginBottom: 6,
-  background: resolved ? '#f8fafc' : '#ffffff',
+  background: resolved ? 'var(--ep-app)' : 'var(--ep-surface)',
   opacity: resolved ? 0.7 : 1,
 })
 const badgeStyle = (status: string): React.CSSProperties => ({
@@ -177,18 +204,20 @@ const badgeStyle = (status: string): React.CSSProperties => ({
   width: 18,
   height: 18,
   borderRadius: '50%',
-  background: status === 'resolved' ? '#22c55e' : '#f59e0b',
+  background: status === 'resolved' ? STATUS_GREEN : STATUS_AMBER,
   color: '#ffffff',
   fontSize: 11,
   fontWeight: 700,
 })
 const textareaStyle: React.CSSProperties = {
   width: '100%',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--ep-border-soft)',
   borderRadius: 6,
   padding: 6,
   fontSize: 12,
   resize: 'vertical',
-  fontFamily: 'inherit',
+  fontFamily: 'var(--ep-sans)',
+  color: 'var(--ep-text)',
+  background: 'var(--ep-surface)',
   boxSizing: 'border-box',
 }
