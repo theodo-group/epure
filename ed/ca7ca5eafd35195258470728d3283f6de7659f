@@ -1,0 +1,96 @@
+src/layout/elk.ts
+  s_b4f26f21846fd7::t_c4a247e68f6b82 429-440,452-455
+src/file/canonicalLayout.test.ts
+  s_b4f26f21846fd7::t_b50cfdd547d75e 54-66
+src/layout/crossings.test.ts
+  s_6d97fb951e0844::t_3349190303feec 1-68
+server/render/svg.tsx
+  s_b4f26f21846fd7::t_dc334dfe9ed523 23-30,53-54,57-58,60-63
+  s_b4f26f21846fd7::t_294170b597c64d 13
+  s_6d97fb951e0844::t_230042b85b5eee 15
+  s_6d97fb951e0844::t_9fa46ec3f78491 79-80
+  s_6d97fb951e0844::t_ebadab503eead0 100-109
+  s_b4f26f21846fd7::t_a09982f2834cd3 55-56,59
+  s_b4f26f21846fd7::t_fbd97617cb14c7 78
+src/file/canonicalLayout.ts
+  s_b4f26f21846fd7::t_3c7a2dd7205e08 37
+src/App.tsx
+  s_b4f26f21846fd7::t_e7d4e90cf28711 103
+  s_c55bd906e8d6a1::t_6feab00633ed2c 204-209,213-227,257
+  s_c55bd906e8d6a1::t_f7dbae574782d3 26
+  s_b4f26f21846fd7::t_447fdacb64a39c 473
+src/layout/types.ts
+  s_b4f26f21846fd7::t_6a11f9ac0619ed 35-40
+skills/epure-diagram/SKILL.md
+  s_b4f26f21846fd7::t_3fe601a227a646 125-127
+tests/layoutSchema.test.ts
+  s_b4f26f21846fd7::t_ba58c3c3bc7528 70-79
+src/layout/crossings.ts
+  s_6d97fb951e0844::t_453298b0e3dac3 1-97
+src/store/diagramStore.ts
+  s_b4f26f21846fd7::t_2aefb8101248b7 243-247,255-257
+  s_b4f26f21846fd7::t_744b7d4ce73cf7 248-254
+  s_b4f26f21846fd7::t_b9135e4b413249 75-78
+  s_b4f26f21846fd7::t_4969f6955fa34f 258-259
+src/renderer/Canvas.tsx
+  s_b4f26f21846fd7::t_205993cbc19578 53-54
+  s_6d97fb951e0844::t_1e8a9204a7c449 177-183
+  s_b4f26f21846fd7::t_081764016c8c51 78-82,107-115
+  s_6d97fb951e0844::t_a1028505481084 6,13
+  s_b4f26f21846fd7::t_259ec0f7c879dc 144
+  s_6d97fb951e0844::t_52657a87369456 507
+  s_b4f26f21846fd7::t_29d3b84781e37d 21
+  s_b4f26f21846fd7::t_e31feaba8b9494 505-506
+  s_b4f26f21846fd7::t_c019aa2c6302c3 202
+  s_b4f26f21846fd7::t_9502dd6bc3586e 116
+  s_b4f26f21846fd7::t_654bd873a844c5 184
+src/renderer/Edge.tsx
+  s_b4f26f21846fd7::t_cb01d0263519e2 342,344-348,357
+  s_b4f26f21846fd7::t_a4418ecabf40fe 1,8,19-23
+  s_6d97fb951e0844::t_6a1985dea7ea12 56-64
+  s_b4f26f21846fd7::t_8a9f9621dc0e80 75-84
+  s_6d97fb951e0844::t_a2a1848437a4a3 24-28,31-35
+  s_b4f26f21846fd7::t_a5681320105863 341
+  s_b4f26f21846fd7::t_a55e2b8bedee06 186-187,194,203-204,208
+  s_6d97fb951e0844::t_a83897264c017a 172
+  s_6d97fb951e0844::t_f5e93c4d0787ce 4
+  s_b4f26f21846fd7::t_5dc25666617f6c 170-171,174-185,188-193,195-202,205-207,209-224
+  s_6d97fb951e0844::t_949f453142b641 275-295,306,318
+  s_6d97fb951e0844::t_e95add531a19c0 244-271
+  s_b4f26f21846fd7::t_038a1ef9464182 36,85,272
+src/file/layoutSchema.ts
+  s_b4f26f21846fd7::t_4a19bdbcd083c0 410-414
+  s_b4f26f21846fd7::t_1acda326c54903 270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "edca7ca5eafd35195258470728d3283f6de7659f",
+  "prompts": {},
+  "sessions": {
+    "s_6d97fb951e0844": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5c3b56ce-ec04-4355-8bf9-d49b1d9f4500",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_b4f26f21846fd7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5754682-218e-4d54-abb6-f40dd2413098",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_c55bd906e8d6a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fd5ce1a7-0643-4a00-843c-b75a427f5e4e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
