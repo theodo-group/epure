@@ -68,6 +68,7 @@ bin/epure.ts
   s_daae0451d0e602::t_3199f23bb73e58 6
   s_daae0451d0e602::t_fd1e7a09254d4d 339-348
   s_daae0451d0e602::t_c35e1071fbd9bc 434-437,440
+  s_daae0451d0e602::t_76f0a63c1de16f 606
 server/core/frames.ts
   s_daae0451d0e602::t_5fb13718fcea75 24
 src/bridge/protocol.ts
