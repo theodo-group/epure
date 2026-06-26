@@ -37,13 +37,6 @@ export const edgeKey = (sourceId: string, targetId: string) =>
 const snap = (v: number, gridSize: number) =>
   Math.round(v / gridSize) * gridSize
 
-const SIDE_FROM_CONNECTION: Record<ConnectionSide, Side> = {
-  north: 'N',
-  south: 'S',
-  east: 'E',
-  west: 'W',
-}
-
 const portOffset = (
   side: Side,
   w: number,
@@ -118,6 +111,53 @@ const pathMidpoint = (points: { x: number; y: number }[]) => {
     acc += seg
   }
   return points[points.length - 1]!
+}
+
+// Distance from a point to a rect (0 when inside). Used to keep edge labels
+// off the node bodies.
+const distToRect = (p: Pt, r: Rect): number => {
+  const dx = Math.max(r.x - p.x, 0, p.x - (r.x + r.w))
+  const dy = Math.max(r.y - p.y, 0, p.y - (r.y + r.h))
+  return Math.hypot(dx, dy)
+}
+
+const clearanceAt = (p: Pt, nodes: Record<string, Rect>): number => {
+  let min = Infinity
+  for (const id in nodes) min = Math.min(min, distToRect(p, nodes[id]!))
+  return min
+}
+
+// Pick where an edge's label sits. The preferred spot is the midpoint of the
+// longest horizontal run (or the path midpoint), but a mostly-vertical edge
+// that hugs the nodes it passes can leave that spot buried under one of them —
+// so when the preferred point is too close to a node, walk the polyline and
+// take the sampled point with the most clearance instead.
+const LABEL_MIN_CLEARANCE = 12
+const chooseLabelAnchor = (
+  points: Pt[],
+  nodes: Record<string, Rect>,
+): Pt | undefined => {
+  const preferred = longestHorizontalMidpoint(points) ?? pathMidpoint(points)
+  if (clearanceAt(preferred, nodes) >= LABEL_MIN_CLEARANCE) return preferred
+  let best = preferred
+  let bestClear = clearanceAt(preferred, nodes)
+  const STEP = 16
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    const steps = Math.max(1, Math.round(len / STEP))
+    for (let s = 1; s < steps; s += 1) {
+      const t = s / steps
+      const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+      const c = clearanceAt(p, nodes)
+      if (c > bestClear) {
+        bestClear = c
+        best = p
+      }
+    }
+  }
+  return best
 }
 
 // The parser AST doesn't give edges a stable id (multiple edges may share the
@@ -255,46 +295,108 @@ export const route = async (
     }
   }
 
-  const edgeAnchors = computeEdgeAnchors(elkEdges, edgeMeta, pixelNodes)
-  resolveSegmentOverlaps(edgeAnchors, edgeMeta, pixelNodes, gridSize)
-
-  const routedEdges: EdgeRoute[] = []
-  for (const e of elkEdges) {
-    const result = routes.get(e.id)
-    if (!result) continue
-    const meta = edgeMeta.get(e.id)!
-
-    const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(e.id)!
-
-    // Default to the clean synthetic orthogonal path. Only when it would cut
-    // through a *foreign* node do we swap in libavoid's obstacle-avoiding
-    // polyline — keeping the tidy look everywhere a detour isn't needed and
-    // never letting libavoid's occasional loop-through-its-own-endpoint show.
-    let points = buildOrthogonalPath(
-      sourceAnchor,
-      targetAnchor,
-      meta.sourceSide,
-      meta.targetSide,
-      gridSize,
-      bendCoord,
-    )
-    if (libavoidOk && pathCrossesForeignNode(points, pixelNodes, meta.source, meta.target)) {
-      const avoided = cleanPolyline([
+  // Some edges can't take their geometric side without crossing another node;
+  // for those libavoid supplies an obstacle-avoiding polyline and the edge
+  // really leaves/enters via a DIFFERENT face than geometry implied (e.g. a
+  // node sitting directly below forces the edge out to the side). Detect them
+  // up front — using the un-distributed centre path as a stable predictor —
+  // and adopt the face libavoid actually uses. Everything downstream (port
+  // distribution, overlap resolution, the rendered side) then reasons about
+  // the faces edges occupy in the *final* drawing, not the ones geometry
+  // guessed. `libRoutes` holds the polyline to draw for each such edge.
+  const libRoutes = new Map<string, Pt[]>()
+  if (libavoidOk) {
+    for (const e of elkEdges) {
+      const meta = edgeMeta.get(e.id)!
+      const src = pixelNodes[meta.source]!
+      const tgt = pixelNodes[meta.target]!
+      const centerPath = buildOrthogonalPath(
+        anchorPoint(src, meta.sourceSide),
+        anchorPoint(tgt, meta.targetSide),
+        meta.sourceSide,
+        meta.targetSide,
+        gridSize,
+      )
+      if (!pathCrossesForeignNode(centerPath, pixelNodes, meta.source, meta.target)) {
+        continue
+      }
+      const result = routes.get(e.id)
+      if (!result) continue
+      const poly = cleanPolyline([
         result.sourcePoint,
         ...result.bendPoints,
         result.targetPoint,
       ])
-      if (avoided.length >= 2) points = avoided
+      if (poly.length < 2) continue
+      meta.sourceSide = sideFromSegment(poly[0]!, poly[1]!)
+      meta.targetSide = sideFromSegment(
+        poly[poly.length - 1]!,
+        poly[poly.length - 2]!,
+      )
+      libRoutes.set(e.id, poly)
+    }
+  }
+
+  const edgeAnchors = computeEdgeAnchors(elkEdges, edgeMeta, pixelNodes)
+  resolveSegmentOverlaps(edgeAnchors, edgeMeta, pixelNodes, gridSize, libRoutes)
+
+  const routedEdges: EdgeRoute[] = []
+  for (const e of elkEdges) {
+    const meta = edgeMeta.get(e.id)!
+    const lib = libRoutes.get(e.id)
+
+    let points: Pt[]
+    if (lib) {
+      // Edge already known to need libavoid's obstacle-avoiding polyline. Pull
+      // its endpoints from the centre pins onto the distributed face ports so
+      // it spaces apart from any fan peers and its arrowhead lands on the
+      // border, then drop any degenerate points the shift introduced.
+      // Only snap when the two ends touch distinct legs (≥3 points). A 2-point
+      // route shares both points between the ends, so snapping each would
+      // clobber the other — leave it on its centre pins.
+      const hints = lib.length >= 3 ? edgeAnchors.get(e.id) : undefined
+      if (hints) {
+        snapLibEnd(lib, hints.sourceAnchor, meta.sourceSide, 'source')
+        snapLibEnd(lib, hints.targetAnchor, meta.targetSide, 'target')
+      }
+      points = cleanPolyline(lib)
+    } else {
+      const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(e.id)!
+      // The clean synthetic orthogonal path. Tidy everywhere a detour isn't
+      // needed.
+      points = buildOrthogonalPath(
+        sourceAnchor,
+        targetAnchor,
+        meta.sourceSide,
+        meta.targetSide,
+        gridSize,
+        bendCoord,
+      )
+      // Safety net: port distribution may have nudged a synthetic path into a
+      // node the centre path cleared. Swap in libavoid's route if so.
+      if (
+        libavoidOk &&
+        pathCrossesForeignNode(points, pixelNodes, meta.source, meta.target)
+      ) {
+        const result = routes.get(e.id)
+        if (result) {
+          const avoided = cleanPolyline([
+            result.sourcePoint,
+            ...result.bendPoints,
+            result.targetPoint,
+          ])
+          if (avoided.length >= 2) points = avoided
+        }
+      }
     }
 
-    const labelAnchor =
-      longestHorizontalMidpoint(points) ?? pathMidpoint(points)
+    const labelAnchor = chooseLabelAnchor(points, pixelNodes)
 
     const styleSpec = layout.edges[edgeKey(meta.source, meta.target)]
     routedEdges.push({
       id: e.id,
-      source: { nodeId: meta.source, side: SIDE_FROM_CONNECTION[result.sourceSide] ?? meta.sourceSide },
-      target: { nodeId: meta.target, side: SIDE_FROM_CONNECTION[result.targetSide] ?? meta.targetSide },
+      source: { nodeId: meta.source, side: meta.sourceSide },
+      target: { nodeId: meta.target, side: meta.targetSide },
       points,
       labelAnchor,
       color: styleSpec?.color,
@@ -375,6 +477,17 @@ const isHorizontalSide = (side: Side) => side === 'E' || side === 'W'
 type Pt = { x: number; y: number }
 type Rect = { x: number; y: number; w: number; h: number }
 
+// Which face of a node a polyline touches, inferred from the step it takes
+// leaving that node's centre (pass centre→next for a source) or arriving at it
+// (pass centre→previous for a target). Used to learn the real side an
+// obstacle-avoiding libavoid route uses, which geometry alone can't predict.
+const sideFromSegment = (from: Pt, to: Pt): Side => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'E' : 'W'
+  return dy >= 0 ? 'S' : 'N'
+}
+
 const FACE_MARGIN = 12
 
 const faceCoord = (node: Rect, side: Side): number =>
@@ -387,6 +500,30 @@ const faceRange = (node: Rect, side: Side): [number, number] => {
   const size = horiz ? node.h : node.w
   const margin = Math.min(FACE_MARGIN, size / 4)
   return [origin + margin, origin + size - margin]
+}
+
+// Outward normal and the tangent that points along a face in the direction of
+// increasing port coordinate (E/W ports run top→bottom = +y; N/S run
+// left→right = +x).
+const FACE_FRAME: Record<Side, { n: Pt; t: Pt }> = {
+  N: { n: { x: 0, y: -1 }, t: { x: 1, y: 0 } },
+  S: { n: { x: 0, y: 1 }, t: { x: 1, y: 0 } },
+  E: { n: { x: 1, y: 0 }, t: { x: 0, y: 1 } },
+  W: { n: { x: -1, y: 0 }, t: { x: 0, y: 1 } },
+}
+
+// Where along a face an edge should attach to avoid crossing its peers: the
+// angle of the direction toward the connected node, measured in the face's
+// local frame (outward normal → port-increasing tangent). Sorting a fan by
+// this lays the ports out in the same rotational order the edges leave in, so
+// their legs nest instead of cross — including edges that wrap onto a face
+// from a node sitting off to its side (which a plain face-axis sort
+// mis-orders).
+const fanOrderKey = (fanCenter: Pt, connectedCenter: Pt, side: Side): number => {
+  const dx = connectedCenter.x - fanCenter.x
+  const dy = connectedCenter.y - fanCenter.y
+  const { n, t } = FACE_FRAME[side]
+  return Math.atan2(dx * t.x + dy * t.y, dx * n.x + dy * n.y)
 }
 
 interface EdgeRoutingHints {
@@ -438,12 +575,19 @@ const computeEdgeAnchors = (
     const [lo, hi] = faceRange(fanNode, fanSide)
     const n = group.length
 
-    const sorted = [...group].sort((a, b) => {
-      const aN = nodes[a.connectedId]!
-      const bN = nodes[b.connectedId]!
-      return (horiz ? aN.y + aN.h / 2 : aN.x + aN.w / 2) -
-             (horiz ? bN.y + bN.h / 2 : bN.x + bN.w / 2)
-    })
+    const fanCenter: Pt = {
+      x: fanNode.x + fanNode.w / 2,
+      y: fanNode.y + fanNode.h / 2,
+    }
+    const connectedCenter = (id: string): Pt => {
+      const c = nodes[id]!
+      return { x: c.x + c.w / 2, y: c.y + c.h / 2 }
+    }
+    const sorted = [...group].sort(
+      (a, b) =>
+        fanOrderKey(fanCenter, connectedCenter(a.connectedId), fanSide) -
+        fanOrderKey(fanCenter, connectedCenter(b.connectedId), fanSide),
+    )
 
     const step = (hi - lo) / n
     for (let i = 0; i < n; i++) {
@@ -694,6 +838,29 @@ const cleanPolyline = (pts: Pt[]): Pt[] => {
   return out
 }
 
+// Slide the first (source) or last (target) leg of a libavoid polyline so it
+// meets the node face at `anchor` — the distributed port — instead of
+// libavoid's centre pin. The touching leg is perpendicular to the face, so we
+// move it along the face by rewriting the shared coordinate of its two end
+// points, which keeps the polyline orthogonal. This both spaces libavoid edges
+// apart from their fan peers and lands their arrowheads on the node border
+// (where synthetic edges put them) rather than hidden under the node centre.
+const snapLibEnd = (
+  poly: Pt[],
+  anchor: Pt,
+  side: Side,
+  end: 'source' | 'target',
+): void => {
+  if (poly.length < 2) return
+  const horiz = isHorizontalSide(side) // W/E face → the touching leg is horizontal
+  const i = end === 'source' ? 0 : poly.length - 1
+  const j = end === 'source' ? 1 : poly.length - 2
+  poly[i] = { x: anchor.x, y: anchor.y }
+  poly[j] = horiz
+    ? { x: poly[j]!.x, y: anchor.y }
+    : { x: anchor.x, y: poly[j]!.y }
+}
+
 // Synthesize a fully-orthogonal polyline from the two anchors. The first
 // segment always leaves perpendicular to the source side and the last
 // segment always arrives perpendicular to the target side. Z-jogs use the
@@ -821,6 +988,10 @@ const resolveSegmentOverlaps = (
   edgeMeta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
   nodes: Record<string, Rect>,
   gridSize: number,
+  // Edges drawn from libavoid's polyline rather than their synthetic anchors;
+  // their `hints` describe a path that won't be rendered, so excluding them
+  // keeps the overlap check from chasing phantom segments.
+  skip: Map<string, Pt[]>,
 ): void => {
   const OVERLAP_TOLERANCE = 4 // segments closer than this are considered identical
   const nudgeAmount = Math.max(gridSize / 2, 16)
@@ -830,6 +1001,7 @@ const resolveSegmentOverlaps = (
   for (let iter = 0; iter < MAX_ITERATIONS; iter += 1) {
     const segs = new Map<string, AxisSegment[]>()
     for (const [edgeId, hints] of edgeAnchors) {
+      if (skip.has(edgeId)) continue
       const m = edgeMeta.get(edgeId)!
       segs.set(edgeId, segmentsFor(hints, m, gridSize))
     }
@@ -839,7 +1011,7 @@ const resolveSegmentOverlaps = (
       endpoint: 'source' | 'target'
     }
     let conflict: Conflict | null = null
-    const edgeIds = [...edgeAnchors.keys()]
+    const edgeIds = [...segs.keys()]
     outer: for (let i = 0; i < edgeIds.length; i += 1) {
       for (let j = i + 1; j < edgeIds.length; j += 1) {
         const e1 = edgeIds[i]!
