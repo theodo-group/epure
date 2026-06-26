@@ -4,6 +4,7 @@
 > your repo as a reviewable file pair, and Claude Code edits it live while you watch.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+&nbsp;**[Try the editor online →](https://theodo-group.github.io/epure/)**
 
 ![An Épure diagram](./docs/hero.png)
 
@@ -12,6 +13,10 @@ is **two small text files** — semantic D2 for the topology, a JSON sidecar for
 visuals — so it diffs in a pull request like code, with no SaaS, no account, no
 lock-in. It is built to be driven by **Claude Code**: CC writes the files, you
 watch them render live, you drop comments on the canvas, and CC addresses them.
+
+> [**Try it now in your browser**](https://theodo-group.github.io/epure/) (no
+> install — edits stay in localStorage). For the live, file-backed,
+> Claude-Code-driven workflow, install the CLI below.
 
 ## Install
 

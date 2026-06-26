@@ -1,8 +1,11 @@
 {
-  "name": "epure",
+  "name": "@theodo/epure",
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Grid-snapped, orthogonal-routed architecture-diagram editor that lives in your repo as a reviewable file pair and is driven live by Claude Code.",
   "keywords": [
