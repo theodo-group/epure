@@ -1,0 +1,31 @@
+tests/layoutSchema.test.ts
+  s_c55bd906e8d6a1::t_58e1b89432173a 2
+  s_c55bd906e8d6a1::t_28aa5e3d1b6037 93-145
+  s_c55bd906e8d6a1::t_e3b3e10312a9df 146-147
+src/file/layoutSchema.ts
+  s_b4f26f21846fd7::t_fff641293ea857 543-593
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "52232302f074bb77e309872c1ce9598588b9481a",
+  "prompts": {},
+  "sessions": {
+    "s_b4f26f21846fd7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5754682-218e-4d54-abb6-f40dd2413098",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_c55bd906e8d6a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fd5ce1a7-0643-4a00-843c-b75a427f5e4e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
