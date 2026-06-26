@@ -1,0 +1,35 @@
+RELEASING.md
+  s_7413682a40e5a1::t_fca8979d8ede8f 10,12-14,16-25,27,29-30,33-36
+package.json
+  s_7413682a40e5a1::t_ae366c0f4f0c00 2,6-8
+docs/diagrams/test.epr.layout.json
+  s_e59efe41a9e3df::t_14e61c6024131d 9-10
+  s_e59efe41a9e3df::t_3cb81491c3542c 19-20
+README.md
+  s_7413682a40e5a1::t_a18beb6ada01fd 7,17-19
+  s_7413682a40e5a1::t_5587a265475c74 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "c2d695addb1d5e1c7aaff6865730cf33482dcb3f",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    },
+    "s_e59efe41a9e3df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0881b589-7c43-4ce4-9140-59050866680a",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
