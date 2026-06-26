@@ -1,0 +1,19 @@
+src/comments/CommentsPanel.tsx
+  s_7413682a40e5a1::t_0d01d75bf9bf98 3-7,21-25,42,58-62,75-86,90,100,132-134,138-142,144-145,147,156,159-162,164-165,167-174,177,179-180,183-184,188,191,193,197,207,214,219-221
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.1",
+  "base_commit_sha": "b5a3fb9ef09ca4ec93f15047fc3b7309aa99ea4d",
+  "prompts": {},
+  "sessions": {
+    "s_7413682a40e5a1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2c02610-b5e7-4bb4-863e-7dde1d6684c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
