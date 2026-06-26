@@ -1,0 +1,25 @@
+src/editor/CodeMirrorPane.tsx
+  s_a8e0369202be93::t_828e1affd44158 220-227
+  s_a8e0369202be93::t_1a04ad4d553968 32-36
+  s_a8e0369202be93::t_6f739e230d7468 364
+  s_a8e0369202be93::t_b9fcd280699b66 76-118
+  s_a8e0369202be93::t_7315daae72865a 419-438
+src/App.tsx
+  s_a8e0369202be93::t_696e63783d444c 203-241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "1ab10481f40e6571d85827df859c37f946340606",
+  "prompts": {},
+  "sessions": {
+    "s_a8e0369202be93": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "719fd29b-36fa-42e4-a15f-c2b0824f0ad8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
