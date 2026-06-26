@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-26T00:00:00.000Z",
+  "title": "Design System: Épure",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Drafting Blue",
+        "canonical": "oklch(0.55 0.16 250)",
+        "tonalRamp": [
+          "oklch(0.25 0.10 250)",
+          "oklch(0.34 0.13 250)",
+          "oklch(0.40 0.16 250)",
+          "oklch(0.48 0.16 250)",
+          "oklch(0.55 0.16 250)",
+          "oklch(0.68 0.13 250)",
+          "oklch(0.82 0.07 250)",
+          "oklch(0.96 0.04 250)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "#1c1917",
+        "tonalRamp": [
+          "oklch(0.18 0.006 50)",
+          "oklch(0.27 0.006 50)",
+          "oklch(0.37 0.007 50)",
+          "oklch(0.48 0.007 50)",
+          "oklch(0.58 0.006 50)",
+          "oklch(0.70 0.006 50)",
+          "oklch(0.84 0.005 50)",
+          "oklch(0.95 0.004 50)"
+        ]
+      },
+      "canvas-bg": {
+        "role": "neutral",
+        "displayName": "Canvas Stone",
+        "canonical": "#ecebe7",
+        "tonalRamp": [
+          "oklch(0.22 0.005 70)",
+          "oklch(0.33 0.005 70)",
+          "oklch(0.45 0.005 70)",
+          "oklch(0.58 0.005 70)",
+          "oklch(0.70 0.005 70)",
+          "oklch(0.82 0.005 70)",
+          "oklch(0.91 0.004 70)",
+          "oklch(0.97 0.003 70)"
+        ]
+      },
+      "editor-bg": {
+        "role": "neutral",
+        "displayName": "Editor Slab",
+        "canonical": "#18181b",
+        "tonalRamp": [
+          "oklch(0.18 0.004 285)",
+          "oklch(0.24 0.004 285)",
+          "oklch(0.32 0.005 285)",
+          "oklch(0.42 0.005 285)",
+          "oklch(0.54 0.005 285)",
+          "oklch(0.66 0.005 285)",
+          "oklch(0.80 0.004 285)",
+          "oklch(0.92 0.003 285)"
+        ]
+      },
+      "diagram-blue": {
+        "role": "tertiary",
+        "displayName": "Diagram Blue (content stroke)",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#1e3a8a",
+          "#1e40af",
+          "#1d4ed8",
+          "#2563eb",
+          "#3b82f6",
+          "#60a5fa",
+          "#93c5fd",
+          "#eff6ff"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Style-panel section heads (11px/600). Labels, never announces." },
+      "body": { "displayName": "Body", "purpose": "Base UI size (13px). Menu items, buttons, hints. Compact by design." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked control-surface micro-labels (FILL, STROKE). Not a section eyebrow." },
+      "mono": { "displayName": "Mono", "purpose": "JetBrains Mono for coordinates, keycaps, file names, readouts, and code." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 4px 16px rgba(28,25,23,0.06)", "purpose": "Floating-over-canvas UI: tool palette, style panel, pills, zoom dock, menus, popovers." },
+      { "name": "app", "value": "0 1px 2px rgba(0,0,0,0.04), 0 18px 48px rgba(28,25,23,0.10)", "purpose": "Largest lift — the app shell / full-window framing." },
+      { "name": "seg-active", "value": "0 1px 2px rgba(28,25,23,0.06)", "purpose": "1px lift on the active segment of a segmented control." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "0.15s ease", "purpose": "Default for hover/active state changes (resize handle, buttons)." },
+      { "name": "focus-ring", "value": "0 0 0 2px oklch(0.96 0.04 250)", "purpose": "Input focus ring — Drafting Blue Wash, no glow." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The primary action — near-black stone, NOT blue, to keep the accent rare.",
+      "html": "<button class=\"ds-btn-primary\">Export</button>",
+      "css": ".ds-btn-primary { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 12.5px; font-weight: 500; line-height: 1; padding: 6px 12px; border: 1px solid transparent; border-radius: 7px; background: #1c1917; color: #fafaf9; cursor: pointer; transition: background 0.15s ease; } .ds-btn-primary:hover { background: #292524; } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.55 0.16 250); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action — white surface, hairline border.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 12.5px; font-weight: 500; line-height: 1; padding: 6px 12px; border: 1px solid #ebe9e6; border-radius: 7px; background: #ffffff; color: #1c1917; cursor: pointer; transition: background 0.15s ease; } .ds-btn-ghost:hover { background: #f5f5f4; } .ds-btn-ghost:focus-visible { outline: 2px solid oklch(0.55 0.16 250); outline-offset: 2px; }"
+    },
+    {
+      "name": "Tool (active state)",
+      "kind": "custom",
+      "refersTo": "tool-active",
+      "description": "Signature tool-palette cell. Shows the canonical active treatment: blue wash fill + blue edge + blue glyph, with a mono keycap.",
+      "html": "<div class=\"ds-tool-rail\"><button class=\"ds-tool\" aria-label=\"Select\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 3 L20 11 L13 13 L11 20 Z\"/></svg><span class=\"ds-tool-key\">V</span></button><button class=\"ds-tool ds-tool-active\" aria-label=\"Rectangle\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\"><rect x=\"4\" y=\"6\" width=\"16\" height=\"12\" rx=\"1.5\"/></svg><span class=\"ds-tool-key\">R</span></button></div>",
+      "css": ".ds-tool-rail { display: inline-flex; gap: 2px; padding: 2px; background: #ffffff; border: 1px solid #ebe9e6; border-radius: 9px; box-shadow: 0 4px 16px rgba(28,25,23,0.06); } .ds-tool { position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #78716c; cursor: pointer; padding: 0; } .ds-tool:hover { color: #57534e; } .ds-tool-active { background: oklch(0.96 0.04 250); border-color: oklch(0.85 0.06 250); color: oklch(0.4 0.16 250); } .ds-tool-key { position: absolute; right: 3px; bottom: 1px; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 8.5px; font-weight: 500; color: #a8a29e; } .ds-tool-active .ds-tool-key { color: oklch(0.5 0.14 250); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "seg-btn",
+      "description": "Mono-valued segmented control; active segment lifts to white with an accent edge.",
+      "html": "<div class=\"ds-seg\"><button class=\"ds-seg-btn ds-seg-active\">S</button><button class=\"ds-seg-btn\">M</button><button class=\"ds-seg-btn\">L</button><button class=\"ds-seg-btn\">XL</button></div>",
+      "css": ".ds-seg { display: inline-flex; gap: 2px; padding: 2px; background: #f5f5f4; border: 1px solid #ebe9e6; border-radius: 7px; } .ds-seg-btn { min-width: 34px; height: 26px; display: flex; align-items: center; justify-content: center; padding: 0 8px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #78716c; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 11px; cursor: pointer; } .ds-seg-btn:hover:not(.ds-seg-active) { color: #1c1917; } .ds-seg-active { background: #ffffff; border-color: oklch(0.85 0.06 250); color: oklch(0.4 0.16 250); box-shadow: 0 1px 2px rgba(28,25,23,0.06); }"
+    },
+    {
+      "name": "Search Input (focused)",
+      "kind": "input",
+      "refersTo": "input-focus",
+      "description": "Field with the canonical focus treatment — accent edge + 2px wash ring, no glow.",
+      "html": "<input class=\"ds-input\" value=\"postgres\" />",
+      "css": ".ds-input { width: 180px; height: 30px; padding: 0 10px; border: 1px solid oklch(0.85 0.06 250); border-radius: 7px; background: #fafaf9; color: #1c1917; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 12.5px; box-shadow: 0 0 0 2px oklch(0.96 0.04 250); } .ds-input::placeholder { color: #78716c; } .ds-input:focus { outline: none; }"
+    },
+    {
+      "name": "Style Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "The only card-like surface in the app — a floating, draggable inspector. Hairline-divided sections, uppercase micro-labels, swatch row.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-panel-head\">Rectangle</div><div class=\"ds-panel-sec\"><div class=\"ds-panel-label\">Fill</div><div class=\"ds-swatches\"><button class=\"ds-swatch\" style=\"background:#fef2f2\"></button><button class=\"ds-swatch ds-swatch-on\" style=\"background:#eff6ff\"></button><button class=\"ds-swatch\" style=\"background:#f0fdf4\"></button><button class=\"ds-swatch\" style=\"background:#faf5ff\"></button></div></div></div>",
+      "css": ".ds-panel { width: 232px; padding: 12px; display: flex; flex-direction: column; gap: 12px; background: #ffffff; border: 1px solid #ebe9e6; border-radius: 12px; box-shadow: 0 4px 16px rgba(28,25,23,0.06); font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; } .ds-panel-head { font-size: 11px; font-weight: 600; letter-spacing: 0.2px; color: #57534e; } .ds-panel-sec { display: flex; flex-direction: column; gap: 9px; border-top: 1px solid #ebe9e6; padding-top: 12px; } .ds-panel-label { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: #a8a29e; } .ds-swatches { display: flex; gap: 5px; } .ds-swatch { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(0,0,0,0.12); cursor: pointer; padding: 0; } .ds-swatch-on { box-shadow: 0 0 0 1.5px #ffffff, 0 0 0 3px oklch(0.55 0.16 250); }"
+    },
+    {
+      "name": "Keycap",
+      "kind": "custom",
+      "refersTo": "kbd",
+      "description": "Inline shortcut hint — reinforces the keyboard-first posture.",
+      "html": "<span class=\"ds-hint\">Hold <span class=\"ds-kbd\">Shift</span> to draw a straight edge</span>",
+      "css": ".ds-hint { font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 11.5px; color: #a8a29e; display: inline-flex; align-items: center; gap: 6px; } .ds-kbd { display: inline-flex; align-items: center; padding: 1px 6px; border: 1px solid #ebe9e6; border-radius: 4px; background: #ffffff; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10.5px; color: #57534e; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Drafting Table",
+    "overview": "Épure is a precise instrument, not an app. The whole surface behaves like a drafting table under good light: a flat warm-stone field, a snapping grid, exact orthogonal lines, and a small set of mechanical controls that sit on the work rather than around it. The system is built from two clearly separated worlds: the chrome is a quiet, light, warm-neutral instrument (a stone ramp up to pure white floating surfaces, a single blue accent for state, and a dark code-editor slab), while the diagram content is a separate vivid ten-hue palette the user authors into the drawing. These two palettes never trade roles. It explicitly rejects generic AI-SaaS surfaces, playful hand-sketched styling, and heavy enterprise CAD chrome.",
+    "keyCharacteristics": [
+      "Two-world color: muted warm-stone chrome holding a vivid diagram palette.",
+      "One accent (blue) used only for active/focused state — never decoration.",
+      "Hairline-and-tonal depth; soft shadow reserved for UI that truly floats over the canvas.",
+      "Monospace for anything mechanical (coordinates, keys, code, file names).",
+      "Compact, exact metrics: 1px rules, 10–13px type, 28–44px control heights."
+    ],
+    "rules": [
+      { "name": "The One Blue Rule", "body": "The blue accent appears only to signal state — an active tool, a focused field, a hovered resize handle, a selected segment. Never a fill for emphasis, never a gradient, never decoration. Its rarity is what makes 'active' legible at a glance.", "section": "colors" },
+      { "name": "The Two-Worlds Rule", "body": "Chrome colors (stone + one blue) and diagram colors (the ten saturated hues) never swap jobs. UI never borrows a diagram hue for emphasis; a node never gets painted in the UI accent.", "section": "colors" },
+      { "name": "The Mono-for-Mechanism Rule", "body": "If a value is a coordinate, a percentage, a keyboard shortcut, a file path, or code, it is set in JetBrains Mono. Prose and labels are sans. The font tells you whether a thing is machine or language.", "section": "typography" },
+      { "name": "The Float-Earns-Shadow Rule", "body": "A surface gets a shadow only if it floats over the canvas. Docked chrome (header, footer, tab bar, resize handle) is flat and separated by a hairline.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the blue accent rare — active and focused states only. Emphasis elsewhere comes from weight, the stone ramp, or a hairline.",
+      "Do set every coordinate, percentage, keycap, file name, and code value in JetBrains Mono.",
+      "Do separate surfaces with the tonal ramp (#ecebe7 → #fafaf9 → #ffffff) and 1px hairlines; add a Card shadow only when the element floats over the canvas.",
+      "Do keep the diagram's ten saturated hues for diagram content only; keep chrome in stone + one blue.",
+      "Do hold targets exact and compact — 32px tool cells, 28/38px dock controls, 10–13px type — and verify body text clears 4.5:1 (placeholder included).",
+      "Do give every interactive element a visible focus state and a prefers-reduced-motion fallback; transitions are short and ease-out, never bouncy."
+    ],
+    "donts": [
+      "Don't ship generic AI-SaaS surfaces — no gradient hero, no glassmorphism, no decorative blur, no big-number metric template, no identical card grids.",
+      "Don't drift into playful/hand-sketched (Excalidraw) chrome, or into heavy enterprise CAD chrome (stacked toolbars, ribbons, modal soup).",
+      "Don't use the blue accent as a fill for emphasis, a gradient, or decoration. It marks state, nothing else.",
+      "Don't paint UI chrome with a diagram hue, or paint a node/edge with the UI accent. The two palettes never swap roles.",
+      "Don't add border-left/border-right colored stripes on panels, list items, or alerts; use full hairlines, tonal fills, or an icon instead.",
+      "Don't put a shadow on docked chrome (header, footer, tab bar) — a hairline does that job."
+    ]
+  }
+}

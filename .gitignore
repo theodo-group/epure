@@ -8,3 +8,10 @@ coverage
 .env*
 *.log
 *.tsbuildinfo
+
+# impeccable (design skill): keep design.json + live/config.json, ignore local runtime state
+.impeccable/hook.cache.json
+.impeccable/live/server.json
+.impeccable/live/sessions/
+.impeccable/live/annotations/
+.impeccable/critique/

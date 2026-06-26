@@ -16,6 +16,11 @@ interface CommentsPanelProps {
   bridged: boolean
 }
 
+// Comments is still under construction. While this is false the panel collapses
+// to a disabled "coming soon" pill in the dock slot; flip it to true to restore
+// the full feature exactly as before — that is the only change needed.
+const COMMENTS_READY: boolean = false
+
 const targetLabel = (ref: string | undefined): string => (ref ? ref : 'canvas')
 
 // Comment-status colours are domain-specific (they match the canvas pins), so
@@ -52,6 +57,24 @@ export const CommentsPanel = ({ docName, bridged }: CommentsPanelProps) => {
     }
     setSent(true)
     setTimeout(() => setSent(false), 2600)
+  }
+
+  // Feature parked: hold the dock slot with a disabled placeholder until ready.
+  if (!COMMENTS_READY) {
+    return (
+      <div
+        className="ep-comments-panel"
+        style={soonPillStyle}
+        title="Comments — coming soon (feature not ready yet)"
+        aria-disabled
+      >
+        <span aria-hidden="true" style={{ fontSize: 13, opacity: 0.55 }}>
+          💬
+        </span>
+        <span style={{ fontWeight: 600, color: 'var(--ep-text-muted)' }}>Comments</span>
+        <span style={soonTagStyle}>SOON</span>
+      </div>
+    )
   }
 
   return (
@@ -147,6 +170,38 @@ const panelStyle: React.CSSProperties = {
   color: 'var(--ep-text)',
   zIndex: 20,
   overflow: 'hidden',
+}
+// Collapsed "coming soon" placeholder: same dock surface, hairline and 9px
+// radius as the zoom dock it sits beside; muted ink and a mono SOON chip mark
+// it as not-yet-active. Non-interactive (not-allowed) by design.
+const soonPillStyle: React.CSSProperties = {
+  position: 'absolute',
+  right: 16,
+  bottom: 64,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '6px 10px',
+  background: 'var(--ep-surface)',
+  border: '1px solid var(--ep-border)',
+  borderRadius: 9,
+  boxShadow: 'var(--ep-shadow-card)',
+  fontFamily: 'var(--ep-sans)',
+  fontSize: 13,
+  color: 'var(--ep-text)',
+  cursor: 'not-allowed',
+  userSelect: 'none',
+  zIndex: 20,
+}
+const soonTagStyle: React.CSSProperties = {
+  fontFamily: 'var(--ep-mono)',
+  fontSize: 9.5,
+  fontWeight: 600,
+  letterSpacing: 0.5,
+  color: 'var(--ep-text-muted)',
+  border: '1px solid var(--ep-border)',
+  borderRadius: 4,
+  padding: '1px 5px',
 }
 const headerStyle: React.CSSProperties = {
   display: 'flex',
