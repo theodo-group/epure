@@ -29,6 +29,11 @@ import type { ParseError } from '@/parser/ast'
 export interface CodeMirrorPaneHandle {
   scrollToLine: (line: number) => void
   openSearch: () => void
+  /** Apply a set of selection highlights (canvas selection mirrored into the
+   *  editor as line + range decorations). Pass an empty array to clear. */
+  highlightRanges: (
+    ranges: ReadonlyArray<{ from: number; to: number }>,
+  ) => void
 }
 
 export interface CodeMirrorPaneProps {
@@ -67,6 +72,49 @@ class ErrorMessageWidget extends WidgetType {
     return true
   }
 }
+
+// Mirror the canvas selection into the editor: highlight the line(s) of each
+// selected node/edge/area, and underline the exact declaration range. Kept
+// separate from the error field so the two layers can coexist.
+const setSelectionHighlights = StateEffect.define<
+  ReadonlyArray<{ from: number; to: number }>
+>()
+
+const selectionLineDeco = Decoration.line({
+  attributes: { class: 'cm-epure-sel-line' },
+})
+
+const selectionMarkDeco = Decoration.mark({ class: 'cm-epure-sel-mark' })
+
+const selectionField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    let next = deco.map(tr.changes)
+    for (const e of tr.effects) {
+      if (e.is(setSelectionHighlights)) {
+        const doc = tr.state.doc
+        const decos = []
+        const stampedLines = new Set<number>()
+        for (const { from, to } of e.value) {
+          const safeFrom = Math.max(0, Math.min(doc.length, from))
+          const safeTo = Math.max(safeFrom, Math.min(doc.length, to))
+          const startLine = doc.lineAt(safeFrom).number
+          const endLine = doc.lineAt(safeTo).number
+          for (let ln = startLine; ln <= endLine; ln++) {
+            if (stampedLines.has(ln)) continue
+            stampedLines.add(ln)
+            decos.push(selectionLineDeco.range(doc.line(ln).from))
+          }
+          if (safeTo > safeFrom)
+            decos.push(selectionMarkDeco.range(safeFrom, safeTo))
+        }
+        next = Decoration.set(decos, true)
+      }
+    }
+    return next
+  },
+  provide: (f) => EditorView.decorations.from(f),
+})
 
 const errorField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -168,6 +216,14 @@ const baseTheme = EditorView.theme(
     },
     '&.cm-focused .cm-selectionBackground': {
       backgroundColor: 'rgba(96, 165, 250, 0.25) !important',
+    },
+    '.cm-epure-sel-line': {
+      backgroundColor: 'rgba(96, 165, 250, 0.14)',
+      boxShadow: 'inset 2px 0 0 oklch(0.7 0.14 250)',
+    },
+    '.cm-epure-sel-mark': {
+      backgroundColor: 'rgba(96, 165, 250, 0.22)',
+      borderRadius: '2px',
     },
     '.cm-epure-error-line': {
       backgroundColor: 'rgba(255, 80, 80, 0.12)',
@@ -305,6 +361,7 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           keymap.of([...defaultKeymap, ...searchKeymap]),
           language ?? d2Support,
           baseTheme,
+          selectionField,
           errorField,
           EditorView.updateListener.of((u) => {
             if (u.docChanged) {
@@ -358,6 +415,26 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
         if (!view) return
         view.focus()
         openSearchPanel(view)
+      },
+      highlightRanges(ranges) {
+        const view = viewRef.current
+        if (!view) return
+        const docLen = view.state.doc.length
+        const clamped = ranges
+          .map((r) => ({
+            from: Math.max(0, Math.min(docLen, r.from)),
+            to: Math.max(0, Math.min(docLen, r.to)),
+          }))
+          .filter((r) => r.to >= r.from)
+        const effects: StateEffect<unknown>[] = [
+          setSelectionHighlights.of(clamped),
+        ]
+        if (clamped.length > 0) {
+          effects.push(
+            EditorView.scrollIntoView(clamped[0]!.from, { y: 'nearest' }),
+          )
+        }
+        view.dispatch({ effects })
       },
     }))
 

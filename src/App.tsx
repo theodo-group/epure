@@ -200,6 +200,45 @@ export const App = () => {
     reparse()
   }, [source, reparse])
 
+  // Mirror the canvas selection into the d2 editor as range highlights so the
+  // user can see which lines define the selected element(s). Edge ids encode
+  // the AST index after `#`; node/area ids match their declarations directly.
+  // Skipped while the layout JSON tab is active — those ranges don't map.
+  useEffect(() => {
+    const handle = editorRef.current
+    if (!handle) return
+    if (activeTab !== 'd2') return
+    if (!parseResult.ok) {
+      handle.highlightRanges([])
+      return
+    }
+    const ranges: { from: number; to: number }[] = []
+    const nodeById = new Map(parseResult.diagram.nodes.map((n) => [n.id, n]))
+    for (const id of selectedNodeIds) {
+      const n = nodeById.get(id)
+      if (n) ranges.push({ from: n.range.start.offset, to: n.range.end.offset })
+    }
+    const areaById = new Map(parseResult.diagram.areas.map((a) => [a.id, a]))
+    for (const id of selectedAreaIds) {
+      const a = areaById.get(id)
+      if (a) ranges.push({ from: a.range.start.offset, to: a.range.end.offset })
+    }
+    for (const id of selectedEdgeIds) {
+      const hashIdx = id.lastIndexOf('#')
+      if (hashIdx < 0) continue
+      const i = Number(id.slice(hashIdx + 1))
+      const e = parseResult.diagram.edges[i]
+      if (e) ranges.push({ from: e.range.start.offset, to: e.range.end.offset })
+    }
+    handle.highlightRanges(ranges)
+  }, [
+    selectedNodeIds,
+    selectedAreaIds,
+    selectedEdgeIds,
+    parseResult,
+    activeTab,
+  ])
+
   // Reroute whenever a successful parse or layout lands.
   useEffect(() => {
     if (parseResult.ok) {
