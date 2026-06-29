@@ -77,6 +77,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.0",
     "@lobehub/icons-static-svg": "^1.91.0",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^26.0.0",
