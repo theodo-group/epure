@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { json as jsonLang } from '@codemirror/lang-json'
 import { Header } from '@/editor/Header'
 import { Footer } from '@/editor/Footer'
 import { EditorTabBar } from '@/editor/EditorTabBar'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
+import { useLayoutEditorBuffer } from '@/editor/useLayoutEditorBuffer'
 import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
 import { StylePanel } from '@/style/StylePanel'
 import {
@@ -23,7 +24,7 @@ import {
   saveStoredHistory,
   type StoredDoc,
 } from '@/file/localStore'
-import { locateLayoutKeyRanges, validateLayoutJson } from '@/file/layoutSchema'
+import { locateLayoutKeyRanges } from '@/file/layoutSchema'
 import { exportPng } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
@@ -81,7 +82,7 @@ export const App = () => {
   const setSource = useDiagramStore((s) => s.setSource)
   const reparse = useDiagramStore((s) => s.reparse)
   const reroute = useDiagramStore((s) => s.reroute)
-  const loadDocument = useDiagramStore((s) => s.loadDocument)
+  const loadDocumentBase = useDiagramStore((s) => s.loadDocument)
   const toggleGrid = useDiagramStore((s) => s.toggleGrid)
   const setTextScale = useDiagramStore((s) => s.setTextScale)
   const setFontFamily = useDiagramStore((s) => s.setFontFamily)
@@ -106,33 +107,25 @@ export const App = () => {
   const [fitVersion, setFitVersion] = useState(0)
   const [activeTab, setActiveTab] = useState<'d2' | 'layout'>('d2')
   const setLayout = useDiagramStore((s) => s.setLayout)
-  const layoutJsonText = useMemo(
-    () => JSON.stringify(layout, null, 2),
-    [layout],
-  )
-  // Mirror the JSON editor's current text in App state so schema validation
-  // runs against in-progress edits, not the last successfully-applied layout.
-  const [layoutText, setLayoutText] = useState(layoutJsonText)
-  const layoutTextRef = useRef(layoutText)
-  useEffect(() => {
-    layoutTextRef.current = layoutText
-  }, [layoutText])
-  // Resync only when the store layout actually changes (e.g. a node drag), and
-  // only when the editor's text doesn't already represent that layout — keying
-  // the effect on `layoutJsonText` keeps schema-invalid edits intact (those
-  // never reach the store, so the formatted text never changes).
-  useEffect(() => {
-    try {
-      const current = JSON.parse(layoutTextRef.current)
-      if (JSON.stringify(current) === JSON.stringify(layout)) return
-    } catch {
-      // text is mid-edit and unparseable — fall through to force-sync.
-    }
-    setLayoutText(layoutJsonText)
-  }, [layoutJsonText, layout])
-  const layoutValidation = useMemo(
-    () => validateLayoutJson(layoutText),
-    [layoutText],
+  // The layout JSON editor's buffer is a second representation of `layout`; this
+  // hook keeps the two in sync without letting a store-side change (a node drag,
+  // a remote write) clobber an in-progress invalid edit.
+  const {
+    text: layoutText,
+    errors: layoutErrors,
+    edit: editLayout,
+    reset: resetLayoutBuffer,
+  } = useLayoutEditorBuffer(layout, setLayout)
+
+  // Loading a whole new document is the one case where discarding the editor
+  // buffer is correct — clear the dirty latch so the freshly loaded layout
+  // re-baselines the editor instead of being held back by stale unsaved text.
+  const loadDocument = useCallback(
+    (nextSource: string, nextLayout: LayoutSidecar) => {
+      resetLayoutBuffer()
+      loadDocumentBase(nextSource, nextLayout)
+    },
+    [loadDocumentBase, resetLayoutBuffer],
   )
   const multiDragRef = useRef<{
     leaderId: string
@@ -388,11 +381,9 @@ export const App = () => {
                     // the user as busy and a remote layout write could clobber
                     // the in-progress (invalid) buffer.
                     interaction.noteActivity()
-                    setLayoutText(text)
-                    const result = validateLayoutJson(text)
-                    if (result.value) setLayout(result.value)
+                    editLayout(text)
                   }}
-                  errors={layoutValidation.errors}
+                  errors={layoutErrors}
                   language={jsonLang()}
                 />
               )}
