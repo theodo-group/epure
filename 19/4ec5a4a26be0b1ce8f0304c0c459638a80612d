@@ -1,0 +1,28 @@
+src/editor/useLayoutEditorBuffer.ts
+  s_9502a4e83cd988::t_ccf8ec66416afd 1-85
+src/editor/useLayoutEditorBuffer.test.ts
+  s_9502a4e83cd988::t_86578efd63a500 1-96
+src/App.tsx
+  s_9502a4e83cd988::t_a0f2dc3241e79b 8
+  s_9502a4e83cd988::t_7a4b746dc8868d 110-128
+  s_9502a4e83cd988::t_47386d4166db3e 27
+  s_9502a4e83cd988::t_5b72c9b56cdbcd 387,389
+  s_9502a4e83cd988::t_6a26b4ffec6141 1
+  s_9502a4e83cd988::t_5ab63105483287 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "194ec5a4a26be0b1ce8f0304c0c459638a80612d",
+  "prompts": {},
+  "sessions": {
+    "s_9502a4e83cd988": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2658022c-524d-49f6-8913-15fb3726f558",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
