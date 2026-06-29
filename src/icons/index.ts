@@ -39,6 +39,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   digitalocean: 'DigitalOcean',
   elastic: 'Elastic',
   firebase: 'Firebase',
+  fontawesome: 'Font Awesome',
   gcp: 'GCP',
   generic: 'Generic',
   gis: 'GIS',
