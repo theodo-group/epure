@@ -17,7 +17,7 @@ export const Grid: FC<GridProps> = ({
   gridSize,
   patternId = 'epure-grid',
 }) => (
-  <g aria-hidden='true'>
+  <g aria-hidden='true' data-ep-grid=''>
     <defs>
       <pattern
         id={patternId}

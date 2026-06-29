@@ -29,18 +29,48 @@ const loadImage = (url: string) =>
     img.src = url
   })
 
+/** A content-space rectangle (user units) to reframe the export to. */
+export interface ExportFrame {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+// Reframe the clone to `frame` so the export is a fitted view of the whole
+// diagram, independent of the editor's current pan/zoom. The editor-only chrome
+// (background grid, feedback overlay) is stripped and a white backdrop laid down
+// so the result matches the headless CLI export rather than the live viewport.
+const applyFrame = (clone: SVGSVGElement, frame: ExportFrame) => {
+  clone.setAttribute('viewBox', `${frame.x} ${frame.y} ${frame.w} ${frame.h}`)
+  clone
+    .querySelectorAll('[data-ep-grid],[data-feedback-layer]')
+    .forEach((el) => el.remove())
+  const bg = document.createElementNS(SVG_NS, 'rect')
+  bg.setAttribute('x', String(frame.x))
+  bg.setAttribute('y', String(frame.y))
+  bg.setAttribute('width', String(frame.w))
+  bg.setAttribute('height', String(frame.h))
+  bg.setAttribute('fill', '#ffffff')
+  clone.insertBefore(bg, clone.firstChild)
+}
+
 export const exportPng = async (
   svgEl: SVGSVGElement,
   scale: 1 | 2 | 4,
+  frame?: ExportFrame,
 ): Promise<Blob> => {
   if (document.fonts && typeof document.fonts.ready?.then === 'function') {
     await document.fonts.ready
   }
 
-  const { width, height } = measure(svgEl)
+  const { width, height } = frame
+    ? { width: frame.w, height: frame.h }
+    : measure(svgEl)
   const clone = svgEl.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', SVG_NS)
   clone.setAttribute('xmlns:xlink', XLINK_NS)
+  if (frame) applyFrame(clone, frame)
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
 
