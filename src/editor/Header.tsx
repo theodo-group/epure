@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from 'zustand'
 import {
   useDiagramStore,
   useTemporalStore,
   type ExportScale,
 } from '@/store/diagramStore'
-import { openWithFileSystemAccess } from '@/file/zip'
 
 interface HeaderProps {
+  onOpen: () => Promise<void> | void
   onExportPng: () => Promise<void> | void
   onExportHtml: () => Promise<void> | void
 }
@@ -26,10 +26,9 @@ const ChevronDown = () => (
   </svg>
 )
 
-export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
+export const Header = ({ onOpen, onExportPng, onExportHtml }: HeaderProps) => {
   const exportScale = useDiagramStore((s) => s.exportScale)
   const setExportScale = useDiagramStore((s) => s.setExportScale)
-  const loadDocument = useDiagramStore((s) => s.loadDocument)
 
   const canUndo = useStore(useTemporalStore, (t) => t.pastStates.length > 0)
   const canRedo = useStore(useTemporalStore, (t) => t.futureStates.length > 0)
@@ -52,16 +51,6 @@ export const Header = ({ onExportPng, onExportHtml }: HeaderProps) => {
       window.removeEventListener('keydown', onKey)
     }
   }, [exportOpen])
-
-  const onOpen = useCallback(async () => {
-    try {
-      const doc = await openWithFileSystemAccess()
-      if (!doc) return
-      loadDocument(doc.source, doc.layout)
-    } catch (err) {
-      console.error('open failed', err)
-    }
-  }, [loadDocument])
 
   const handleExportPng = async () => {
     setExportOpen(false)

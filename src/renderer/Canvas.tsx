@@ -16,8 +16,9 @@ import type { RoutedDiagram, Side } from '@/layout/types'
 import type { FeedbackTarget } from '@/bridge/protocol'
 
 import { Area, AreaLabel } from './Area'
+import { computeContentBounds } from './bounds'
 import { beginDrag, endDrag } from './dragState'
-import { Edge, EdgeDefs, labelPillSize } from './Edge'
+import { Edge, EdgeDefs } from './Edge'
 import { Grid } from './Grid'
 import { Node } from './Node'
 
@@ -75,51 +76,6 @@ interface CanvasProps {
 }
 
 type Tool = 'select' | 'pan'
-
-const computeBounds = (
-  diagram: RoutedDiagram,
-  edges: Record<string, EdgeMeta> = {},
-  textScale = 1,
-) => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const a of diagram.areas) {
-    minX = Math.min(minX, a.x)
-    minY = Math.min(minY, a.y)
-    maxX = Math.max(maxX, a.x + a.w)
-    maxY = Math.max(maxY, a.y + a.h)
-  }
-  for (const n of diagram.nodes) {
-    minX = Math.min(minX, n.x)
-    minY = Math.min(minY, n.y)
-    maxX = Math.max(maxX, n.x + n.w)
-    maxY = Math.max(maxY, n.y + n.h)
-  }
-  for (const e of diagram.edges) {
-    for (const p of e.points) {
-      minX = Math.min(minX, p.x)
-      minY = Math.min(minY, p.y)
-      maxX = Math.max(maxX, p.x)
-      maxY = Math.max(maxY, p.y)
-    }
-    // Keep a nudged label (labelDx/labelDy) fully inside the fit frame, using
-    // the same pill geometry the export frames with so the two never diverge.
-    const label = edges[e.id]?.label
-    if (e.labelAnchor && label) {
-      const { w: pillW, h: pillH } = labelPillSize(label, textScale)
-      minX = Math.min(minX, e.labelAnchor.x - pillW / 2)
-      minY = Math.min(minY, e.labelAnchor.y - pillH / 2)
-      maxX = Math.max(maxX, e.labelAnchor.x + pillW / 2)
-      maxY = Math.max(maxY, e.labelAnchor.y + pillH / 2)
-    }
-  }
-
-  if (!isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 }
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
-}
 
 const INIT_PADDING = 48
 const MIN_ZOOM = 0.05
@@ -257,7 +213,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     }, [])
 
     const fitNow = () => {
-      const b = computeBounds(diagram, edges, textScale)
+      const b = computeContentBounds(diagram, edges, textScale)
       if (b.w === 0 && b.h === 0) return
       const zoom = Math.min(
         container.w / Math.max(1, b.w + INIT_PADDING * 2),

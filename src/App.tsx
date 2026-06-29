@@ -25,8 +25,9 @@ import {
   type StoredDoc,
 } from '@/file/localStore'
 import { locateLayoutKeyRanges } from '@/file/layoutSchema'
-import { exportPng } from '@/export/png'
+import { exportPng, type ExportFrame } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
+import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { useBridge } from '@/bridge/useBridge'
 import { readInjectedBridge } from '@/bridge/config'
@@ -38,7 +39,11 @@ import fixtureSource from '../fixtures/system.epr.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.epr.layout.json?raw'
 import './App.css'
 
-const EXPORT_STEM = 'diagram'
+// Stem of the bundled fixture (`fixtures/system.epr.*`); the default doc name
+// until a file is opened or a live bridge supplies the real one.
+const DEFAULT_DOC_NAME = 'system'
+// Content-space margin around the diagram in the fitted PNG/HTML export.
+const EXPORT_PADDING = 48
 const PERSIST_DEBOUNCE_MS = 250
 
 const fallbackLayout = (): LayoutSidecar => ({
@@ -105,6 +110,7 @@ export const App = () => {
   const resizeNode = useDiagramStore((s) => s.resizeNode)
   const areaDragStartRef = useRef<Record<string, { cx: number; cy: number }>>({})
   const [fitVersion, setFitVersion] = useState(0)
+  const [openedName, setOpenedName] = useState(DEFAULT_DOC_NAME)
   const [activeTab, setActiveTab] = useState<'d2' | 'layout'>('d2')
   const setLayout = useDiagramStore((s) => s.setLayout)
   // The layout JSON editor's buffer is a second representation of `layout`; this
@@ -127,6 +133,20 @@ export const App = () => {
     },
     [loadDocumentBase, resetLayoutBuffer],
   )
+
+  // Open a document from disk and remember its filename stem (shown in the UI
+  // and used for export). Lifted here from the Header so both the Open button
+  // and the ⌘O shortcut go through one path that captures the name.
+  const handleOpen = useCallback(async () => {
+    try {
+      const doc = await openWithFileSystemAccess()
+      if (!doc) return
+      loadDocument(doc.source, doc.layout)
+      setOpenedName(doc.filename)
+    } catch (err) {
+      console.error('open failed', err)
+    }
+  }, [loadDocument])
   const multiDragRef = useRef<{
     leaderId: string
     leaderStart: { cx: number; cy: number }
@@ -139,6 +159,16 @@ export const App = () => {
   // The live bridge (when present) hydrates the store from disk over WebSocket;
   // returns presentational status for the footer pill.
   const bridge = useBridge()
+
+  // The diagram's filename stem, shown in the editor tabs / window title and
+  // used for the export filename. A live bridge knows the real on-disk name
+  // (authoritative when connected); otherwise it's whatever file was opened, or
+  // the bundled fixture's stem. Falls back to the default so a pathological
+  // opened name (e.g. a bare `.epr.zip` → empty stem) never yields `.png` /
+  // `.d2` with no base.
+  const docName =
+    (bridge.active && bridge.filename ? bridge.filename : openedName) ||
+    DEFAULT_DOC_NAME
 
   // Live feedback (impeccable-style): the toolbar's pick/insert/text submissions
   // ride the bridge socket to the server queue; the host Claude Code drains them
@@ -155,6 +185,7 @@ export const App = () => {
     const stored = loadStoredDoc()
     if (stored) {
       loadDocument(stored.source, stored.layout)
+      if (stored.name) setOpenedName(stored.name)
       // loadDocument clears the undo history; restore the persisted past/future
       // stacks on top of the just-loaded baseline so undo/redo survives reload.
       const history = loadStoredHistory()
@@ -176,7 +207,7 @@ export const App = () => {
   // restored document.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      saveStoredDoc({ source, layout })
+      saveStoredDoc({ source, layout, name: openedName })
       const temporal = useTemporalStore.getState()
       saveStoredHistory({
         past: temporal.pastStates as StoredDoc[],
@@ -184,7 +215,12 @@ export const App = () => {
       })
     }, PERSIST_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
-  }, [source, layout])
+  }, [source, layout, openedName])
+
+  // Reflect the document name in the window/tab title.
+  useEffect(() => {
+    document.title = docName ? `${docName} — Épure` : 'Épure'
+  }, [docName])
 
   // Reparse whenever the source changes.
   useEffect(() => {
@@ -269,20 +305,32 @@ export const App = () => {
     return { nodesMeta: n, edgesMeta: e }
   }, [parseResult])
 
-  const onExportPng = async () => {
+  // Export a PNG framed to the diagram's content bounds (a fitted view of the
+  // whole diagram), not the editor's current pan/zoom.
+  const onExportPng = useCallback(async () => {
     const svg = svgRef.current
     if (!svg) return
     const { exportScale } = useDiagramStore.getState()
-    const blob = await exportPng(svg, exportScale)
-    downloadBlob(blob, `${EXPORT_STEM}.png`)
-  }
+    let frame: ExportFrame | undefined
+    if (routed) {
+      const b = computeContentBounds(routed, edgesMeta, textScale)
+      frame = {
+        x: b.x - EXPORT_PADDING,
+        y: b.y - EXPORT_PADDING,
+        w: Math.max(1, b.w + EXPORT_PADDING * 2),
+        h: Math.max(1, b.h + EXPORT_PADDING * 2),
+      }
+    }
+    const blob = await exportPng(svg, exportScale, frame)
+    downloadBlob(blob, `${docName}.png`)
+  }, [routed, edgesMeta, textScale, docName])
 
-  const onExportHtml = async () => {
+  const onExportHtml = useCallback(async () => {
     const svg = svgRef.current
     if (!svg) return
-    const html = await exportStandaloneHtml(svg, { title: EXPORT_STEM })
-    downloadBlob(new Blob([html], { type: 'text/html' }), `${EXPORT_STEM}.html`)
-  }
+    const html = await exportStandaloneHtml(svg, { title: docName })
+    downloadBlob(new Blob([html], { type: 'text/html' }), `${docName}.html`)
+  }, [docName])
 
   // Global keyboard shortcuts.
   useEffect(() => {
@@ -315,18 +363,12 @@ export const App = () => {
 
       if (key === 'o') {
         ev.preventDefault()
-        try {
-          const doc = await openWithFileSystemAccess()
-          if (!doc) return
-          loadDocument(doc.source, doc.layout)
-        } catch (err) {
-          console.error('open failed', err)
-        }
+        await handleOpen()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [loadDocument])
+  }, [handleOpen, onExportPng])
 
   const placeholderDiagram: RoutedDiagram = useMemo(
     () => ({
@@ -342,14 +384,18 @@ export const App = () => {
 
   return (
     <div className="app-root">
-      <Header onExportPng={onExportPng} onExportHtml={onExportHtml} />
+      <Header
+        onOpen={handleOpen}
+        onExportPng={onExportPng}
+        onExportHtml={onExportHtml}
+      />
       <div className="app-body">
         <PanelGroup direction="horizontal" autoSaveId="epure:panels">
           <Panel defaultSize={36} minSize={20} className="pane pane-editor">
             <EditorTabBar
               tabs={[
-                { id: 'd2', label: 'diagram.d2' },
-                { id: 'layout', label: 'diagram.layout.json' },
+                { id: 'd2', label: `${docName}.d2` },
+                { id: 'layout', label: `${docName}.layout.json` },
               ]}
               activeTabId={activeTab}
               onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}

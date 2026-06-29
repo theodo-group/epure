@@ -5,6 +5,9 @@ const KEY = 'epure:doc:v1'
 export interface StoredDoc {
   source: string
   layout: LayoutSidecar
+  /** Filename stem of the document (e.g. `system`), for the UI + export name.
+   *  Optional: undo/redo history snapshots reuse this shape and omit it. */
+  name?: string
 }
 
 const isLayoutSidecar = (value: unknown): value is LayoutSidecar => {
@@ -26,7 +29,11 @@ export const loadStoredDoc = (): StoredDoc | null => {
     const obj = parsed as Record<string, unknown>
     if (typeof obj.source !== 'string') return null
     if (!isLayoutSidecar(obj.layout)) return null
-    return { source: obj.source, layout: obj.layout }
+    return {
+      source: obj.source,
+      layout: obj.layout,
+      ...(typeof obj.name === 'string' ? { name: obj.name } : {}),
+    }
   } catch {
     return null
   }
