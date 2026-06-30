@@ -3,9 +3,9 @@ import {
   routeEdges,
   type ConnectionSide,
   type ElkEdge,
-  type ElkGraph,
   type ElkNode,
   type ElkPort,
+  type LibavoidRoutingOptions,
   type RouteResult,
 } from '@mr_mint/elkjs-libavoid'
 
@@ -29,42 +29,46 @@ export const setLibavoidWasmPath = (path: string): void => {
   wasmLocator = path
 }
 
-const portId = (nodeId: string, side: Side) => `${nodeId}.${side}`
+// Padding between an area's outer border and its member nodes. Used for BOTH
+// the rendered area box and the area-as-obstacle rect so routing avoids exactly
+// what the user sees.
+const AREA_PAD = 24
+
+// An area treated as a routing obstacle: the padded bounding box of its members
+// plus the membership set. An area blocks an edge only when NEITHER endpoint is
+// one of its members — an edge incident to a member has to enter/leave the
+// cluster, so membership exempts it from that area.
+type AreaObstacle = { id: string; rect: Rect; members: Set<string> }
+
+const areaBlocksEdge = (
+  area: AreaObstacle,
+  srcId: string,
+  tgtId: string,
+): boolean => !area.members.has(srcId) && !area.members.has(tgtId)
+
+// Shared libavoid options. `crossingPenalty` is the single biggest global lever
+// for edge-edge crossings and was previously left at libavoid's default of 0 —
+// i.e. the router was told not to care about crossings at all. `segmentPenalty`
+// (default 10) discourages extra bends. `idealNudgingDistance` is set to a full
+// grid cell so parallel runs sit a cell apart (matching Épure's hand-tuned
+// look), and `shapeBufferDistance` to half a cell so detours clear obstacles.
+const routeOptions = (gridSize: number): LibavoidRoutingOptions => ({
+  routingType: 'orthogonal',
+  shapeBufferDistance: Math.max(8, gridSize / 2),
+  idealNudgingDistance: gridSize,
+  segmentPenalty: 10,
+  // A crossing costs ~10 extra segments (segmentPenalty 10) — enough to detour
+  // around an avoidable crossing without over-bending simple diagrams.
+  crossingPenalty: 100,
+  nudgeOrthogonalSegmentsConnectedToShapes: true,
+  nudgeSharedPathsWithCommonEndPoint: true,
+})
 
 export const edgeKey = (sourceId: string, targetId: string) =>
   `${sourceId}->${targetId}`
 
 const snap = (v: number, gridSize: number) =>
   Math.round(v / gridSize) * gridSize
-
-const portOffset = (
-  side: Side,
-  w: number,
-  h: number,
-): { x: number; y: number } => {
-  switch (side) {
-    case 'N':
-      return { x: w / 2, y: 0 }
-    case 'S':
-      return { x: w / 2, y: h }
-    case 'E':
-      return { x: w, y: h / 2 }
-    case 'W':
-      return { x: 0, y: h / 2 }
-  }
-}
-
-const portsForNode = (nodeId: string, w: number, h: number): ElkPort[] =>
-  (['N', 'S', 'E', 'W'] as Side[]).map((side) => {
-    const { x, y } = portOffset(side, w, h)
-    return {
-      id: portId(nodeId, side),
-      x,
-      y,
-      width: 0,
-      height: 0,
-    }
-  })
 
 const polylineLength = (points: { x: number; y: number }[]) => {
   let total = 0
@@ -172,11 +176,43 @@ const toPixelRect = (node: LayoutNode, gridSize: number): Rect => ({
   h: node.h * gridSize,
 })
 
+// Cache of learned faces keyed by topology (NOT positions). Face-learning is the
+// priciest part of a route; during an interactive drag the topology is unchanged
+// and only positions move, so a `quick` route reuses these faces and skips the
+// pass. A full route always refreshes the cache.
+let faceCache: { sig: string; faces: Map<string, { s: Side; t: Side }> } | null = null
+
+// Drop the learned-face cache. The cache deliberately survives position changes
+// (so a drag's quick routes can skip face-learning), keyed by topology only — but
+// that means a WHOLESALE layout swap with the same topology (open a doc, paste a
+// layout, edit the layout JSON) would otherwise reuse faces learned for entirely
+// different positions, producing bad (even degenerate) quick routes. Callers
+// invalidate here on those non-drag layout replacements.
+export const invalidateFaceCache = (): void => {
+  faceCache = null
+}
+const topologySig = (diagram: Diagram): string =>
+  diagram.nodes.map((n) => n.id).join(',') +
+  '|' +
+  diagram.edges.map((e) => `${e.source}>${e.target}`).join(',') +
+  '|' +
+  diagram.areas.map((a) => `${a.id}:${[...a.members].sort().join('+')}`).join(',')
+
+export interface RouteOpts {
+  /** Interactive fast path (e.g. mid-drag): reuse cached faces when the topology
+   *  matches and skip the crossing-reduction swap pass. The editor follows every
+   *  quick route with a full one once the interaction settles. Export/tests use
+   *  the default (full) path so the committed geometry is always best-quality. */
+  quick?: boolean
+}
+
 export const route = async (
   diagram: Diagram,
   layout: LayoutSidecar,
+  opts: RouteOpts = {},
 ): Promise<RoutedDiagram> => {
   const { gridSize } = layout
+  const quick = opts.quick === true
 
   const pixelNodes: Record<string, Rect> = {}
   for (const [id, node] of Object.entries(layout.nodes)) {
@@ -200,17 +236,31 @@ export const route = async (
     ensureRect(e.target)
   }
 
-  const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
-    const pos = pixelNodes[n.id]!
-    return {
-      id: n.id,
-      x: pos.x,
-      y: pos.y,
-      width: pos.w,
-      height: pos.h,
-      ports: portsForNode(n.id, pos.w, pos.h),
+  // Padded bounding box per area, computed up front so it can serve as a routing
+  // obstacle (here) and be reused for the rendered area box below — the two can
+  // never drift. Areas with no resolvable members are skipped.
+  const areaObstacles: AreaObstacle[] = []
+  const areaRectById = new Map<string, Rect>()
+  for (const a of diagram.areas) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const mid of a.members) {
+      const r = pixelNodes[mid]
+      if (!r) continue
+      minX = Math.min(minX, r.x)
+      minY = Math.min(minY, r.y)
+      maxX = Math.max(maxX, r.x + r.w)
+      maxY = Math.max(maxY, r.y + r.h)
     }
-  })
+    if (!isFinite(minX)) continue
+    const rect: Rect = {
+      x: minX - AREA_PAD,
+      y: minY - AREA_PAD,
+      w: maxX - minX + AREA_PAD * 2,
+      h: maxY - minY + AREA_PAD * 2,
+    }
+    areaRectById.set(a.id, rect)
+    areaObstacles.push({ id: a.id, rect, members: new Set(a.members) })
+  }
 
   const edgeMeta = new Map<
     string,
@@ -220,14 +270,15 @@ export const route = async (
       sourceSide: Side
       targetSide: Side
       // Whether each side was pinned in the layout sidecar (vs. auto-derived).
-      // An explicit side is authoritative: geometry won't change it and the
-      // libavoid face-adoption step below leaves it alone.
+      // An explicit side is authoritative and is fed to libavoid as a directional
+      // port pin, so the route honors it while still avoiding obstacles.
       explicitSource: boolean
       explicitTarget: boolean
     }
   >()
+  const edgeIds: string[] = []
 
-  const elkEdges: ElkEdge[] = diagram.edges.map((e, i) => {
+  diagram.edges.forEach((e, i) => {
     // Default sides from relative position: whichever axis (x or y) separates
     // the two nodes more dictates the side; the target gets the opposite side.
     // A `sourceSide`/`targetSide` pinned in the layout sidecar overrides this
@@ -263,19 +314,175 @@ export const route = async (
       explicitSource,
       explicitTarget,
     })
-    return {
-      id,
-      sources: [e.source],
-      targets: [e.target],
-      sourcePort: portId(e.source, sourceSide),
-      targetPort: portId(e.target, targetSide),
-    }
+    edgeIds.push(id)
   })
 
-  const graph: ElkGraph = {
-    id: 'root',
-    children: elkNodes,
-    edges: elkEdges,
+  const options = routeOptions(gridSize)
+  const sig = topologySig(diagram)
+
+  // FACE-LEARNING PASS — the single biggest lever for edge-edge crossings on a
+  // FIXED placement is which face each edge attaches to, and the dx-vs-dy guess
+  // above gets near-ties wrong (e.g. a node directly above another forces an edge
+  // up into a channel another edge already uses). So route once from node CENTRE
+  // pins — no ports, leaving libavoid free to pick each connector's face — with
+  // the crossing penalty on, then ADOPT the faces it chose for every non-pinned
+  // end. libavoid's global crossing/obstacle optimization picks far better faces
+  // than local geometry can. Pinned faces are authoritative and left untouched.
+  //
+  // A `quick` route (mid-drag) reuses the cached faces for the same topology and
+  // skips this pass; otherwise (full route, or a cache miss) it runs and refreshes
+  // the cache. Skipped silently if wasm is unavailable (the dx/dy faces stand).
+  const cacheHit = faceCache?.sig === sig
+  if (quick && cacheHit) {
+    for (const id of edgeIds) {
+      const m = edgeMeta.get(id)!
+      const f = faceCache!.faces.get(id)
+      if (!f) continue
+      if (!m.explicitSource) m.sourceSide = f.s
+      if (!m.explicitTarget) m.targetSide = f.t
+    }
+  } else {
+    try {
+      await init(wasmLocator)
+      const plainNodes: ElkNode[] = diagram.nodes.map((n) => {
+        const pos = pixelNodes[n.id]!
+        return { id: n.id, x: pos.x, y: pos.y, width: pos.w, height: pos.h }
+      })
+      const centerEdges: ElkEdge[] = edgeIds.map((id) => {
+        const m = edgeMeta.get(id)!
+        return { id, source: m.source, target: m.target }
+      })
+      const learned = await routeEdges(
+        { id: 'root', children: plainNodes, edges: centerEdges },
+        options,
+      )
+      for (const id of edgeIds) {
+        const m = edgeMeta.get(id)!
+        if (m.explicitSource && m.explicitTarget) continue
+        const res = learned.get(id)
+        if (!res) continue
+        const poly = cleanPolyline([res.sourcePoint, ...res.bendPoints, res.targetPoint])
+        if (poly.length < 2) continue
+        if (!m.explicitSource) m.sourceSide = sideFromSegment(poly[0]!, poly[1]!)
+        if (!m.explicitTarget) {
+          m.targetSide = sideFromSegment(poly[poly.length - 1]!, poly[poly.length - 2]!)
+        }
+      }
+      // Refresh the face cache for this topology.
+      const faces = new Map<string, { s: Side; t: Side }>()
+      for (const id of edgeIds) {
+        const m = edgeMeta.get(id)!
+        faces.set(id, { s: m.sourceSide, t: m.targetSide })
+      }
+      faceCache = { sig, faces }
+    } catch {
+      // No wasm (tests/headless without fetch): keep the dx/dy faces.
+    }
+  }
+
+  // Distributed, fan-ordered anchor positions per edge. Computed BEFORE routing
+  // so each edge can be given its OWN libavoid port at its anchor.
+  const edgeAnchors = computeEdgeAnchors(edgeIds, edgeMeta, pixelNodes, areaObstacles)
+
+  // Build the libavoid graph with a dedicated port per edge end, placed at that
+  // edge's distributed anchor, in libavoid's SIMPLE edge format
+  // (`source`/`sourcePort`). The extended `sources:[…]` format the old code used
+  // silently DROPS the port (the wrapper returns a center pin), which is the real
+  // reason libavoid seemed to "ignore our ports" and had to pick faces itself.
+  // With a real port, libavoid attaches exactly at the anchor and — from the
+  // anchor's position on the node border — leaves via the right face, so its
+  // obstacle-avoiding polyline already lands on our fan-ordered ports. No
+  // post-hoc endpoint snapping (which used to drag legs through nodes) needed.
+  const srcPortId = (id: string) => `${id}::s`
+  const tgtPortId = (id: string) => `${id}::t`
+  const isMember = (id: string) => areaObstacles.some((a) => a.members.has(id))
+
+  const buildGraph = (anchors: Map<string, EdgeRoutingHints>) => {
+    const portsByNode = new Map<string, ElkPort[]>()
+    const addPort = (nodeId: string, pid: string, abs: Pt) => {
+      const node = pixelNodes[nodeId]!
+      const arr = portsByNode.get(nodeId) ?? []
+      arr.push({ id: pid, x: abs.x - node.x, y: abs.y - node.y, width: 0, height: 0 })
+      portsByNode.set(nodeId, arr)
+    }
+    for (const id of edgeIds) {
+      const m = edgeMeta.get(id)!
+      const h = anchors.get(id)!
+      addPort(m.source, srcPortId(id), h.sourceAnchor)
+      addPort(m.target, tgtPortId(id), h.targetAnchor)
+    }
+    const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
+      const pos = pixelNodes[n.id]!
+      return { id: n.id, x: pos.x, y: pos.y, width: pos.w, height: pos.h, ports: portsByNode.get(n.id) ?? [] }
+    })
+    const elkEdges: ElkEdge[] = edgeIds.map((id) => {
+      const m = edgeMeta.get(id)!
+      return { id, source: m.source, target: m.target, sourcePort: srcPortId(id), targetPort: tgtPortId(id) }
+    })
+    return { elkNodes, elkEdges }
+  }
+
+  // Run libavoid with areas injected as obstacle shapes. libavoid has no
+  // per-edge obstacle set (and handles OVERLAPPING obstacles permissively — a
+  // solid area rect laid over its own members lets routes thread the gaps
+  // between them), so areas are handled with a 2-call split:
+  //   • "outside" edges (neither endpoint is a member of any area) are routed
+  //     against the NON-member nodes plus each area as a SOLID obstacle. Member
+  //     nodes are omitted entirely — the area stands in for them, so there's no
+  //     overlap and the cluster is genuinely impassable.
+  //   • "inside" edges (incident to a member) are routed against all nodes and
+  //     NO area obstacles, so they can freely enter/leave their own cluster.
+  // With no areas this is a single call.
+  const runLibavoid = async (
+    elkNodes: ElkNode[],
+    elkEdges: ElkEdge[],
+    skipAreas = false,
+  ): Promise<Map<string, RouteResult>> => {
+    await init(wasmLocator)
+    // `skipAreas` (quick/mid-drag path) routes everything in ONE libavoid call
+    // instead of the 2-call area split — ~half the WASM work per frame. Areas are
+    // re-avoided by the full route that runs once the interaction settles.
+    if (skipAreas || areaObstacles.length === 0) {
+      return routeEdges({ id: 'root', children: elkNodes, edges: elkEdges }, options)
+    }
+    const areaChildren: ElkNode[] = areaObstacles.map((a) => ({
+      id: `__area__${a.id}`,
+      x: a.rect.x,
+      y: a.rect.y,
+      width: a.rect.w,
+      height: a.rect.h,
+    }))
+    const outsideEdges: ElkEdge[] = []
+    const insideEdges: ElkEdge[] = []
+    for (const e of elkEdges) {
+      const m = edgeMeta.get(e.id)!
+      ;(isMember(m.source) || isMember(m.target) ? insideEdges : outsideEdges).push(e)
+    }
+    const merged = new Map<string, RouteResult>()
+    if (outsideEdges.length > 0) {
+      const nonMemberNodes = elkNodes.filter((n) => !isMember(n.id))
+      const r = await routeEdges(
+        { id: 'root', children: [...nonMemberNodes, ...areaChildren], edges: outsideEdges },
+        options,
+      )
+      for (const [k, v] of r) merged.set(k, v)
+    }
+    if (insideEdges.length > 0) {
+      const r = await routeEdges(
+        { id: 'root', children: elkNodes, edges: insideEdges },
+        options,
+      )
+      for (const [k, v] of r) merged.set(k, v)
+    }
+    return merged
+  }
+
+  const routeOnce = async (
+    anchors: Map<string, EdgeRoutingHints>,
+    skipAreas = false,
+  ) => {
+    const { elkNodes, elkEdges } = buildGraph(anchors)
+    return runLibavoid(elkNodes, elkEdges, skipAreas)
   }
 
   let routes: Map<string, RouteResult>
@@ -284,27 +491,19 @@ export const route = async (
   // falls back to the synthetic anchor-to-anchor path (which can't detour).
   let libavoidOk = false
   try {
-    await init(wasmLocator)
-    routes = await routeEdges(graph, {
-      routingType: 'orthogonal',
-      shapeBufferDistance: 8,
-      idealNudgingDistance: 8,
-    })
+    routes = await routeOnce(edgeAnchors, quick)
     libavoidOk = true
   } catch {
     // Fallback when libavoid wasm cannot initialize (test environments,
     // headless runs without fetch): synthesize stub routes — the real
     // geometry is built by buildOrthogonalPath from the aligned anchors.
     routes = new Map()
-    for (const e of elkEdges) {
-      const meta = edgeMeta.get(e.id)!
-      const src = pixelNodes[meta.source]!
-      const tgt = pixelNodes[meta.target]!
-      const a = anchorPoint(src, meta.sourceSide)
-      const b = anchorPoint(tgt, meta.targetSide)
-      routes.set(e.id, {
-        sourcePoint: a,
-        targetPoint: b,
+    for (const id of edgeIds) {
+      const meta = edgeMeta.get(id)!
+      const h = edgeAnchors.get(id)!
+      routes.set(id, {
+        sourcePoint: h.sourceAnchor,
+        targetPoint: h.targetAnchor,
         bendPoints: [],
         sourceSide: connectionSideFromSide(meta.sourceSide),
         targetSide: connectionSideFromSide(meta.targetSide),
@@ -312,32 +511,77 @@ export const route = async (
     }
   }
 
-  // Some edges can't take their geometric side without crossing another node;
-  // for those libavoid supplies an obstacle-avoiding polyline and the edge
-  // really leaves/enters via a DIFFERENT face than geometry implied (e.g. a
-  // node sitting directly below forces the edge out to the side). Detect them
-  // up front — using the un-distributed centre path as a stable predictor —
-  // and adopt the face libavoid actually uses. Everything downstream (port
-  // distribution, overlap resolution, the rendered side) then reasons about
-  // the faces edges occupy in the *final* drawing, not the ones geometry
-  // guessed. `libRoutes` holds the polyline to draw for each such edge.
-  const libRoutes = new Map<string, Pt[]>()
-  if (libavoidOk) {
-    for (const e of elkEdges) {
-      const meta = edgeMeta.get(e.id)!
-      const src = pixelNodes[meta.source]!
-      const tgt = pixelNodes[meta.target]!
-      const centerPath = buildOrthogonalPath(
-        anchorPoint(src, meta.sourceSide),
-        anchorPoint(tgt, meta.targetSide),
-        meta.sourceSide,
-        meta.targetSide,
-        gridSize,
-      )
-      if (!pathCrossesForeignNode(centerPath, pixelNodes, meta.source, meta.target)) {
-        continue
+  // PORT-SWAP REFINEMENT (the §5 port-ORDERING lever) — even with good face
+  // choice, two edges sharing a node face can cross simply because they're
+  // ordered wrong along that face; swapping which junction each uses uncrosses
+  // them. Find crossing pairs that share a face, swap their port positions, and
+  // re-route; keep the swap only if it strictly lowers the crossing count (so a
+  // swap can never make things worse). A few rounds converge. Skipped on the
+  // quick (mid-drag) path — refinement is a settle-time quality step.
+  if (libavoidOk && !quick) {
+    const MAX_ROUNDS = 4
+    const polysOf = (rs: Map<string, RouteResult>) => {
+      const m = new Map<string, Pt[]>()
+      for (const id of edgeIds) {
+        const r = rs.get(id)
+        if (r) m.set(id, polyOf(r))
       }
-      const result = routes.get(e.id)
+      return m
+    }
+    let bestPolys = polysOf(routes)
+    let bestCount = crossingPairs(bestPolys, edgeIds).length
+    for (let round = 0; round < MAX_ROUNDS && bestCount > 0; round += 1) {
+      // Pick a maximal set of disjoint swaps among crossing pairs that share a
+      // face (each edge swapped at most once this round).
+      const used = new Set<string>()
+      const swaps: Array<{ a: string; b: string; endA: EndRef; endB: EndRef }> = []
+      for (const [a, b] of crossingPairs(bestPolys, edgeIds)) {
+        if (used.has(a) || used.has(b)) continue
+        const f = sharedFace(a, b, edgeMeta)
+        if (!f) continue
+        used.add(a)
+        used.add(b)
+        swaps.push({ a, b, endA: f.endA, endB: f.endB })
+      }
+      if (swaps.length === 0) break
+      const trial = new Map(edgeAnchors)
+      for (const s of swaps) {
+        const pa = anchorEnd(trial.get(s.a)!, s.endA)
+        const pb = anchorEnd(trial.get(s.b)!, s.endB)
+        trial.set(s.a, withAnchorEnd(trial.get(s.a)!, s.endA, pb))
+        trial.set(s.b, withAnchorEnd(trial.get(s.b)!, s.endB, pa))
+      }
+      const trialRoutes = await routeOnce(trial)
+      const trialPolys = polysOf(trialRoutes)
+      const trialCount = crossingPairs(trialPolys, edgeIds).length
+      if (trialCount < bestCount) {
+        for (const s of swaps) {
+          const pa = anchorEnd(edgeAnchors.get(s.a)!, s.endA)
+          const pb = anchorEnd(edgeAnchors.get(s.b)!, s.endB)
+          edgeAnchors.set(s.a, withAnchorEnd(edgeAnchors.get(s.a)!, s.endA, pb))
+          edgeAnchors.set(s.b, withAnchorEnd(edgeAnchors.get(s.b)!, s.endB, pa))
+        }
+        routes = trialRoutes
+        bestPolys = trialPolys
+        bestCount = trialCount
+      } else {
+        break
+      }
+    }
+  }
+
+  // libavoid is authoritative: every edge adopts its routed polyline, which
+  // already avoids every node and (via the obstacle injection above) every
+  // blocking area, with the crossing penalty minimizing edge-edge crossings
+  // globally — none of which the synthetic builder reasons about. The polyline is
+  // snapped back to the grid (and re-validated against obstacles) so the result
+  // keeps Épure's grid-aligned look. The synthetic path is kept only for edges
+  // libavoid couldn't honor (a pin it couldn't satisfy) and the no-wasm fallback.
+  const libPolys = new Map<string, Pt[]>()
+  if (libavoidOk) {
+    for (const id of edgeIds) {
+      const meta = edgeMeta.get(id)!
+      const result = routes.get(id)
       if (!result) continue
       const poly = cleanPolyline([
         result.sourcePoint,
@@ -345,57 +589,47 @@ export const route = async (
         result.targetPoint,
       ])
       if (poly.length < 2) continue
+      // Never adopt a non-orthogonal route. libavoid can emit a degenerate 2-point
+      // diagonal when it fails to route a connector (e.g. a port pinned to a face
+      // it can't leave — which a stale, mismatched face guess can cause). Reject
+      // it and fall through to the synthetic builder, which is always orthogonal.
+      if (!isOrthogonalPath(poly)) continue
+      // Pin safety: the port is a directional pin, so libavoid normally leaves via
+      // the pinned face. If it couldn't, its face disagrees — skip adoption and
+      // let the synthetic path honor the pin (perpendicular to that face).
       const libSourceSide = sideFromSegment(poly[0]!, poly[1]!)
       const libTargetSide = sideFromSegment(
         poly[poly.length - 1]!,
         poly[poly.length - 2]!,
       )
-      // A pinned side is authoritative. libavoid ignores the ports we supply and
-      // attaches wherever is cheapest, so when its face disagrees with the pin it
-      // can't honor it — fall back to the synthetic path, which leaves/enters
-      // perpendicular to the pinned face (accepting any crossing the pin implies)
-      // rather than silently re-routing onto a different face. When libavoid's
-      // face already AGREES with the pin (the common case — sensible pins), keep
-      // its obstacle-avoiding detour: same face, no overlap with its neighbours.
       if (
         (meta.explicitSource && libSourceSide !== meta.sourceSide) ||
         (meta.explicitTarget && libTargetSide !== meta.targetSide)
       ) {
         continue
       }
-      if (!meta.explicitSource) meta.sourceSide = libSourceSide
-      if (!meta.explicitTarget) meta.targetSide = libTargetSide
-      libRoutes.set(e.id, poly)
+      libPolys.set(
+        id,
+        snapPolylineToGrid(poly, gridSize, pixelNodes, areaObstacles, meta.source, meta.target),
+      )
     }
   }
 
-  const edgeAnchors = computeEdgeAnchors(elkEdges, edgeMeta, pixelNodes)
-  resolveSegmentOverlaps(edgeAnchors, edgeMeta, pixelNodes, gridSize, libRoutes)
+  // Separate the remaining synthetic edges (pin bail-outs + no-wasm fallback) and
+  // keep them clear of the adopted libavoid routes (passed as fixed obstacles).
+  resolveSegmentOverlaps(edgeAnchors, edgeMeta, pixelNodes, gridSize, libPolys)
 
   const routedEdges: EdgeRoute[] = []
-  for (const e of elkEdges) {
-    const meta = edgeMeta.get(e.id)!
-    const lib = libRoutes.get(e.id)
+  for (const id of edgeIds) {
+    const meta = edgeMeta.get(id)!
+    const lib = libPolys.get(id)
 
     let points: Pt[]
     if (lib) {
-      // Edge already known to need libavoid's obstacle-avoiding polyline. Pull
-      // its endpoints from the centre pins onto the distributed face ports so
-      // it spaces apart from any fan peers and its arrowhead lands on the
-      // border, then drop any degenerate points the shift introduced.
-      // Only snap when the two ends touch distinct legs (≥3 points). A 2-point
-      // route shares both points between the ends, so snapping each would
-      // clobber the other — leave it on its centre pins.
-      const hints = lib.length >= 3 ? edgeAnchors.get(e.id) : undefined
-      if (hints) {
-        snapLibEnd(lib, hints.sourceAnchor, meta.sourceSide, 'source')
-        snapLibEnd(lib, hints.targetAnchor, meta.targetSide, 'target')
-      }
-      points = cleanPolyline(lib)
+      points = lib
     } else {
-      const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(e.id)!
-      // The clean synthetic orthogonal path. Tidy everywhere a detour isn't
-      // needed.
+      const { sourceAnchor, targetAnchor, bendCoord } = edgeAnchors.get(id)!
+      // The clean synthetic orthogonal path (no-wasm fallback / pin bail-out).
       points = buildOrthogonalPath(
         sourceAnchor,
         targetAnchor,
@@ -404,25 +638,6 @@ export const route = async (
         gridSize,
         bendCoord,
       )
-      // Safety net: port distribution may have nudged a synthetic path into a
-      // node the centre path cleared. Swap in libavoid's route if so — unless a
-      // side was pinned, in which case the chosen face wins over avoidance.
-      if (
-        libavoidOk &&
-        !meta.explicitSource &&
-        !meta.explicitTarget &&
-        pathCrossesForeignNode(points, pixelNodes, meta.source, meta.target)
-      ) {
-        const result = routes.get(e.id)
-        if (result) {
-          const avoided = cleanPolyline([
-            result.sourcePoint,
-            ...result.bendPoints,
-            result.targetPoint,
-          ])
-          if (avoided.length >= 2) points = avoided
-        }
-      }
     }
 
     const styleSpec = layout.edges[edgeKey(meta.source, meta.target)]
@@ -439,7 +654,7 @@ export const route = async (
       : undefined
 
     routedEdges.push({
-      id: e.id,
+      id,
       source: { nodeId: meta.source, side: meta.sourceSide },
       target: { nodeId: meta.target, side: meta.targetSide },
       points,
@@ -476,29 +691,22 @@ export const route = async (
     }
   })
 
-  const AREA_PAD = 24
+  // Reuse the padded boxes already computed for obstacle avoidance so the
+  // rendered area can never drift from the rect routing avoided.
   const areas = diagram.areas.map((a) => {
     const style = layout.areas?.[a.id]
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const mid of a.members) {
-      const r = pixelNodes[mid]
-      if (!r) continue
-      minX = Math.min(minX, r.x)
-      minY = Math.min(minY, r.y)
-      maxX = Math.max(maxX, r.x + r.w)
-      maxY = Math.max(maxY, r.y + r.h)
-    }
-    if (!isFinite(minX)) {
+    const rect = areaRectById.get(a.id)
+    if (!rect) {
       return { id: a.id, label: a.label, members: a.members, x: 0, y: 0, w: 0, h: 0, ...style }
     }
     return {
       id: a.id,
       label: a.label,
       members: a.members,
-      x: minX - AREA_PAD,
-      y: minY - AREA_PAD,
-      w: maxX - minX + AREA_PAD * 2,
-      h: maxY - minY + AREA_PAD * 2,
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
       borderColor: style?.borderColor,
       borderStyle: style?.borderStyle,
       fillColor: style?.fillColor,
@@ -511,14 +719,6 @@ export const route = async (
     areas,
     edges: routedEdges,
   }
-}
-
-const anchorPoint = (
-  rect: { x: number; y: number; w: number; h: number },
-  side: Side,
-): { x: number; y: number } => {
-  const { x, y } = portOffset(side, rect.w, rect.h)
-  return { x: rect.x + x, y: rect.y + y }
 }
 
 const isHorizontalSide = (side: Side) => side === 'E' || side === 'W'
@@ -590,15 +790,16 @@ interface EdgeRoutingHints {
 // get a staggered bend coordinate so their vertical legs don't overlap —
 // inside arrows turn earlier, outside arrows turn later.
 const computeEdgeAnchors = (
-  elkEdges: ElkEdge[],
+  edgeIds: string[],
   edgeMeta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
   nodes: Record<string, Rect>,
+  areaObstacles: AreaObstacle[] = [],
 ): Map<string, EdgeRoutingHints> => {
   // Group edges by face (nodeId:side)
   const faceGroups = new Map<string, Array<{ edgeId: string; connectedId: string }>>()
 
-  for (const e of elkEdges) {
-    const m = edgeMeta.get(e.id)!
+  for (const eid of edgeIds) {
+    const m = edgeMeta.get(eid)!
     for (const [nodeId, side, connId] of [
       [m.source, m.sourceSide, m.target],
       [m.target, m.targetSide, m.source],
@@ -606,7 +807,7 @@ const computeEdgeAnchors = (
       const key = `${nodeId}:${side}`
       let arr = faceGroups.get(key)
       if (!arr) { arr = []; faceGroups.set(key, arr) }
-      arr.push({ edgeId: e.id, connectedId: connId })
+      arr.push({ edgeId: eid, connectedId: connId })
     }
   }
 
@@ -687,12 +888,12 @@ const computeEdgeAnchors = (
   // Build final anchors per edge
   const result = new Map<string, EdgeRoutingHints>()
 
-  for (const e of elkEdges) {
-    const m = edgeMeta.get(e.id)!
+  for (const eid of edgeIds) {
+    const m = edgeMeta.get(eid)!
     const src = nodes[m.source]!
     const tgt = nodes[m.target]!
-    const srcMulti = multiFaces.has(`${e.id}:${m.source}`)
-    const tgtMulti = multiFaces.has(`${e.id}:${m.target}`)
+    const srcMulti = multiFaces.has(`${eid}:${m.source}`)
+    const tgtMulti = multiFaces.has(`${eid}:${m.target}`)
     const srcHoriz = isHorizontalSide(m.sourceSide)
     const tgtHoriz = isHorizontalSide(m.targetSide)
     const srcFC = faceCoord(src, m.sourceSide)
@@ -702,13 +903,13 @@ const computeEdgeAnchors = (
     let tgtPerp: number
 
     if (srcMulti && tgtMulti) {
-      srcPerp = distributed.get(`${e.id}:${m.source}`)!
-      tgtPerp = distributed.get(`${e.id}:${m.target}`)!
+      srcPerp = distributed.get(`${eid}:${m.source}`)!
+      tgtPerp = distributed.get(`${eid}:${m.target}`)!
     } else if (srcMulti) {
-      srcPerp = distributed.get(`${e.id}:${m.source}`)!
+      srcPerp = distributed.get(`${eid}:${m.source}`)!
       tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
     } else if (tgtMulti) {
-      tgtPerp = distributed.get(`${e.id}:${m.target}`)!
+      tgtPerp = distributed.get(`${eid}:${m.target}`)!
       srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
     } else {
       // Both single-edge: always exit/enter at face centers. If centers
@@ -726,7 +927,7 @@ const computeEdgeAnchors = (
 
     const sourceAnchor: Pt = srcHoriz ? { x: srcFC, y: srcPerp } : { x: srcPerp, y: srcFC }
     const targetAnchor: Pt = tgtHoriz ? { x: tgtFC, y: tgtPerp } : { x: tgtPerp, y: tgtFC }
-    let bendCoord = bendCoords.get(e.id)
+    let bendCoord = bendCoords.get(eid)
 
     // Obstacle avoidance. If the Z-bend's perpendicular leg would pass
     // through another node, shift it just past the obstacle. Only applies
@@ -741,11 +942,12 @@ const computeEdgeAnchors = (
         nodes,
         m.source,
         m.target,
+        areaObstacles,
       )
       if (adjusted !== candidate) bendCoord = adjusted
     }
 
-    result.set(e.id, { sourceAnchor, targetAnchor, bendCoord })
+    result.set(eid, { sourceAnchor, targetAnchor, bendCoord })
   }
 
   return result
@@ -753,7 +955,8 @@ const computeEdgeAnchors = (
 
 const OBSTACLE_PAD = 8
 
-// Push the Z-bend perpendicular leg out of any node it would cross.
+// Push the Z-bend perpendicular leg out of any node — or blocking area — it
+// would cross.
 const avoidObstacles = (
   candidate: number,
   horizontalSides: boolean,
@@ -762,6 +965,7 @@ const avoidObstacles = (
   nodes: Record<string, Rect>,
   srcId: string,
   tgtId: string,
+  areaObstacles: AreaObstacle[] = [],
 ): number => {
   // The vertical leg spans y in [yLo, yHi] at x=candidate (for horizontal
   // sides). For vertical sides, the horizontal leg spans x in [xLo, xHi]
@@ -778,16 +982,26 @@ const avoidObstacles = (
     : Math.max(src.y, tgt.y)
   if (pHi - pLo <= 0) return candidate
 
-  const obstacles: Array<[number, number]> = []
+  // Foreign node rects plus any area that blocks this edge — both are just rects
+  // the perpendicular leg must clear.
+  const rects: Rect[] = []
   for (const [id, n] of Object.entries(nodes)) {
     if (id === srcId || id === tgtId) continue
+    rects.push(n)
+  }
+  for (const a of areaObstacles) {
+    if (areaBlocksEdge(a, srcId, tgtId)) rects.push(a.rect)
+  }
+
+  const obstacles: Array<[number, number]> = []
+  for (const n of rects) {
     const nALo = horizontalSides ? n.y : n.x
     const nAHi = horizontalSides ? n.y + n.h : n.x + n.w
     const nPLo = horizontalSides ? n.x : n.y
     const nPHi = horizontalSides ? n.x + n.w : n.y + n.h
-    // Does this node block the leg's a-range?
+    // Does this rect block the leg's a-range?
     if (nAHi <= aLo || nALo >= aHi) continue
-    // Is this node in the legal perpendicular range?
+    // Is this rect in the legal perpendicular range?
     if (nPHi <= pLo || nPLo >= pHi) continue
     obstacles.push([nPLo, nPHi])
   }
@@ -843,18 +1057,24 @@ const segCrossesRect = (a: Pt, b: Pt, r: Rect): boolean => {
   return false // diagonal: our synthetic paths are always orthogonal
 }
 
-// True when any segment of the path passes through a node other than the
-// edge's own endpoints.
+// True when any segment of the path passes through a node other than the edge's
+// own endpoints, OR through an area that blocks this edge (an area is blocking
+// only when neither endpoint is one of its members).
 const pathCrossesForeignNode = (
   pts: Pt[],
   nodes: Record<string, Rect>,
   srcId: string,
   tgtId: string,
+  areaObstacles: AreaObstacle[] = [],
 ): boolean => {
+  const blocking = areaObstacles.filter((a) => areaBlocksEdge(a, srcId, tgtId))
   for (let i = 1; i < pts.length; i += 1) {
     for (const [id, r] of Object.entries(nodes)) {
       if (id === srcId || id === tgtId) continue
       if (segCrossesRect(pts[i - 1]!, pts[i]!, r)) return true
+    }
+    for (const a of blocking) {
+      if (segCrossesRect(pts[i - 1]!, pts[i]!, a.rect)) return true
     }
   }
   return false
@@ -887,27 +1107,141 @@ const cleanPolyline = (pts: Pt[]): Pt[] => {
   return out
 }
 
-// Slide the first (source) or last (target) leg of a libavoid polyline so it
-// meets the node face at `anchor` — the distributed port — instead of
-// libavoid's centre pin. The touching leg is perpendicular to the face, so we
-// move it along the face by rewriting the shared coordinate of its two end
-// points, which keeps the polyline orthogonal. This both spaces libavoid edges
-// apart from their fan peers and lands their arrowheads on the node border
-// (where synthetic edges put them) rather than hidden under the node centre.
-const snapLibEnd = (
+const polyOf = (r: RouteResult): Pt[] =>
+  cleanPolyline([r.sourcePoint, ...r.bendPoints, r.targetPoint])
+
+// Every segment must be axis-aligned. Used to reject degenerate (diagonal)
+// libavoid routes before they reach the canvas.
+const isOrthogonalPath = (pts: Pt[]): boolean => {
+  for (let i = 1; i < pts.length; i += 1) {
+    const a = pts[i - 1]!, b = pts[i]!
+    if (Math.abs(a.x - b.x) > 0.5 && Math.abs(a.y - b.y) > 0.5) return false
+  }
+  return true
+}
+
+// Do two orthogonal polylines cross at an interior point (one's horizontal leg
+// through the other's vertical leg, away from shared endpoints)?
+const polysCross = (a: Pt[], b: Pt[]): boolean => {
+  for (let i = 1; i < a.length; i += 1) {
+    for (let j = 1; j < b.length; j += 1) {
+      const a1 = a[i - 1]!, a2 = a[i]!, b1 = b[j - 1]!, b2 = b[j]!
+      const aH = Math.abs(a1.y - a2.y) < 0.5 && Math.abs(a1.x - a2.x) > 0.5
+      const aV = Math.abs(a1.x - a2.x) < 0.5 && Math.abs(a1.y - a2.y) > 0.5
+      const bH = Math.abs(b1.y - b2.y) < 0.5 && Math.abs(b1.x - b2.x) > 0.5
+      const bV = Math.abs(b1.x - b2.x) < 0.5 && Math.abs(b1.y - b2.y) > 0.5
+      let h: [Pt, Pt] | null = null
+      let v: [Pt, Pt] | null = null
+      if (aH && bV) { h = [a1, a2]; v = [b1, b2] }
+      else if (aV && bH) { h = [b1, b2]; v = [a1, a2] }
+      if (!h || !v) continue
+      const hy = h[0].y, vx = v[0].x, e = 1
+      if (
+        vx > Math.min(h[0].x, h[1].x) + e && vx < Math.max(h[0].x, h[1].x) - e &&
+        hy > Math.min(v[0].y, v[1].y) + e && hy < Math.max(v[0].y, v[1].y) - e
+      ) return true
+    }
+  }
+  return false
+}
+
+// Pairs of edge ids whose routes cross. Drives the port-swap refinement.
+const crossingPairs = (
+  polys: Map<string, Pt[]>,
+  ids: string[],
+): Array<[string, string]> => {
+  const out: Array<[string, string]> = []
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      const A = polys.get(ids[i]!), B = polys.get(ids[j]!)
+      if (A && B && polysCross(A, B)) out.push([ids[i]!, ids[j]!])
+    }
+  }
+  return out
+}
+
+// If edges a and b attach to the SAME node face, which end of each does so. Two
+// edges sharing a face can sometimes be un-crossed simply by swapping which
+// junction (port position) each uses on that face — without changing the face
+// itself. Returns null when they share no face.
+type EndRef = 'source' | 'target'
+const sharedFace = (
+  a: string,
+  b: string,
+  meta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
+): { endA: EndRef; endB: EndRef } | null => {
+  const ma = meta.get(a)!, mb = meta.get(b)!
+  const endsA: Array<[EndRef, string, Side]> = [
+    ['source', ma.source, ma.sourceSide],
+    ['target', ma.target, ma.targetSide],
+  ]
+  const endsB: Array<[EndRef, string, Side]> = [
+    ['source', mb.source, mb.sourceSide],
+    ['target', mb.target, mb.targetSide],
+  ]
+  for (const [ea, na, sa] of endsA) {
+    for (const [eb, nb, sb] of endsB) {
+      if (na === nb && sa === sb) return { endA: ea, endB: eb }
+    }
+  }
+  return null
+}
+
+const anchorEnd = (h: EdgeRoutingHints, end: EndRef): Pt =>
+  end === 'source' ? h.sourceAnchor : h.targetAnchor
+const withAnchorEnd = (h: EdgeRoutingHints, end: EndRef, pt: Pt): EdgeRoutingHints =>
+  end === 'source' ? { ...h, sourceAnchor: pt } : { ...h, targetAnchor: pt }
+
+// Snap a libavoid polyline back onto the grid while preserving its shape. Only
+// INTERIOR segments are snapped — the first and last legs touch a node face at
+// the distributed anchor, which must stay put (so the arrowhead lands where the
+// port is). For each interior segment we round its single shared (perpendicular)
+// coordinate to the grid; because adjacent segments alternate H/V and share a
+// corner, this keeps the whole polyline orthogonal. If snapping pushes the route
+// into an obstacle it didn't touch before, the original (unsnapped) route is
+// kept — grid tidiness never trumps obstacle avoidance.
+const snapPolylineToGrid = (
   poly: Pt[],
-  anchor: Pt,
-  side: Side,
-  end: 'source' | 'target',
-): void => {
-  if (poly.length < 2) return
-  const horiz = isHorizontalSide(side) // W/E face → the touching leg is horizontal
-  const i = end === 'source' ? 0 : poly.length - 1
-  const j = end === 'source' ? 1 : poly.length - 2
-  poly[i] = { x: anchor.x, y: anchor.y }
-  poly[j] = horiz
-    ? { x: poly[j]!.x, y: anchor.y }
-    : { x: anchor.x, y: poly[j]!.y }
+  gridSize: number,
+  nodes: Record<string, Rect>,
+  areaObstacles: AreaObstacle[],
+  srcId: string,
+  tgtId: string,
+): Pt[] => {
+  if (poly.length < 4) return cleanPolyline(poly) // straight or single-corner: nothing interior to move
+  const out = poly.map((p) => ({ x: p.x, y: p.y }))
+  for (let i = 1; i < out.length - 2; i += 1) {
+    const a = out[i]!
+    const b = out[i + 1]!
+    // Snap a segment's shared coordinate ONLY when the snapped value stays
+    // strictly between its two neighbour legs' far ends. Otherwise the snap would
+    // collapse (or flip) an adjacent leg — e.g. pulling the middle leg of a Z
+    // onto the target face turns a perpendicular arrival into a sideways one.
+    const before = out[i - 1]!
+    const after = out[i + 2]!
+    if (Math.abs(a.x - b.x) < 0.5) {
+      const sx = snap(a.x, gridSize) // vertical leg → snap shared x
+      const lo = Math.min(before.x, after.x)
+      const hi = Math.max(before.x, after.x)
+      if (sx > lo && sx < hi) {
+        a.x = sx
+        b.x = sx
+      }
+    } else if (Math.abs(a.y - b.y) < 0.5) {
+      const sy = snap(a.y, gridSize) // horizontal leg → snap shared y
+      const lo = Math.min(before.y, after.y)
+      const hi = Math.max(before.y, after.y)
+      if (sy > lo && sy < hi) {
+        a.y = sy
+        b.y = sy
+      }
+    }
+  }
+  const snapped = cleanPolyline(out)
+  if (pathCrossesForeignNode(snapped, nodes, srcId, tgtId, areaObstacles)) {
+    return cleanPolyline(poly)
+  }
+  return snapped
 }
 
 // Synthesize a fully-orthogonal polyline from the two anchors. The first
