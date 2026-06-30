@@ -19,6 +19,13 @@ import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeCli
 import { detectBridge } from './config'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
+import {
+  docKeyOf,
+  readBackup,
+  writeBackup,
+  reconcile,
+  type DocBackup,
+} from './offlineBackup'
 import type { FeedbackResolvedMsg, FeedbackTarget, FileFrame, FileKind } from './protocol'
 
 // Test-only seam: inject a fake WebSocket factory so the hook is drivable in
@@ -29,6 +36,22 @@ export const __setTestSocketFactory = (f: SocketFactory | undefined): void => {
 }
 
 export type BridgeUiStatus = 'standalone' | BridgeStatus
+
+/** Outbound persistence state, surfaced as a status-bar cue.
+ *  - `saved`   every local edit is confirmed on disk,
+ *  - `saving`  an edit was dispatched, awaiting the server's `applied` ack,
+ *  - `unsaved` the buffer is invalid and was withheld from disk,
+ *  - `offline` not connected — nothing is reaching disk. */
+export type BridgeSaveState = 'saved' | 'saving' | 'unsaved' | 'offline'
+
+/** A genuine conflict: the browser backup and the disk file BOTH changed since
+ *  they were last in sync, so the user must pick which to keep. */
+export interface ClashInfo {
+  /** When the local copy was last saved in the browser (epoch ms). */
+  localSavedAt: number
+  local: { nodes: number; edges: number }
+  disk: { nodes: number; edges: number }
+}
 
 export interface BridgeUiState {
   /** True when a live bridge was detected (vs standalone/localStorage mode). */
@@ -42,6 +65,15 @@ export interface BridgeUiState {
   diskChanged: boolean
   /** The editor buffer is invalid and was NOT written to disk. */
   invalidUnsaved: boolean
+  /** Outbound persistence state for the status-bar save cue. */
+  saveState: BridgeSaveState
+  /** Showing the browser backup because the bridge hasn't hydrated (server
+   *  unreachable). Edits are held locally and pushed once it reconnects. */
+  usingLocalCopy: boolean
+  /** Set when the browser backup and disk genuinely conflict; drives the prompt. */
+  clash: ClashInfo | null
+  /** Resolve a conflict: keep the local copy (push it to disk) or take disk. */
+  resolveClash: (choice: 'local' | 'disk') => void
   /** Disk holds invalid content (CC wrote garbage); UI keeps last-good. */
   remoteError: string | null
   /** An agent is attached to the live-feedback poll (drives the toolbar dot). */
@@ -56,6 +88,10 @@ export interface BridgeUiState {
 
 const FLASH_MS = 1200
 const RECONCILE_POLL_MS = 400
+// Grace period before falling back to the browser backup when the bridge hasn't
+// hydrated (server unreachable). Short enough to avoid a long blank, long enough
+// that a healthy connection hydrates first (no flash of the local copy).
+const OFFLINE_FALLBACK_MS = 1200
 
 const fallbackLayout = (): LayoutSidecar => ({ gridSize: 40, nodes: {}, edges: {} })
 
@@ -71,18 +107,39 @@ export const useBridge = (): BridgeUiState => {
   const [flash, setFlash] = useState(false)
   const [diskChanged, setDiskChanged] = useState(false)
   const [invalidUnsaved, setInvalidUnsaved] = useState(false)
+  // Count of edits sent to disk but not yet confirmed by the server's `applied`.
+  // > 0 means "Saving…"; back to 0 means every edit is on disk ("Saved").
+  const [pendingWrites, setPendingWrites] = useState(0)
   const [remoteError, setRemoteError] = useState<string | null>(null)
+  const [usingLocalCopy, setUsingLocalCopy] = useState(false)
+  const [clash, setClash] = useState<ClashInfo | null>(null)
+  // The full conflict payload (kept in a ref so resolveClash can act on it
+  // without re-subscribing). `clash` above is the lean UI view of this.
+  const clashDataRef = useRef<{ local: DocBackup; disk: { source: string; layout: LayoutSidecar } } | null>(null)
+  // Whether a real document is loaded (hydrate or offline backup), gating the
+  // backup writer so the empty bootstrap state can never overwrite a good backup.
+  const hasDocRef = useRef(false)
+  // Per-document backup key (bridge doc stem, falling back to file path).
+  const docIdRef = useRef('')
   const [agentPolling, setAgentPolling] = useState(false)
   const [lastPickedUp, setLastPickedUp] = useState<string | null>(null)
   const [lastResolved, setLastResolved] = useState<FeedbackResolvedMsg | null>(null)
 
   const clientRef = useRef<BridgeClient | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // True once the authoritative disk state has arrived from the server. Until
+  // then the store still holds its empty bootstrap baseline (bridge mode skips
+  // the localStorage hydrate), and writing THAT back would clobber the user's
+  // file. So no outbound write is allowed before the first hydrate — a slow or
+  // failed reconnect can never overwrite good work; the file just waits intact
+  // for the hydrate to land.
+  const hydratedRef = useRef(false)
 
   useEffect(() => {
     const { applyRemote } = useDiagramStore.getState()
     const loadDocument = useDiagramStore.getState().loadDocument
     let disposed = false
+    let offlineTimer: ReturnType<typeof setTimeout> | undefined
     // Latest deferred remote frame per kind, awaiting a quiet window. Scoped to
     // this effect run (not a ref), so a StrictMode remount can never replay a
     // previous mount's stale "disk changed".
@@ -145,6 +202,8 @@ export const useBridge = (): BridgeUiState => {
       }
       setActive(true)
       setFilename(config.doc)
+      const docId = config.doc || config.file || 'default'
+      docIdRef.current = docId
 
       const client = new BridgeClient({
         config,
@@ -153,14 +212,25 @@ export const useBridge = (): BridgeUiState => {
           setStatus(s)
           // A dropped socket means we no longer know the agent's state; the dot
           // re-syncs from the server's broadcast on reconnect.
-          if (s === 'disconnected') setAgentPolling(false)
+          if (s === 'disconnected') {
+            setAgentPolling(false)
+            // In-flight writes are unknowable once the socket drops; the badge
+            // shows "offline" until reconnect, so clear the pending count.
+            setPendingWrites(0)
+          }
         },
         onFeedbackStatus: setAgentPolling,
         onFeedbackPickedUp: setLastPickedUp,
         onFeedbackResolved: (id, status, message) =>
           setLastResolved({ type: 'feedbackResolved', id, status, ...(message ? { message } : {}) }),
-        onApplied: () => setInvalidUnsaved(false),
+        onApplied: () => {
+          setInvalidUnsaved(false)
+          // One envelope confirmed written to disk.
+          setPendingWrites((n) => Math.max(0, n - 1))
+        },
         onRejected: (reason, err) => {
+          // A rejected envelope is no longer in flight (it errored, not saved).
+          setPendingWrites((n) => Math.max(0, n - 1))
           if (reason === 'unauthorized') setStatus('disconnected')
           else if (reason === 'invalid') setRemoteError(err ?? 'rejected')
         },
@@ -175,13 +245,54 @@ export const useBridge = (): BridgeUiState => {
           // layout.json the user never asked for).
           client.markRemote('d2', source)
           client.markRemote('layout', layoutToText(layout))
+          // The disk baseline is now in hand — outbound writes are safe.
+          hydratedRef.current = true
+          hasDocRef.current = true
+          setUsingLocalCopy(false)
+
+          // 3-way reconcile against the browser backup (see offlineBackup).
+          const diskKey = docKeyOf(source, layout)
+          const backup = readBackup(docId)
+          const localKey = backup ? docKeyOf(backup.source, backup.layout) : null
+          const action = reconcile(diskKey, localKey, backup?.base ?? null)
+
+          if (action === 'clash' && backup) {
+            // Genuine conflict — show the user's own copy and prompt for a choice.
+            clashDataRef.current = { local: backup, disk: { source, layout } }
+            setClash({
+              localSavedAt: backup.savedAt,
+              local: {
+                nodes: Object.keys(backup.layout.nodes).length,
+                edges: Object.keys(backup.layout.edges).length,
+              },
+              disk: {
+                nodes: Object.keys(layout.nodes).length,
+                edges: Object.keys(layout.edges).length,
+              },
+            })
+            if (!reconnect) loadDocument(backup.source, backup.layout)
+            // reconnect: the store already holds the local edits — leave them.
+            return
+          }
+
+          setClash(null)
+          clashDataRef.current = null
+
+          if (action === 'keep-local' && backup) {
+            // Disk unchanged since sync; the local copy has the only edits.
+            // Restore it; the outbound subscriber pushes it to disk.
+            if (!reconnect) loadDocument(backup.source, backup.layout)
+            return
+          }
+
+          // take-disk: disk wins (identical, or local had no edits beyond base).
           if (!reconnect) {
             loadDocument(source, layout) // first load: fresh baseline
             return
           }
-          // Reconnect re-applies disk state via the paused path (never wipes
-          // history) — but still honors the interaction guard so a socket blip
-          // mid-drag/edit doesn't yank the canvas. Defer to the next quiet window.
+          // Reconnect applies disk via the paused path (never wipes history) — but
+          // honors the interaction guard so a socket blip mid-drag doesn't yank
+          // the canvas. Defer to the next quiet window.
           if (interaction.isBusy()) {
             if (byKind.d2?.content != null) pending.set('d2', source)
             pending.set('layout', layoutToText(layout))
@@ -195,6 +306,18 @@ export const useBridge = (): BridgeUiState => {
       })
       clientRef.current = client
       client.connect()
+
+      // Offline fallback: if no hydrate arrives (server down), show the browser
+      // backup instead of a blank canvas. Edits are held locally (the outbound
+      // guard blocks disk writes until hydrate) and reconciled on reconnect.
+      offlineTimer = setTimeout(() => {
+        if (disposed || hydratedRef.current) return
+        const backup = readBackup(docId)
+        if (!backup) return
+        hasDocRef.current = true
+        setUsingLocalCopy(true)
+        loadDocument(backup.source, backup.layout)
+      }, OFFLINE_FALLBACK_MS)
     })
 
     // Pointer + reconcile wiring.
@@ -218,6 +341,7 @@ export const useBridge = (): BridgeUiState => {
       window.removeEventListener('pointercancel', onPointerUp)
       unsubReconcile()
       clearInterval(pollTimer)
+      if (offlineTimer) clearTimeout(offlineTimer)
       if (flashTimer.current) clearTimeout(flashTimer.current)
     }
   }, [])
@@ -227,6 +351,10 @@ export const useBridge = (): BridgeUiState => {
     if (!active) return
     const unsub = useDiagramStore.subscribe((state, prev) => {
       if (state.source === prev.source && state.layout === prev.layout) return
+      // Never write before the first hydrate — the store could still be the empty
+      // bootstrap baseline, and writing it would clobber the user's file on a
+      // slow/failed reconnect.
+      if (!hydratedRef.current) return
       const client = clientRef.current
       if (!client) return
       const { sent, invalid } = client.apply([
@@ -236,6 +364,8 @@ export const useBridge = (): BridgeUiState => {
       // A real local edit produces a send or an invalid-withhold; a remote echo
       // dedups to nothing. Only the former counts as "user activity".
       if (sent.length > 0 || invalid.length > 0) interaction.noteActivity()
+      // A dispatched envelope is now awaiting the server's `applied` ack.
+      if (sent.length > 0) setPendingWrites((n) => n + 1)
       setInvalidUnsaved(invalid.includes('d2'))
     })
     return () => {
@@ -243,11 +373,62 @@ export const useBridge = (): BridgeUiState => {
     }
   }, [active])
 
+  // Mirror the current doc to the per-document browser backup on every change, so
+  // a dead server or a reload never loses work. Runs once a real doc is loaded
+  // (hasDocRef), including while offline. The `base` is the disk state we're
+  // synced to (the client's last-sent/received key), preserved from the prior
+  // backup while offline — this is what lets the reconcile tell a real conflict
+  // from a stale copy.
+  useEffect(() => {
+    if (!active) return
+    const unsub = useDiagramStore.subscribe((state, prev) => {
+      if (state.source === prev.source && state.layout === prev.layout) return
+      if (!hasDocRef.current) return
+      const docId = docIdRef.current
+      if (!docId) return
+      const base = clientRef.current?.getSyncedKey() ?? readBackup(docId)?.base ?? null
+      writeBackup(docId, {
+        source: state.source,
+        layout: state.layout,
+        base,
+        savedAt: Date.now(),
+      })
+    })
+    return unsub
+  }, [active])
+
+  const resolveClash = useCallback((choice: 'local' | 'disk') => {
+    const data = clashDataRef.current
+    if (!data) return
+    const loadDocument = useDiagramStore.getState().loadDocument
+    // Loading the chosen doc fires the outbound + backup subscribers synchronously:
+    //   - 'local' differs from the disk key markRemote recorded → it's pushed to
+    //     disk and the backup re-bases onto it;
+    //   - 'disk' matches that key → nothing is sent, the backup re-bases onto disk.
+    // Either way the conflict is resolved and the new base is recorded for us.
+    if (choice === 'local') loadDocument(data.local.source, data.local.layout)
+    else loadDocument(data.disk.source, data.disk.layout)
+    clashDataRef.current = null
+    setClash(null)
+    setUsingLocalCopy(false)
+  }, [])
+
   const submitFeedback = useCallback(
     (id: string, text: string, target: FeedbackTarget): boolean =>
       clientRef.current?.submitFeedback(id, text, target) ?? false,
     [],
   )
+
+  // Outbound save status for the status-bar cue. Only meaningful while connected;
+  // disconnected → 'offline' (nothing is reaching disk).
+  const saveState: BridgeSaveState =
+    status !== 'connected'
+      ? 'offline'
+      : invalidUnsaved
+        ? 'unsaved'
+        : pendingWrites > 0
+          ? 'saving'
+          : 'saved'
 
   return {
     active,
@@ -256,6 +437,10 @@ export const useBridge = (): BridgeUiState => {
     flash,
     diskChanged,
     invalidUnsaved,
+    saveState,
+    usingLocalCopy,
+    clash,
+    resolveClash,
     remoteError,
     agentPolling,
     lastPickedUp,

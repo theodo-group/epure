@@ -30,6 +30,7 @@ import { exportStandaloneHtml } from '@/export/standalone-html'
 import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { useBridge } from '@/bridge/useBridge'
+import { ClashDialog } from '@/bridge/ClashDialog'
 import { readInjectedBridge } from '@/bridge/config'
 import { interaction } from '@/bridge/interaction'
 import { useFeedback } from '@/feedback/useFeedback'
@@ -553,6 +554,9 @@ export const App = () => {
         </PanelGroup>
       </div>
       <Footer bridge={bridge} />
+      {bridge.clash ? (
+        <ClashDialog clash={bridge.clash} onResolve={bridge.resolveClash} />
+      ) : null}
     </div>
   )
 }

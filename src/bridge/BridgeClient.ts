@@ -103,18 +103,34 @@ export class BridgeClient {
     this.lastKey[kind] = contentKey(kind, content)
   }
 
+  /** The doc identity currently in sync with disk — `lastKey.d2` joined with
+   *  `lastKey.layout`, matching `docKeyOf(source, layout)` in offlineBackup.
+   *  Null until both kinds have been reconciled. Used as the reconcile `base`. */
+  getSyncedKey(): string | null {
+    const d2 = this.lastKey.d2
+    const layout = this.lastKey.layout
+    if (d2 == null || layout == null) return null
+    return `${d2}\u0000${layout}`
+  }
+
   /**
    * Send the dirty kinds as one coherent apply envelope. Each kind is gated:
    *   - dropped if invalid (kept off disk; surfaced via `invalid`),
    *   - dropped if its key is unchanged (echo / no-op),
    *   - otherwise sent, and its key recorded.
+   *
+   * `lastKey` (and thus `getSyncedKey`) is updated ONLY when an envelope actually
+   * goes out. If the socket is down the edit isn't sent — recording its key would
+   * falsely mark it "on disk", poisoning the offline-backup base and the save
+   * cue. Withholding the update means the edit is correctly re-evaluated on
+   * reconnect.
    */
   apply(files: { kind: FileKind; content: string }[]): {
     sent: FileKind[]
     invalid: FileKind[]
   } {
     const invalid: FileKind[] = []
-    const toSend: { kind: FileKind; content: string }[] = []
+    const toSend: { kind: FileKind; content: string; key: string }[] = []
     for (const file of files) {
       const key = contentKey(file.kind, file.content)
       if (key === null) {
@@ -122,14 +138,17 @@ export class BridgeClient {
         continue
       }
       if (key === this.lastKey[file.kind]) continue // echo / no change
-      this.lastKey[file.kind] = key
-      toSend.push(file)
+      toSend.push({ ...file, key })
     }
-    if (toSend.length > 0 && this.socket) {
-      this.socket.send(
-        JSON.stringify({ type: 'apply', doc: this.opts.config.doc, files: toSend }),
-      )
-    }
+    if (toSend.length === 0 || !this.socket) return { sent: [], invalid }
+    this.socket.send(
+      JSON.stringify({
+        type: 'apply',
+        doc: this.opts.config.doc,
+        files: toSend.map((f) => ({ kind: f.kind, content: f.content })),
+      }),
+    )
+    for (const f of toSend) this.lastKey[f.kind] = f.key
     return { sent: toSend.map((f) => f.kind), invalid }
   }
 
