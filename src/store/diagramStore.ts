@@ -10,7 +10,7 @@ import type {
   RoutedDiagram,
   Side,
 } from '@/layout/types'
-import { makeEdgeId, route } from '@/layout/elk'
+import { invalidateFaceCache, makeEdgeId, route } from '@/layout/elk'
 import { normalizeForRoute } from '@/layout/normalize'
 
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
@@ -87,7 +87,10 @@ export interface DiagramActions {
   clearSelection: () => void
   /** Merge a style patch into every selected node / edge / area. */
   setNodeStyle: (patch: Partial<NodeStyle>) => void
-  setEdgeStyle: (patch: Partial<EdgeStyleSpec>) => void
+  /** Merge a patch into every selected edge's sidecar entry. Besides visual
+   *  style it also accepts `sourceSide`/`targetSide` — pinning which node face an
+   *  edge attaches to (the router honors a pinned side; `undefined` = auto). */
+  setEdgeStyle: (patch: Partial<EdgeStyleSpec> & { sourceSide?: Side; targetSide?: Side }) => void
   setAreaStyle: (patch: Partial<AreaStyleSpec>) => void
   toggleGrid: () => void
   setGridSize: (n: number) => void
@@ -129,6 +132,26 @@ export const flushBurst = (): void => {
   burstState.active = false
 }
 
+// Reroute scheduling. `route()` is async (it awaits libavoid's WASM router) and
+// a drag fires a layout change — hence a reroute — on every grid step. Two
+// mechanisms keep that cheap and smooth:
+//   1. Coalescing — only one route runs at a time; concurrent requests set a
+//      pending flag and the runner loops once more against the LATEST state, so
+//      a burst of K updates collapses to ~2 routes, never K.
+//   2. Quick-then-full — each request runs a QUICK route immediately (reuses
+//      cached faces, skips the crossing-swap pass: ~3-4× faster) for instant
+//      feedback, and schedules a FULL best-quality route once the interaction
+//      goes quiet. A pending full supersedes a pending quick.
+// The headless export calls route() directly (always full), so committed/exported
+// geometry is unaffected by this interactive path.
+const FULL_ROUTE_DELAY_MS = 200
+const rerouteState: {
+  inFlight: boolean
+  pendingQuick: boolean
+  pendingFull: boolean
+  fullTimer: ReturnType<typeof setTimeout> | undefined
+} = { inFlight: false, pendingQuick: false, pendingFull: false, fullTimer: undefined }
+
 export const useDiagramStore = create<DiagramStore>()(
   temporal(
     (set, get) => ({
@@ -148,12 +171,16 @@ export const useDiagramStore = create<DiagramStore>()(
 
       setSource: (source) => set((s) => ({ ...s, source })),
 
-      setLayout: (layout) =>
+      setLayout: (layout) => {
+        // Wholesale layout replacement (layout-JSON editor) — positions change
+        // for everything, so stale faces must not be reused by a quick route.
+        invalidateFaceCache()
         set((s) => ({
           ...s,
           layout,
           gridSize: layout.gridSize,
-        })),
+        }))
+      },
 
       moveNode: (id, x, y) =>
         set((s) => {
@@ -424,32 +451,60 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       reroute: async () => {
-        const { parseResult, layout } = get()
-        if (!parseResult.ok) {
-          set((s) => ({ ...s, routed: null }))
-          return
+        const pump = async () => {
+          if (rerouteState.inFlight) return
+          rerouteState.inFlight = true
+          try {
+            while (rerouteState.pendingQuick || rerouteState.pendingFull) {
+              // A pending full supersedes a pending quick — do the best-quality
+              // pass when the interaction has settled.
+              const quick = !rerouteState.pendingFull
+              rerouteState.pendingQuick = false
+              if (!quick) rerouteState.pendingFull = false
+              const { parseResult, layout } = get()
+              if (!parseResult.ok) {
+                set((s) => ({ ...s, routed: null }))
+                continue
+              }
+              try {
+                // Synthesize layout entries for any `.d2` node missing from the
+                // sidecar (e.g. CC appended a node without touching the layout)
+                // so the canvas renders it auto-placed. The normalized layout is
+                // used only for routing — never written back into the store — so
+                // these positions can never bounce out to disk.
+                const routed = await route(
+                  parseResult.diagram,
+                  normalizeForRoute(parseResult.diagram, layout),
+                  { quick },
+                )
+                set((s) => ({ ...s, routed }))
+              } catch (err) {
+                console.error('route failed', err)
+                set((s) => ({ ...s, routed: null }))
+              }
+            }
+          } finally {
+            rerouteState.inFlight = false
+          }
         }
-        try {
-          // Synthesize layout entries for any `.d2` node missing from the
-          // sidecar (e.g. CC appended a node without touching the layout) so
-          // the canvas renders it auto-placed. The normalized layout is used
-          // only for routing — never written back into the store — so these
-          // positions can never bounce out to disk.
-          const routed = await route(
-            parseResult.diagram,
-            normalizeForRoute(parseResult.diagram, layout),
-          )
-          set((s) => ({ ...s, routed }))
-        } catch (err) {
-          console.error('route failed', err)
-          set((s) => ({ ...s, routed: null }))
-        }
+
+        // Immediate quick pass for instant feedback…
+        rerouteState.pendingQuick = true
+        await pump()
+        // …then a full best-quality pass once changes stop arriving.
+        if (rerouteState.fullTimer) clearTimeout(rerouteState.fullTimer)
+        rerouteState.fullTimer = setTimeout(() => {
+          rerouteState.fullTimer = undefined
+          rerouteState.pendingFull = true
+          void pump()
+        }, FULL_ROUTE_DELAY_MS)
       },
 
       loadDocument: (source, layout) => {
         // Loading a document (bootstrap / open) is a fresh baseline, not an
         // undoable edit: pause tracking around the swap and clear history so
         // the user can't undo back into the previous (or empty) document.
+        invalidateFaceCache()
         const temporal = useDiagramStore.temporal.getState()
         temporal.pause()
         set((s) => ({
@@ -466,6 +521,9 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       applyRemote: (patch) => {
+        // A remote layout write (bridge: disk/CC edit, pasted layout) replaces
+        // positions wholesale — drop stale faces so the next quick route relearns.
+        if (patch.layout !== undefined) invalidateFaceCache()
         // Apply with temporal PAUSED so the remote write creates no undo entry
         // and doesn't clear history (a transient reconnect must never wipe the
         // user's stack); then reset the burst window so the user's next local
