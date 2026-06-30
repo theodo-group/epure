@@ -2,6 +2,7 @@ import { useCallback, useRef, type MouseEvent, type ReactNode } from 'react'
 
 import { SHAPE_NAMES, type EdgeDirection, type ShapeName } from '@/parser/ast'
 import { makeEdgeId } from '@/layout/elk'
+import type { Side } from '@/layout/types'
 import { useDiagramStore } from '@/store/diagramStore'
 import { IconControl } from './IconPicker'
 import {
@@ -232,6 +233,58 @@ const CapIcon = ({ cap, flip }: { cap: EndCap; flip?: boolean }) => {
     </svg>
   )
 }
+
+// A little node with a connector stub poking out of the chosen side, so a button
+// reads unambiguously as "the edge attaches to THIS face of the box".
+const FaceIcon = ({ side }: { side: Side }) => {
+  // Node box spans x[5,17] y[5,11]; the stub leaves the midpoint of one side.
+  const stub =
+    side === 'N'
+      ? { x1: 11, y1: 5, x2: 11, y2: 1 }
+      : side === 'S'
+        ? { x1: 11, y1: 11, x2: 11, y2: 15 }
+        : side === 'E'
+          ? { x1: 17, y1: 8, x2: 21, y2: 8 }
+          : { x1: 5, y1: 8, x2: 1, y2: 8 }
+  return (
+    <svg width="22" height="16" viewBox="0 0 22 16" aria-hidden>
+      <rect
+        x="5"
+        y="5"
+        width="12"
+        height="6"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        fill="none"
+        opacity="0.4"
+      />
+      <line
+        x1={stub.x1}
+        y1={stub.y1}
+        x2={stub.x2}
+        y2={stub.y2}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx={stub.x1} cy={stub.y1} r="1.5" fill="currentColor" />
+    </svg>
+  )
+}
+
+const SIDE_LABEL: Record<Side, string> = {
+  N: 'Top',
+  E: 'Right',
+  S: 'Bottom',
+  W: 'Left',
+}
+// Compass order (clockwise from top) for a tidy strip.
+const faceOptions = (['N', 'E', 'S', 'W'] as Side[]).map((s) => ({
+  value: s,
+  label: <FaceIcon side={s} />,
+  title: SIDE_LABEL[s],
+}))
 
 const sizeOptions = SIZES.map((s) => ({ value: s, label: s, title: s }))
 const lineOptions = LINE_STYLES.map((s) => ({
@@ -528,6 +581,20 @@ export const StylePanel = () => {
               value={common(edgeStyles.map((e) => e.endCap))}
               defaultValue={endCapDefault}
               onChange={(v) => setEdgeStyle({ endCap: v })}
+            />
+          </Row>
+          <Row label="Source face">
+            <Segmented
+              options={faceOptions}
+              value={common(edgeStyles.map((e) => e.sourceSide))}
+              onChange={(v) => setEdgeStyle({ sourceSide: v })}
+            />
+          </Row>
+          <Row label="Target face">
+            <Segmented
+              options={faceOptions}
+              value={common(edgeStyles.map((e) => e.targetSide))}
+              onChange={(v) => setEdgeStyle({ targetSide: v })}
             />
           </Row>
         </section>
