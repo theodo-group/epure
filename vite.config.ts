@@ -12,6 +12,11 @@ export default defineConfig({
   // plain `pnpm dev`; with `EPURE_FILE=fixtures/system.epr.d2 pnpm dev` it
   // serves the live bridge against that pair.
   plugins: [react(), epureBridge()],
+  // Pin the dev port. Without this, Vite silently moves to 5174, 5175, … when
+  // 5173 is busy — which orphans an already-open editor tab on the old port
+  // (its bridge socket points nowhere, so a reload looks like lost work).
+  // strictPort makes a busy port a loud startup error instead.
+  server: { port: 5173, strictPort: true },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
