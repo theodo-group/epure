@@ -9,6 +9,8 @@ import { useDiagramStore } from '@/store/diagramStore'
 
 import { __setTestSocketFactory, useBridge } from './useBridge'
 import { interaction } from './interaction'
+import { docKeyOf, writeBackup } from './offlineBackup'
+import type { LayoutSidecar } from '@/layout/types'
 import type { SocketLike } from './BridgeClient'
 import type { ServerMsg } from './protocol'
 
@@ -40,9 +42,22 @@ const hydrate = (d2: string, layout: string): ServerMsg => ({
   ],
 })
 
+// jsdom's localStorage is a no-op in this runner; back it with a real Map so the
+// offline-backup paths are exercised.
+const installLocalStorage = () => {
+  const store = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+  })
+}
+
 beforeEach(() => {
   sockets = []
   interaction._reset()
+  installLocalStorage()
   useDiagramStore.getState().loadDocument('', { gridSize: 40, nodes: {}, edges: {} })
   ;(window as unknown as { __EPURE_BRIDGE__?: unknown }).__EPURE_BRIDGE__ = {
     token: 'tok', wsUrl: '/__epure/ws', protocol: 1, doc: 'sys', file: '/x', version: '1',
@@ -144,6 +159,102 @@ describe('useBridge', () => {
     // ...but nothing was sent back to disk — only the hello frame went out.
     const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
     expect(applies).toHaveLength(0)
+  })
+
+  it('reports saveState saving → saved across an edit and its ack', async () => {
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    // Nothing pending right after hydrate.
+    expect(result.current.saveState).toBe('saved')
+
+    // A local edit is dispatched to disk → awaiting the server's ack.
+    await act(async () => {
+      useDiagramStore.getState().moveNode('a', 400, 80)
+    })
+    expect(result.current.saveState).toBe('saving')
+
+    // Server confirms the write → back to saved.
+    await act(async () => {
+      lastSocket().emit({ type: 'applied', doc: 'sys', kinds: ['layout'] })
+    })
+    expect(result.current.saveState).toBe('saved')
+  })
+
+  const layoutObj = (cx: number): LayoutSidecar => ({
+    gridSize: 40,
+    nodes: { a: { cx, cy: 2, w: 4, h: 2 } },
+    edges: {},
+  })
+
+  it('falls back to the browser backup when no hydrate arrives (server down)', async () => {
+    writeBackup('sys', { source: D2, layout: layoutObj(7), base: null, savedAt: 1 })
+    const { result } = renderHook(() => useBridge())
+    await connect() // socket opens, but the server never sends a hydrate
+    // Wait out the offline-fallback grace period.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 1400))
+    })
+    expect(result.current.usingLocalCopy).toBe(true)
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(7)
+  })
+
+  it('prompts on a genuine clash (local and disk both diverged from base)', async () => {
+    // base = layout(5); local = layout(8); disk = layout(2) → all differ.
+    writeBackup('sys', { source: D2, layout: layoutObj(8), base: docKeyOf(D2, layoutObj(5)), savedAt: 99 })
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    expect(result.current.clash).not.toBeNull()
+    expect(result.current.clash?.local.nodes).toBe(1)
+    // Resolving with "disk" loads the disk version and clears the prompt.
+    await act(async () => result.current.resolveClash('disk'))
+    expect(result.current.clash).toBeNull()
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(2)
+  })
+
+  it('keeps local edits without prompting when only the local copy changed', async () => {
+    // base == disk (no external change); local has edits → keep-local, push to disk.
+    writeBackup('sys', { source: D2, layout: layoutObj(8), base: docKeyOf(D2, layoutObj(2)), savedAt: 7 })
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    expect(result.current.clash).toBeNull()
+    // The local edits are kept...
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(8)
+    // ...and pushed to disk.
+    const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    expect(applies.length).toBeGreaterThan(0)
+  })
+
+  it('reports saveState offline when the socket drops', async () => {
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    expect(result.current.saveState).toBe('saved')
+    await act(async () => lastSocket().onclose?.())
+    expect(result.current.saveState).toBe('offline')
+  })
+
+  it('does NOT write to disk before the first hydrate (no clobber on slow reconnect)', async () => {
+    renderHook(() => useBridge())
+    await connect()
+    // Connected, but the authoritative disk state has NOT arrived yet. The store
+    // still holds its empty bootstrap baseline; a local edit here must be
+    // withheld, or it would overwrite the user's file with an empty layout.
+    await act(async () => {
+      useDiagramStore.getState().moveNode('a', 200, 80)
+    })
+    const applyTypes = () =>
+      lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    expect(applyTypes()).toHaveLength(0)
+
+    // Once the disk baseline lands, edits are safe to persist again.
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    await act(async () => {
+      useDiagramStore.getState().moveNode('a', 400, 80)
+    })
+    expect(applyTypes().length).toBeGreaterThan(0)
   })
 
   it('defers a reconnect re-hydrate while the user is interacting', async () => {

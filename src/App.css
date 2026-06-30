@@ -946,3 +946,77 @@ body.epure-dragging * {
   50% { opacity: 0.5; }
 }
 .ep-fb-thinking { animation: ep-fb-think 1s ease-in-out infinite; }
+
+/* ── Conflict (clash) prompt ─────────────────────────────────────────────── */
+/* Shown when the browser backup and the disk file genuinely diverged. Modal so
+   the user resolves before continuing — picking one discards the other. */
+.ep-clash-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(28, 25, 23, 0.32);
+  backdrop-filter: blur(1.5px);
+}
+
+.ep-clash {
+  width: min(440px, calc(100vw - 32px));
+  background: var(--ep-surface);
+  border: 1px solid var(--ep-border);
+  border-radius: 12px;
+  box-shadow: var(--ep-shadow-app);
+  padding: 20px;
+}
+
+.ep-clash-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ep-text);
+}
+
+.ep-clash-body {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ep-text-muted);
+}
+
+.ep-clash-choices {
+  display: flex;
+  gap: 10px;
+}
+
+.ep-clash-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  font-family: inherit;
+  padding: 11px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--ep-border-soft);
+  background: var(--ep-surface);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+
+.ep-clash-choice:hover {
+  border-color: var(--ep-accent-border);
+  background: var(--ep-accent-bg);
+}
+
+.ep-clash-choice-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ep-text);
+}
+
+.ep-clash-choice-meta {
+  font-size: 11px;
+  color: var(--ep-text-subtle);
+}
