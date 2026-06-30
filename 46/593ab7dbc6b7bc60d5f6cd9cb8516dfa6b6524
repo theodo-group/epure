@@ -1,0 +1,72 @@
+src/bridge/ClashDialog.tsx
+  s_3b1a98c302cf8d::t_3613042539fff6 1-58
+src/App.css
+  s_3b1a98c302cf8d::t_a2fbde18ae1ff9 949-1022
+src/feedback/useFeedback.test.tsx
+  s_3b1a98c302cf8d::t_a4300f541481d2 20-22
+  s_3b1a98c302cf8d::t_857552cf7ae2f1 19
+src/bridge/BridgeClient.ts
+  s_3b1a98c302cf8d::t_e02e0135db09e6 113
+  s_3b1a98c302cf8d::t_45ccaba5c2d034 106-112,114-115
+  s_3b1a98c302cf8d::t_d65b21d585b364 121-126,133,141,143-151
+src/bridge/offlineBackup.ts
+  s_3b1a98c302cf8d::t_e02e0135db09e6 1-101
+src/bridge/offlineBackup.test.ts
+  s_3b1a98c302cf8d::t_10dfc122333979 1,6-16
+  s_3b1a98c302cf8d::t_776f0003b10ea5 47-50
+  s_3b1a98c302cf8d::t_016f364dfbb0b1 2-5,17-46,51-73
+src/bridge/useBridge.test.tsx
+  s_3b1a98c302cf8d::t_db7714e684cbf3 239-257
+  s_3b1a98c302cf8d::t_958954d64e1e60 164-183,230-238,258
+  s_3b1a98c302cf8d::t_82b069ab361b16 12-13
+  s_3b1a98c302cf8d::t_eec2f5e2c4ffc9 184-229
+  s_3b1a98c302cf8d::t_170ce22eb3f6a3 45-56,60
+  s_3b1a98c302cf8d::t_2c4a2740b0cf7c 259
+src/App.tsx
+  s_3b1a98c302cf8d::t_1d8349bf198b0d 32
+  s_3b1a98c302cf8d::t_f8f7fc54903afc 511-513
+src/bridge/useBridge.ts
+  s_3b1a98c302cf8d::t_9e531dbcbd71bd 441-443
+  s_3b1a98c302cf8d::t_cab5012b90da09 142
+  s_3b1a98c302cf8d::t_d485abab64175b 226-230,232-233
+  s_3b1a98c302cf8d::t_0f6fce5cd1f169 110-112
+  s_3b1a98c302cf8d::t_5f670dbdfefd6e 367-368
+  s_3b1a98c302cf8d::t_0a7745644326c9 404-410
+  s_3b1a98c302cf8d::t_d1ae5340e1e59d 70-76
+  s_3b1a98c302cf8d::t_56083a85cff96a 376-403,411-415
+  s_3b1a98c302cf8d::t_f35bde6978eeb5 130-136
+  s_3b1a98c302cf8d::t_abce73766a96b5 68-69
+  s_3b1a98c302cf8d::t_4ae7507297c85c 215-220
+  s_3b1a98c302cf8d::t_a551664f18dd36 47-55
+  s_3b1a98c302cf8d::t_8c75342035dd44 354-357
+  s_3b1a98c302cf8d::t_3f729a53769254 248-249
+  s_3b1a98c302cf8d::t_1bc9c032ca72c8 422-432,440
+  s_3b1a98c302cf8d::t_48c170367e34df 344
+  s_3b1a98c302cf8d::t_90b28b4eb51204 250-288,293-295
+  s_3b1a98c302cf8d::t_0a27ae10097859 40-46
+  s_3b1a98c302cf8d::t_504e616b40ed35 122-123
+  s_3b1a98c302cf8d::t_11d7f1974c5629 91-94
+  s_3b1a98c302cf8d::t_cbd01f27de3e3d 22-28
+  s_3b1a98c302cf8d::t_528f5c19c6999b 114-121
+  s_3b1a98c302cf8d::t_a8e706253042bf 205-206
+  s_3b1a98c302cf8d::t_42bcfa9483c106 309-320
+src/bridge/BridgeStatus.tsx
+  s_3b1a98c302cf8d::t_03fc0471e95c4d 8,16-18
+  s_3b1a98c302cf8d::t_da44dcce76871c 28-74,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "46593ab7dbc6b7bc60d5f6cd9cb8516dfa6b6524",
+  "prompts": {},
+  "sessions": {
+    "s_3b1a98c302cf8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15843e89-89a5-4224-bdd0-26005a555dc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
