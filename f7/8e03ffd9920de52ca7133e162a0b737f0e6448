@@ -1,0 +1,19 @@
+vite.config.ts
+  s_3b1a98c302cf8d::t_57e473733a59d8 15-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "f78e03ffd9920de52ca7133e162a0b737f0e6448",
+  "prompts": {},
+  "sessions": {
+    "s_3b1a98c302cf8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15843e89-89a5-4224-bdd0-26005a555dc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
