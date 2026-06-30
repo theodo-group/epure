@@ -1,0 +1,24 @@
+src/style/StylePanel.tsx
+  s_3b1a98c302cf8d::t_4607322d93d32c 239,242,244,246,249-250,257,259,270,272-288
+  s_3b1a98c302cf8d::t_8b96c5d1cabab3 5
+  s_3b1a98c302cf8d::t_5d2cb09a490e01 586-599
+  s_3b1a98c302cf8d::t_c24874bf9f12a0 237-238,240-241,243,245,247-248,251-256,258,260-269,271
+src/style/StylePanel.test.tsx
+  s_3b1a98c302cf8d::t_9a06a8f24318a8 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "89959ef1ea2cfb26e2c6b896f45806f0e8875037",
+  "prompts": {},
+  "sessions": {
+    "s_3b1a98c302cf8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "15843e89-89a5-4224-bdd0-26005a555dc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
