@@ -10,8 +10,7 @@
 A diagram is just **two small text files** that diff cleanly in a pull request — D2
 for the topology, a JSON sidecar for the layout. No SaaS, no account, nothing
 leaves your machine. Épure is built to be driven by Claude Code: it writes the
-files, you watch them render live, you point at what should change, and it
-addresses your feedback.
+files, you watch them render live, and you steer it in the conversation.
 
 ## Use it with Claude Code
 
@@ -30,8 +29,6 @@ It creates the diagram, opens it live in your browser, and refines it as you tal
 - **Live** — every edit Claude makes appears instantly in the editor.
 - **Yours to tweak** — drag nodes or restyle by hand; changes are written back to
   the files (and into your next `git diff`).
-- **Point and steer** — use the **Pick** / **Insert** tools and the textbar to tell
-  Claude what to change; the note is delivered to its live session and applied.
 - **It can see the result** — Claude renders a PNG to check its own work and
   discuss the visuals with you.
 

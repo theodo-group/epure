@@ -33,8 +33,6 @@ import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
 import { readInjectedBridge } from '@/bridge/config'
 import { interaction } from '@/bridge/interaction'
-import { useFeedback } from '@/feedback/useFeedback'
-import { FeedbackToolbar } from '@/feedback/FeedbackToolbar'
 
 import fixtureSource from '../fixtures/system.epr.d2?raw'
 import fixtureLayoutRaw from '../fixtures/system.epr.layout.json?raw'
@@ -170,11 +168,6 @@ export const App = () => {
   const docName =
     (bridge.active && bridge.filename ? bridge.filename : openedName) ||
     DEFAULT_DOC_NAME
-
-  // Live feedback (impeccable-style): the toolbar's pick/insert/text submissions
-  // ride the bridge socket to the server queue; the host Claude Code drains them
-  // over `epure poll`. Ephemeral — nothing is written to disk.
-  const feedback = useFeedback(bridge)
 
   // Hydrate from localStorage on mount, falling back to the bundled fixture.
   // In bridge mode the WS hydrate is authoritative — skip localStorage entirely
@@ -543,13 +536,8 @@ export const App = () => {
               onFitView={() => setFitVersion((v) => v + 1)}
               nodes={nodesMeta}
               edges={edgesMeta}
-              feedbackMode={feedback.mode}
-              feedbackTarget={feedback.target}
-              onPick={feedback.pick}
-              onInsertPoint={feedback.insertPoint}
             />
             <StylePanel />
-            {bridge.active ? <FeedbackToolbar fb={feedback} /> : null}
           </Panel>
         </PanelGroup>
       </div>

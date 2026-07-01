@@ -39,13 +39,11 @@ export interface ExportFrame {
 
 // Reframe the clone to `frame` so the export is a fitted view of the whole
 // diagram, independent of the editor's current pan/zoom. The editor-only chrome
-// (background grid, feedback overlay) is stripped and a white backdrop laid down
-// so the result matches the headless CLI export rather than the live viewport.
+// (the background grid) is stripped and a white backdrop laid down so the result
+// matches the headless CLI export rather than the live viewport.
 const applyFrame = (clone: SVGSVGElement, frame: ExportFrame) => {
   clone.setAttribute('viewBox', `${frame.x} ${frame.y} ${frame.w} ${frame.h}`)
-  clone
-    .querySelectorAll('[data-ep-grid],[data-feedback-layer]')
-    .forEach((el) => el.remove())
+  clone.querySelectorAll('[data-ep-grid]').forEach((el) => el.remove())
   const bg = document.createElementNS(SVG_NS, 'rect')
   bg.setAttribute('x', String(frame.x))
   bg.setAttribute('y', String(frame.y))

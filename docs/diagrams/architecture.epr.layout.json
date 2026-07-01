@@ -10,7 +10,6 @@
     "editor": { "cx": 32, "cy": 8, "w": 6, "h": 3, "borderColor": "purple" },
     "elk": { "cx": 43, "cy": 16, "w": 6, "h": 3, "borderColor": "orange" },
     "export": { "cx": 43, "cy": 31, "w": 9, "h": 3, "borderColor": "green" },
-    "feedback": { "cx": 18, "cy": 22, "w": 7, "h": 2, "textSize": "L", "borderColor": "blue" },
     "http": { "cx": 18, "cy": 6, "w": 6, "h": 3, "textSize": "L", "borderColor": "blue" },
     "layout": { "cx": 18, "cy": 27, "w": 7, "h": 3, "borderColor": "teal", "shape": "cylinder" },
     "normalize": { "cx": 43, "cy": 11, "w": 6, "h": 3, "borderColor": "orange" },
@@ -25,7 +24,6 @@
     "bridgecore->d2": { "color": "teal" },
     "bridgecore->layout": { "color": "teal" },
     "cli->export": { "lineStyle": "dashed", "sourceSide": "E" },
-    "cli->feedback": { "lineStyle": "dashed" },
     "cli->http": { "sourceSide": "E" },
     "editor->store": { "sourceSide": "S", "targetSide": "N" },
     "elk->canvas": { "sourceSide": "W", "targetSide": "E", "color": "orange" },
@@ -39,8 +37,7 @@
     "store->parser": { "sourceSide": "E", "targetSide": "W" },
     "user->app": { "sourceSide": "E", "targetSide": "W" },
     "user->cli": { "sourceSide": "S", "targetSide": "N" },
-    "ws->bridgecore": { "sourceSide": "S", "targetSide": "N", "color": "blue" },
-    "ws->feedback": { "sourceSide": "W", "targetSide": "W", "color": "blue" }
+    "ws->bridgecore": { "sourceSide": "S", "targetSide": "N", "color": "blue" }
   },
   "areas": {
     "Browser": { "borderColor": "purple", "fillColor": "purple" },

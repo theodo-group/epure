@@ -5,10 +5,9 @@ user: User                                          { shape: person }
 cli:  "<b>CLI</b><br><small>epure</small>"
 
 # --- Live bridge server (Node) ---
-http:       "HTTP Server<br><small>sirv · static SPA · /poll</small>"
+http:       "HTTP Server<br><small>sirv · static SPA</small>"
 ws:         "WebSocket Bridge<br><small>ws · token · origin</small>"
 bridgecore: "Bridge Core<br><small>chokidar · echo-suppress · coherent write</small>"
-feedback:   "Feedback Queue<br><small>live poll · ephemeral</small>"
 
 # --- Browser app (React SPA) ---
 app:     "React SPA"
@@ -50,10 +49,6 @@ ws         <-> bridgecore: "frames"
 bridgecore <-> d2
 bridgecore <-> layout
 
-# --- live feedback (ephemeral; never on disk) ---
-ws   -> feedback: "submit"
-cli  <-> feedback: "poll · reply"
-
 elk    -> export: "render model"
 export -> png:    "PNG bytes"
 
@@ -62,7 +57,6 @@ Server: "Live Bridge Server (Node)" {
   http
   ws
   bridgecore
-  feedback
 }
 Browser: "Browser App — React SPA" {
   app

@@ -227,6 +227,39 @@ describe('useBridge', () => {
     expect(applies.length).toBeGreaterThan(0)
   })
 
+  it('flushes edits made while offline to disk on reconnect (not just on the next edit)', async () => {
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    expect(result.current.saveState).toBe('saved')
+
+    // Socket drops; the user edits while offline. The edit has nowhere to send,
+    // but it IS mirrored to the browser backup with the synced base.
+    await act(async () => lastSocket().onclose?.())
+    await act(async () => {
+      useDiagramStore.getState().moveNode('a', 400, 80)
+    })
+    const localCx = useDiagramStore.getState().layout.nodes.a!.cx
+    expect(localCx).not.toBe(2) // the offline edit moved it
+    const offlineApplies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    expect(offlineApplies).toHaveLength(0) // nothing left the (dead) socket
+
+    // Reconnect: a fresh socket opens after the backoff and re-hydrates disk
+    // (still cx 2). The offline edit must be pushed now — without another edit.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 600))
+    })
+    await act(async () => lastSocket().open())
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(localCx) // local kept
+    const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    expect(applies.length).toBeGreaterThan(0)
+    const layoutFrame = applies.at(-1)!.files.find((f: { kind: string }) => f.kind === 'layout')
+    expect(JSON.parse(layoutFrame.content).nodes.a.cx).toBe(localCx)
+    expect(result.current.saveState).toBe('saving') // awaiting the server's ack
+  })
+
   it('reports saveState offline when the socket drops', async () => {
     const { result } = renderHook(() => useBridge())
     await connect()
@@ -282,33 +315,6 @@ describe('useBridge', () => {
     // Pointer-up reconciles to the reconnected disk state.
     await act(async () => interaction.setPointerDown(false))
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(7)
-  })
-
-  it('tracks the agent dot, matches a resolution, and serializes a feedback submit', async () => {
-    const { result } = renderHook(() => useBridge())
-    await connect()
-    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
-
-    // The agent attaches/detaches → drives the dot.
-    await act(async () => lastSocket().emit({ type: 'feedbackStatus', agentPolling: true }))
-    expect(result.current.agentPolling).toBe(true)
-
-    // A submit serializes the right WS frame (ephemeral, not an `apply`).
-    await act(async () => {
-      result.current.submitFeedback('fb9', 'make it teal', { kind: 'element', ref: 'a' })
-    })
-    const feedbackFrames = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'feedback')
-    expect(feedbackFrames).toEqual([
-      { type: 'feedback', doc: 'sys', id: 'fb9', text: 'make it teal', target: { kind: 'element', ref: 'a' } },
-    ])
-
-    // Pickup flips the toolbar to "thinking".
-    await act(async () => lastSocket().emit({ type: 'feedbackPickedUp', id: 'fb9' }))
-    expect(result.current.lastPickedUp).toBe('fb9')
-
-    // The agent's reply surfaces as the last resolution.
-    await act(async () => lastSocket().emit({ type: 'feedbackResolved', id: 'fb9', status: 'done', message: 'teal' }))
-    expect(result.current.lastResolved).toMatchObject({ id: 'fb9', status: 'done', message: 'teal' })
   })
 
   it('keeps last-good content and flags an error when disk is invalid', async () => {

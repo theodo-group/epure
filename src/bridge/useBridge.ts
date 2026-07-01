@@ -26,7 +26,7 @@ import {
   reconcile,
   type DocBackup,
 } from './offlineBackup'
-import type { FeedbackResolvedMsg, FeedbackTarget, FileFrame, FileKind } from './protocol'
+import type { FileFrame, FileKind } from './protocol'
 
 // Test-only seam: inject a fake WebSocket factory so the hook is drivable in
 // jsdom (which has no WebSocket). Unset in production → BridgeClient's default.
@@ -76,14 +76,6 @@ export interface BridgeUiState {
   resolveClash: (choice: 'local' | 'disk') => void
   /** Disk holds invalid content (CC wrote garbage); UI keeps last-good. */
   remoteError: string | null
-  /** An agent is attached to the live-feedback poll (drives the toolbar dot). */
-  agentPolling: boolean
-  /** The id of the most recently picked-up event (Claude started working). */
-  lastPickedUp: string | null
-  /** The most recent feedback resolution from the agent (matched by id). */
-  lastResolved: FeedbackResolvedMsg | null
-  /** Send a toolbar feedback note over the socket. No-op when not bridged. */
-  submitFeedback: (id: string, text: string, target: FeedbackTarget) => boolean
 }
 
 const FLASH_MS = 1200
@@ -121,9 +113,6 @@ export const useBridge = (): BridgeUiState => {
   const hasDocRef = useRef(false)
   // Per-document backup key (bridge doc stem, falling back to file path).
   const docIdRef = useRef('')
-  const [agentPolling, setAgentPolling] = useState(false)
-  const [lastPickedUp, setLastPickedUp] = useState<string | null>(null)
-  const [lastResolved, setLastResolved] = useState<FeedbackResolvedMsg | null>(null)
 
   const clientRef = useRef<BridgeClient | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -195,6 +184,23 @@ export const useBridge = (): BridgeUiState => {
       setDiskChanged(false)
     }
 
+    // Push the store's current state to disk, mirroring the outbound subscriber's
+    // send + save-cue bookkeeping. Used on reconnect when the local copy holds
+    // edits that never reached the socket (they were made while it was down): the
+    // store won't change, so nothing re-fires the subscriber — without this the
+    // work would sit unsaved on disk until the next edit.
+    const flushLocal = () => {
+      const client = clientRef.current
+      if (!client) return
+      const state = useDiagramStore.getState()
+      const { sent, invalid } = client.apply([
+        { kind: 'd2', content: state.source },
+        { kind: 'layout', content: layoutToText(state.layout) },
+      ])
+      if (sent.length > 0) setPendingWrites((n) => n + 1)
+      setInvalidUnsaved(invalid.includes('d2'))
+    }
+
     void detectBridge().then((config) => {
       if (disposed || !config) {
         setStatus('standalone')
@@ -210,19 +216,12 @@ export const useBridge = (): BridgeUiState => {
         ...(testSocketFactory ? { socketFactory: testSocketFactory } : {}),
         onStatus: (s) => {
           setStatus(s)
-          // A dropped socket means we no longer know the agent's state; the dot
-          // re-syncs from the server's broadcast on reconnect.
           if (s === 'disconnected') {
-            setAgentPolling(false)
             // In-flight writes are unknowable once the socket drops; the badge
             // shows "offline" until reconnect, so clear the pending count.
             setPendingWrites(0)
           }
         },
-        onFeedbackStatus: setAgentPolling,
-        onFeedbackPickedUp: setLastPickedUp,
-        onFeedbackResolved: (id, status, message) =>
-          setLastResolved({ type: 'feedbackResolved', id, status, ...(message ? { message } : {}) }),
         onApplied: () => {
           setInvalidUnsaved(false)
           // One envelope confirmed written to disk.
@@ -280,8 +279,17 @@ export const useBridge = (): BridgeUiState => {
 
           if (action === 'keep-local' && backup) {
             // Disk unchanged since sync; the local copy has the only edits.
-            // Restore it; the outbound subscriber pushes it to disk.
-            if (!reconnect) loadDocument(backup.source, backup.layout)
+            if (!reconnect) {
+              // First load: restore the local copy — the store write fires the
+              // outbound subscriber, which pushes it to disk.
+              loadDocument(backup.source, backup.layout)
+            } else {
+              // Reconnect: the store already holds these edits, so no store write
+              // fires — and they were never sent (the socket was down when they
+              // were made). Push the current state now, or a brief disconnect
+              // would strand unsaved work until the next edit.
+              flushLocal()
+            }
             return
           }
 
@@ -413,12 +421,6 @@ export const useBridge = (): BridgeUiState => {
     setUsingLocalCopy(false)
   }, [])
 
-  const submitFeedback = useCallback(
-    (id: string, text: string, target: FeedbackTarget): boolean =>
-      clientRef.current?.submitFeedback(id, text, target) ?? false,
-    [],
-  )
-
   // Outbound save status for the status-bar cue. Only meaningful while connected;
   // disconnected → 'offline' (nothing is reaching disk).
   const saveState: BridgeSaveState =
@@ -442,9 +444,5 @@ export const useBridge = (): BridgeUiState => {
     clash,
     resolveClash,
     remoteError,
-    agentPolling,
-    lastPickedUp,
-    lastResolved,
-    submitFeedback,
   }
 }
