@@ -1,0 +1,46 @@
+server/standalone.ts
+  s_1761bad7c11eba::t_76c04c17547819 100
+bin/epure.ts
+  s_1761bad7c11eba::t_a21edd9124e1ab 394
+  s_1761bad7c11eba::t_868f1941ffe30b 17
+PRODUCT.md
+  s_1761bad7c11eba::t_6ec509e40c204e 15
+  s_1761bad7c11eba::t_7a3449ee5310fb 24
+src/bridge/useBridge.test.tsx
+  s_1761bad7c11eba::t_f6b174330a7647 230-262
+src/bridge/useBridge.ts
+  s_1761bad7c11eba::t_944f57372a0d4d 282-290,292
+  s_1761bad7c11eba::t_05767051635708 29
+  s_1761bad7c11eba::t_e038444eb27970 291
+  s_1761bad7c11eba::t_1720985595376c 187-203
+src/bridge/protocol.ts
+  s_1761bad7c11eba::t_66c0ba0af86e66 76
+  s_1761bad7c11eba::t_628dcd0630b00c 6
+  s_1761bad7c11eba::t_d348366e4cd70f 44
+src/export/png.ts
+  s_1761bad7c11eba::t_9b93ef0a8dd57e 42-43,46
+docs/diagrams/architecture.epr.layout.json
+  s_1761bad7c11eba::t_cba2fa7dcd15fc 40
+README.md
+  s_1761bad7c11eba::t_fe09718de7ca24 13
+docs/diagrams/architecture.epr.d2
+  s_1761bad7c11eba::t_75c78986adaea0 8
+server/ws.ts
+  s_1761bad7c11eba::t_51d0917701a045 89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "6bc025535b6d78cbb134cb6a029c4214b3931708",
+  "prompts": {},
+  "sessions": {
+    "s_1761bad7c11eba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da7e0f8b-b104-4361-ae35-0e868db649d2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
