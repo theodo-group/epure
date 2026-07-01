@@ -12,8 +12,7 @@ is one artifact among many in a working session, not a destination they visit.
 Their context is an active engineering task — documenting or reviewing a
 system's architecture — where the diagram must stay in sync with the code and
 diff cleanly in a pull request. They also tweak diagrams by hand (drag a node,
-restyle, drop a comment) and expect those edits to round-trip back to the file
-pair. They are power users: keyboard-first, fast, low tolerance for chrome or
+restyle) and expect those edits to round-trip back to the file pair. They are power users: keyboard-first, fast, low tolerance for chrome or
 ceremony.
 
 ## Product Purpose
@@ -22,7 +21,7 @@ ceremony.
 `<name>.epr.layout.json`) that lives in the repo and renders live in a
 grid-snapped, orthogonal-routed editor. It exists so that diagrams stop drifting
 from reality: Claude Code writes the files, the human watches them render
-instantly, comments on the canvas, and the loop closes. No SaaS, no account,
+instantly and steers in the conversation, and the loop closes. No SaaS, no account,
 nothing leaves the machine. Success is the editor disappearing — the user thinks
 about the system being diagrammed, never about the tool. Fast feedback, clean
 diffs, and edits that always round-trip are the measure.

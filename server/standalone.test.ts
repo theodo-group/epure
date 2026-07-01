@@ -1,4 +1,3 @@
-import { get } from 'node:http'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,32 +21,6 @@ const nextMessage = (socket: WebSocket): Promise<ServerMsg> =>
   new Promise((resolve) => {
     socket.once('message', (raw) => resolve(JSON.parse(raw.toString()) as ServerMsg))
   })
-
-/** Resolve with the first message of a given type (skips interleaved others). */
-const waitForType = <T extends ServerMsg['type']>(
-  socket: WebSocket,
-  type: T,
-): Promise<Extract<ServerMsg, { type: T }>> =>
-  new Promise((resolve) => {
-    const onMsg = (raw: Buffer) => {
-      const msg = JSON.parse(raw.toString()) as ServerMsg
-      if (msg.type === type) {
-        socket.off('message', onMsg)
-        resolve(msg as Extract<ServerMsg, { type: T }>)
-      }
-    }
-    socket.on('message', onMsg)
-  })
-
-const helloed = async (port: number): Promise<WebSocket> => {
-  const socket = new WebSocket(`ws://127.0.0.1:${port}/__epure/ws`)
-  await new Promise((r) => socket.once('open', r))
-  socket.send(
-    JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'secret-token', doc: 'sys' }),
-  )
-  await waitForType(socket, 'hydrate')
-  return socket
-}
 
 describe('standalone server', () => {
   let dir: string
@@ -111,74 +84,6 @@ describe('standalone server', () => {
     const onDisk = await readFile(join(dir, 'sys.epr.layout.json'), 'utf8')
     expect(onDisk.endsWith('}\n')).toBe(true) // canonical form
     socket.close()
-  })
-
-  it('round-trips live feedback: WS submit → GET /poll → POST reply → resolved', async () => {
-    const socket = await helloed(handle.port)
-    // Register the resolution listener up front so the broadcast can't outrun it.
-    const resolved = waitForType(socket, 'feedbackResolved')
-
-    socket.send(
-      JSON.stringify({
-        type: 'feedback',
-        doc: 'sys',
-        id: 'fb01',
-        text: 'make the api purple',
-        target: { kind: 'element', ref: 'a' },
-      }),
-    )
-
-    // The agent leg: long-poll picks up the queued event.
-    const polled = await fetch(`${handle.url}__epure/poll?timeout=3000`)
-    expect(await polled.json()).toMatchObject({
-      type: 'feedback',
-      id: 'fb01',
-      text: 'make the api purple',
-      target: { kind: 'element', ref: 'a' },
-    })
-
-    // Reply; the browser is told over the socket.
-    const reply = await fetch(`${handle.url}__epure/poll`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: 'fb01', status: 'done', message: 'painted' }),
-    })
-    expect(reply.status).toBe(200)
-    expect(await resolved).toMatchObject({ id: 'fb01', status: 'done', message: 'painted' })
-    socket.close()
-  })
-
-  it('does not lose feedback when the receiving long-poll is aborted', async () => {
-    const socket = await helloed(handle.port)
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-    // Park a poll with nothing queued, then abort it WHILE parked.
-    const aborter = get(
-      { host: '127.0.0.1', port: handle.port, path: '/__epure/poll?timeout=5000' },
-      () => {},
-    )
-    aborter.on('error', () => {})
-    await sleep(200) // let it park on the server
-    aborter.destroy() // client dies before any event is delivered
-    await sleep(150) // let the server observe the abort
-
-    // Submit: it gets delivered to the dead waiter, which ungets it.
-    socket.send(
-      JSON.stringify({ type: 'feedback', doc: 'sys', id: 'fb02', text: 'hi', target: { kind: 'none' } }),
-    )
-    await sleep(150)
-
-    // A fresh poll must still receive it — at-most-once, not zero-once.
-    const polled = await fetch(`${handle.url}__epure/poll?timeout=3000`)
-    expect(await polled.json()).toMatchObject({ type: 'feedback', id: 'fb02', text: 'hi' })
-    socket.close()
-  })
-
-  it('rejects /__epure/poll requests carrying a browser Origin header', async () => {
-    const res = await fetch(`${handle.url}__epure/poll?timeout=100`, {
-      headers: { origin: handle.url.replace(/\/$/, '') },
-    })
-    expect(res.status).toBe(403)
   })
 
   it('rejects a WS hello with the wrong token', async () => {

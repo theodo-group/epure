@@ -8,37 +8,9 @@ import { join } from 'node:path'
 import sirv from 'sirv'
 
 import { BridgeCore } from './core/bridge'
-import { createFeedbackHub, type FeedbackHub } from './core/feedback'
 import { resolvePair } from './core/pair'
-import type { FeedbackMsg } from './core/protocol'
 import { configBody, injectBridge, type BridgeRuntime } from './inject'
 import { attachBridgeWs, isLocalRequest } from './ws'
-
-/** Server-held long-poll slice. The CLI re-polls on `timeout`, so this only has
- *  to stay under any socket idle ceiling — 25s is comfortable. */
-const MAX_POLL_SLICE_MS = 25_000
-/** A feedback reply body is `{id,status,message?}` — tiny; cap to refuse abuse. */
-const MAX_REPLY_BYTES = 1024
-
-const feedbackEventFromMsg = (msg: FeedbackMsg) => ({
-  type: 'feedback' as const,
-  id: msg.id,
-  doc: msg.doc,
-  text: msg.text,
-  target: msg.target,
-  createdAt: new Date().toISOString(),
-})
-
-const readBody = (req: IncomingMessage, cap: number): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-      if (body.length > cap) reject(new Error('body too large'))
-    })
-    req.on('end', () => resolve(body))
-    req.on('error', reject)
-  })
 
 export interface StandaloneOptions {
   /** User-supplied path to any sidecar or the bare stem. */
@@ -106,29 +78,6 @@ export const startStandalone = async (
       return
     }
 
-    // The agent leg of live feedback. Tokenless (the CLI can't get one without
-    // a discovery file, which Épure forbids) but locked to non-browser local
-    // clients: localhost Host AND no Origin header. A browser fetch always sends
-    // Origin, so this can only be the `epure poll` CLI.
-    if (path === '/__epure/poll') {
-      if (!isLocalRequest(req) || req.headers.origin !== undefined) {
-        res.statusCode = 403
-        res.end()
-        return
-      }
-      if (req.method === 'GET') {
-        void handlePoll(req, res)
-        return
-      }
-      if (req.method === 'POST') {
-        void handleReply(req, res)
-        return
-      }
-      res.statusCode = 405
-      res.end()
-      return
-    }
-
     if (path === '/' || path === '/index.html') {
       void serveIndex(res)
       return
@@ -145,79 +94,20 @@ export const startStandalone = async (
     })
   }
 
-  // GET /__epure/poll — long-poll for the next feedback event. Holds the
-  // request up to a bounded slice; the CLI re-polls on `timeout`.
-  const handlePoll = async (
-    req: IncomingMessage,
-    res: ServerResponse,
-  ): Promise<void> => {
-    const requested = Number(new URL(req.url ?? '', 'http://x').searchParams.get('timeout'))
-    const slice = Number.isFinite(requested) && requested > 0
-      ? Math.min(requested, MAX_POLL_SLICE_MS)
-      : MAX_POLL_SLICE_MS
-    // The agent's one-shot poll is killed and re-run constantly; if it dies while
-    // we're parked, the response would be written to a dead socket and the event
-    // lost (and its id leaked in `inflight`). Track the abort and put the event
-    // back so the next poll gets it.
-    let aborted = false
-    req.on('close', () => {
-      aborted = true
-    })
-    const response = await hub.poll(slice)
-    if (aborted) {
-      if (response.type === 'feedback') hub.unget(response)
-      return
-    }
-    res.setHeader('content-type', 'application/json')
-    res.setHeader('cache-control', 'no-store')
-    res.end(JSON.stringify(response))
-  }
-
-  // POST /__epure/poll — the agent's verdict on an event.
-  const handleReply = async (
-    req: IncomingMessage,
-    res: ServerResponse,
-  ): Promise<void> => {
-    let parsed: { id?: unknown; status?: unknown; message?: unknown }
-    try {
-      parsed = JSON.parse(await readBody(req, MAX_REPLY_BYTES))
-    } catch {
-      res.statusCode = 400
-      res.end(JSON.stringify({ error: 'invalid reply body' }))
-      return
-    }
-    if (typeof parsed.id !== 'string' || (parsed.status !== 'done' && parsed.status !== 'error')) {
-      res.statusCode = 400
-      res.end(JSON.stringify({ error: 'reply needs {id, status: done|error}' }))
-      return
-    }
-    hub.reply({
-      id: parsed.id,
-      status: parsed.status,
-      ...(typeof parsed.message === 'string' ? { message: parsed.message } : {}),
-    })
-    res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify({ ok: true }))
-  }
-
   const server = createServer(handler)
 
   // Wire the bridge. The core's outbound notifications ARE the ws broadcast, so
-  // create the ws layer first and hand its broadcast to the core and the hub.
+  // create the ws layer first and hand its broadcast to the core.
   let core: BridgeCore
-  let hub: FeedbackHub
   const ws = attachBridgeWs(
     server,
     {
       doc: () => core.doc,
       hydrate: () => core.hydrate(),
       apply: (files) => core.applyInbound(files),
-      feedback: (msg) => hub.submit(feedbackEventFromMsg(msg)),
-      onReadyChanged: (count) => hub.onBrowsersChanged(count),
     },
     opts.token,
   )
-  hub = createFeedbackHub(ws.broadcast)
   core = new BridgeCore({ pair, onFileChanged: ws.broadcast })
   await core.start()
 
@@ -234,7 +124,6 @@ export const startStandalone = async (
     port,
     realPath,
     async close() {
-      hub.stop()
       await ws.close()
       await core.stop()
       await new Promise<void>((resolve) => server.close(() => resolve()))

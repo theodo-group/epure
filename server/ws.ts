@@ -16,7 +16,6 @@ import { WebSocket, WebSocketServer } from 'ws'
 import {
   PROTOCOL_VERSION,
   type ClientMsg,
-  type FeedbackMsg,
   type FileFrame,
   type FileKind,
   type ServerMsg,
@@ -30,10 +29,6 @@ export interface BridgeHandlers {
   doc(): string
   hydrate(): Promise<FileFrame[]>
   apply(files: { kind: FileKind; content: string }[]): Promise<FileKind[]>
-  /** Enqueue a toolbar submission for the agent to drain over the poll. */
-  feedback(msg: FeedbackMsg): void
-  /** The count of hello'd browser sockets changed (drives the exit timer). */
-  onReadyChanged(count: number): void
 }
 
 export interface BridgeWs {
@@ -91,9 +86,7 @@ export const attachBridgeWs = (
       void handleMessage(socket, raw.toString())
     })
     socket.on('close', () => {
-      // Only a hello'd socket counts toward presence; report the change so the
-      // feedback hub can arm/disarm its exit grace timer.
-      if (ready.delete(socket)) handlers.onReadyChanged(ready.size)
+      ready.delete(socket)
     })
   })
 
@@ -116,15 +109,11 @@ export const attachBridgeWs = (
         return
       }
       ready.add(socket)
-      // Hydrate first so a fresh client's first server message is always its
-      // file state; only then announce presence (which may broadcast the
-      // feedback dot state back to this and other sockets).
       send(socket, {
         type: 'hydrate',
         doc: handlers.doc(),
         files: await handlers.hydrate(),
       })
-      handlers.onReadyChanged(ready.size)
       return
     }
 
@@ -146,12 +135,6 @@ export const attachBridgeWs = (
           error: (e as Error).message,
         })
       }
-      return
-    }
-
-    if (msg.type === 'feedback') {
-      // Ephemeral — enqueued in memory for the poll, never written to disk.
-      handlers.feedback(msg)
     }
   }
 
