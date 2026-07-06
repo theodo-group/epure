@@ -34,6 +34,33 @@ export const setLibavoidWasmPath = (path: string): void => {
 // what the user sees.
 const AREA_PAD = 24
 
+// Geometry of the area title "chip" — the rounded tab AreaLabel (renderer/Area.tsx)
+// draws straddling an area's top border, inset from the top-LEFT corner. These
+// mirror AreaLabel's on-screen defaults at text scale 1. The chip pokes ABOVE the
+// area's obstacle rect, so unless routing knows about it an edge skimming the top
+// border draws straight over the title text — and "inside" edges skip the area
+// rects entirely, so they cross it even more freely.
+//
+// Known limitation: the router has no textScale (it produces the canonical,
+// scale-1 geometry the whole pipeline is built on — like edge-label and node-text
+// avoidance, which are also scale-unaware). AreaLabel scales the chip by the live
+// text zoom, so at a zoom other than 100% this obstacle no longer matches the
+// rendered chip exactly. Acceptable: the committed/exported geometry is at scale 1.
+const TITLE_INSET_X = 14 // chip left inset from the area's left edge
+const TITLE_HEIGHT = 22 // LABEL_HEIGHT
+const TITLE_CHAR_PX = 7 // LABEL_CHAR_PX (approx glyph advance)
+const TITLE_PAD_X = 10 // LABEL_PAD_X
+const TITLE_MIN_W = 40 // chip minimum width
+
+// The title chip's rect for an area, given the area's (padded) obstacle rect and
+// label. Exported so tests assert against the exact geometry routing avoids.
+export const areaTitleRect = (areaRect: Rect, label: string): Rect => ({
+  x: areaRect.x + TITLE_INSET_X,
+  y: areaRect.y - TITLE_HEIGHT / 2,
+  w: Math.max(TITLE_MIN_W, label.length * TITLE_CHAR_PX + TITLE_PAD_X * 2),
+  h: TITLE_HEIGHT,
+})
+
 // An area treated as a routing obstacle: the padded bounding box of its members
 // plus the membership set. An area blocks an edge only when NEITHER endpoint is
 // one of its members — an edge incident to a member has to enter/leave the
@@ -262,6 +289,32 @@ export const route = async (
     areaObstacles.push({ id: a.id, rect, members: new Set(a.members) })
   }
 
+  // Area title chips as routing obstacles. An empty member set makes
+  // `areaBlocksEdge` return true for EVERY edge — unlike the area rect, a title
+  // must also be avoided by the member-incident "inside" edges (which skip the
+  // area rects). Only labelled areas with a resolvable rect get one; a title
+  // always coincides with an area that produced a rect above.
+  const titleObstacles: AreaObstacle[] = []
+  for (const a of diagram.areas) {
+    if (!a.label) continue
+    const rect = areaRectById.get(a.id)
+    if (!rect) continue
+    titleObstacles.push({
+      id: a.id,
+      rect: areaTitleRect(rect, a.label),
+      members: new Set(),
+    })
+  }
+  // The libavoid obstacle children for the titles, built once and reused across
+  // every routing sub-call below.
+  const titleChildren: ElkNode[] = titleObstacles.map((t) => ({
+    id: `__title__${t.id}`,
+    x: t.rect.x,
+    y: t.rect.y,
+    width: t.rect.w,
+    height: t.rect.h,
+  }))
+
   const edgeMeta = new Map<
     string,
     {
@@ -439,11 +492,15 @@ export const route = async (
     skipAreas = false,
   ): Promise<Map<string, RouteResult>> => {
     await init(wasmLocator)
+    // Title chips block every edge, so they go into whichever call(s) run below.
     // `skipAreas` (quick/mid-drag path) routes everything in ONE libavoid call
     // instead of the 2-call area split — ~half the WASM work per frame. Areas are
     // re-avoided by the full route that runs once the interaction settles.
     if (skipAreas || areaObstacles.length === 0) {
-      return routeEdges({ id: 'root', children: elkNodes, edges: elkEdges }, options)
+      return routeEdges(
+        { id: 'root', children: [...elkNodes, ...titleChildren], edges: elkEdges },
+        options,
+      )
     }
     const areaChildren: ElkNode[] = areaObstacles.map((a) => ({
       id: `__area__${a.id}`,
@@ -462,14 +519,18 @@ export const route = async (
     if (outsideEdges.length > 0) {
       const nonMemberNodes = elkNodes.filter((n) => !isMember(n.id))
       const r = await routeEdges(
-        { id: 'root', children: [...nonMemberNodes, ...areaChildren], edges: outsideEdges },
+        {
+          id: 'root',
+          children: [...nonMemberNodes, ...areaChildren, ...titleChildren],
+          edges: outsideEdges,
+        },
         options,
       )
       for (const [k, v] of r) merged.set(k, v)
     }
     if (insideEdges.length > 0) {
       const r = await routeEdges(
-        { id: 'root', children: elkNodes, edges: insideEdges },
+        { id: 'root', children: [...elkNodes, ...titleChildren], edges: insideEdges },
         options,
       )
       for (const [k, v] of r) merged.set(k, v)
@@ -578,6 +639,10 @@ export const route = async (
   // keeps Épure's grid-aligned look. The synthetic path is kept only for edges
   // libavoid couldn't honor (a pin it couldn't satisfy) and the no-wasm fallback.
   const libPolys = new Map<string, Pt[]>()
+  // Both area rects and title chips are obstacles the grid-snap must not slide a
+  // route back onto (a half-cell snap could otherwise nudge a segment off its
+  // buffer clearance into a title).
+  const snapObstacles = [...areaObstacles, ...titleObstacles]
   if (libavoidOk) {
     for (const id of edgeIds) {
       const meta = edgeMeta.get(id)!
@@ -610,7 +675,7 @@ export const route = async (
       }
       libPolys.set(
         id,
-        snapPolylineToGrid(poly, gridSize, pixelNodes, areaObstacles, meta.source, meta.target),
+        snapPolylineToGrid(poly, gridSize, pixelNodes, snapObstacles, meta.source, meta.target),
       )
     }
   }

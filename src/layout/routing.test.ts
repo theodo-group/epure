@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
 
-import { route } from './elk'
+import { areaTitleRect, route } from './elk'
 import { normalizeForRoute } from './normalize'
 import type { LayoutSidecar, RoutedDiagram } from './types'
 
@@ -214,6 +214,93 @@ describe('edge obstacle avoidance', () => {
       Math.abs(end.y - m1.y) < 2 ||
       Math.abs(end.y - (m1.y + m1.h)) < 2
     expect(onBorder).toBe(true)
+  })
+
+  // The title tab of an area straddles its top border, poking ABOVE the area's
+  // obstacle rect. It must be its own routing obstacle or edges draw across the
+  // title text (see the screenshot bug). Two shapes exercise the two code paths.
+  //
+  // Each test GUARDS that the straight source→target line WOULD cross the title
+  // (`segHitsRect(a, b, title)` must be true) before asserting the routed path
+  // does not — so if the geometry ever drifts (e.g. AREA_PAD changes) the guard
+  // fails loudly instead of the test silently passing while no longer exercising
+  // the bug.
+  const titleOf = (routed: RoutedDiagram, id: string) => {
+    const a = routed.areas.find((x) => x.id === id)!
+    return areaTitleRect({ x: a.x, y: a.y, w: a.w, h: a.h }, a.label!)
+  }
+  type Rect = { x: number; y: number; w: number; h: number }
+  const pathHitsTitle = (
+    edge: RoutedDiagram['edges'][number],
+    title: Rect,
+  ) =>
+    edge.points.some((_, i) =>
+      i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, title) : false,
+    )
+
+  it('routes an INSIDE edge around an unrelated area title tab', async () => {
+    // `llm` is a member of `Agent`, so llm→app is an "inside" edge routed with NO
+    // area rects (that's how a member reaches the outside world). It runs in the
+    // `Task` title's poke-band — ABOVE Task's rect top (456) but inside the tab's
+    // y-span [445, 467], at y = 450 (cy 11.25) — so the title tab is the SOLE
+    // obstacle able to deflect it: the area rect is below the run and, for an
+    // inside edge, not even an obstacle. Without the title obstacle the edge
+    // draws straight across "Task Configuration".
+    const parsed = parse(
+      'app\ndata\ntools\nllm\nllm -> app\n' +
+        'Task: "Task Configuration" {\n  data\n  tools\n}\n' +
+        'Agent: "Jarvis Agent" {\n  llm\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        app: { cx: 5, cy: 11.25, w: 6, h: 2 },
+        data: { cx: 19, cy: 13, w: 6, h: 2 },
+        tools: { cx: 19, cy: 17, w: 6, h: 2 },
+        llm: { cx: 34, cy: 11.25, w: 7, h: 3 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const title = titleOf(routed, 'Task')
+    const edge = routed.edges.find((e) => e.id.startsWith('llm->app'))!
+    // Guard: the straight run genuinely intersects the tab (else nothing is tested).
+    const [a, b] = [edge.points[0]!, edge.points[edge.points.length - 1]!]
+    expect(segHitsRect(a, b, title)).toBe(true)
+    // The routed path detours around it, and still connects.
+    expect(pathHitsTitle(edge, title)).toBe(false)
+    expect(edge.points.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('routes an OUTSIDE edge around a wide title tab overhanging its area', async () => {
+    // For an outside edge the area RECT is already an obstacle whose buffer covers
+    // the tab's small upward poke — so the title only ADDS anything when a long
+    // label makes the tab overhang the area's SIDE, into open space the rect never
+    // occupies. `Grp` is a one-node area (right edge 504) with a long label whose
+    // tab reaches x=610; the outside edge p→q runs a vertical leg at x=560 —
+    // clear of the rect but through the overhanging tab. This exercises the title
+    // obstacle in the OUTSIDE-edge pass (a different libavoid call than above).
+    const parsed = parse(
+      'p\nq\ng\np -> q\nGrp: "A Very Long Overhanging Group Title Here" {\n  g\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        p: { cx: 14, cy: 8, w: 4, h: 2 },
+        q: { cx: 14, cy: 18, w: 4, h: 2 },
+        g: { cx: 10, cy: 14, w: 4, h: 2 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const title = titleOf(routed, 'Grp')
+    const edge = routed.edges.find((e) => e.id.startsWith('p->q'))!
+    const [a, b] = [edge.points[0]!, edge.points[edge.points.length - 1]!]
+    expect(segHitsRect(a, b, title)).toBe(true) // guard: straight leg hits the tab
+    expect(pathHitsTitle(edge, title)).toBe(false)
+    expect(edge.points.length).toBeGreaterThanOrEqual(2)
   })
 
   it('is deterministic — identical geometry across repeated routes', async () => {
