@@ -1,0 +1,28 @@
+src/layout/routing.test.ts
+  s_1e34267dea5dae::t_52cea42108209a 8
+  s_1e34267dea5dae::t_98f52dad5a2168 219-248,250-252,258-261,266,268-285,287-302
+  s_1e34267dea5dae::t_21195c354dcfd0 249,253-257,262-265,267,286,303-305
+src/layout/elk.ts
+  s_1e34267dea5dae::t_2ed623376fa5b9 292-317
+  s_1e34267dea5dae::t_d5d6c425ed45ee 678
+  s_1e34267dea5dae::t_a07abd51675584 495,500-503
+  s_1e34267dea5dae::t_6c0d2970771194 37-63
+  s_1e34267dea5dae::t_dca03e63a2c128 642-645
+  s_1e34267dea5dae::t_c440882325b53c 522-526,533
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "76497b68fa9647ece181836838382ea75bebfd60",
+  "prompts": {},
+  "sessions": {
+    "s_1e34267dea5dae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bded32aa-4196-4ab7-9315-f180019dd1b8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
