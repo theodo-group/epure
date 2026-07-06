@@ -100,6 +100,25 @@ describe('BridgeCore', () => {
     expect(byKind.layout).toMatchObject({ content: null, valid: true })
   })
 
+  it('suppresses echoes of a keystroke storm, not just the latest write', async () => {
+    // Regression: the client writes on every keystroke, so typing a label is a
+    // burst of applyInbound calls. chokidar's awaitWriteFinish coalesces those
+    // writes on its side and can surface an EARLIER write's content as an event
+    // after our recorded key has moved on. Remembering only the last key let
+    // that stale self-write masquerade as "disk changed" and clobber the editor
+    // mid-type (cursor jumped to top, input lost). ~140ms gaps — human speed,
+    // just above the 120ms stability threshold — is where it bit.
+    await core.start()
+    const word = 'service'
+    for (let i = 1; i <= word.length; i++) {
+      await core.applyInbound([{ kind: 'd2', content: `${word.slice(0, i)}\n` }])
+      await wait(140)
+    }
+    await wait(450) // let any deferred watcher events fire
+    // Every emitted change would be one of our own writes → all must be dropped.
+    expect(changes).toHaveLength(0)
+  }, 6000)
+
   it('suppresses the echo of its own write but reports a real disk edit', async () => {
     await core.start()
     await core.applyInbound([

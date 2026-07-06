@@ -2,7 +2,16 @@
 
 import type { ILexingError, IRecognitionException, IToken } from 'chevrotain'
 
-import type { ParseError, ParseResult, SourceRange } from './ast'
+import type { ParseError, ParseResult, SourcePos, SourceRange } from './ast'
+
+/** A degenerate range at the document origin, for errors with no located token
+ *  (e.g. a visitor exception). */
+function emptyRange(): SourceRange {
+  return {
+    start: { line: 1, column: 1, offset: 0 },
+    end: { line: 1, column: 1, offset: 0 },
+  }
+}
 import { lexer } from './lexer'
 import { parserInstance } from './parser'
 import { D2Visitor } from './visitor'
@@ -17,8 +26,11 @@ export function parse(source: string): ParseResult {
   parserInstance.input = lexResult.tokens
   const cst = parserInstance.program()
 
+  // End-of-input position, used as the fallback when a parser error lands on the
+  // EOF token — Chevrotain gives that token NaN for every position field.
+  const eof = eofPos(source)
   for (const e of parserInstance.errors) {
-    errors.push(parserErrorToParseError(e))
+    errors.push(parserErrorToParseError(e, eof))
   }
 
   // Always run the visitor — even with errors — so we can surface as many
@@ -54,28 +66,44 @@ function lexErrorToParseError(e: ILexingError): ParseError {
   }
 }
 
-function parserErrorToParseError(e: IRecognitionException): ParseError {
+function parserErrorToParseError(
+  e: IRecognitionException,
+  eof: SourcePos,
+): ParseError {
+  // The error token can be missing (no token) OR the EOF token, whose position
+  // fields are all NaN. `?? 1` doesn't catch NaN, so every field is sanitized
+  // through `finite`, falling back to the end-of-input position — otherwise a
+  // NaN line reaches the editor and crashes `doc.line(NaN)` on the next render.
   const tok: IToken | undefined = e.token
-  const range: SourceRange = tok
-    ? {
-        start: {
-          line: tok.startLine ?? 1,
-          column: tok.startColumn ?? 1,
-          offset: tok.startOffset,
-        },
-        end: {
-          line: tok.endLine ?? tok.startLine ?? 1,
-          column: (tok.endColumn ?? tok.startColumn ?? 1) + 1,
-          offset: (tok.endOffset ?? tok.startOffset) + 1,
-        },
-      }
-    : emptyRange()
-  return { message: e.message, range }
+  const startLine = finite(tok?.startLine, eof.line)
+  const startColumn = finite(tok?.startColumn, eof.column)
+  const startOffset = finite(tok?.startOffset, eof.offset)
+  return {
+    message: e.message,
+    range: {
+      start: { line: startLine, column: startColumn, offset: startOffset },
+      end: {
+        line: finite(tok?.endLine, startLine),
+        column: finite(tok?.endColumn, startColumn) + 1,
+        offset: finite(tok?.endOffset, startOffset) + 1,
+      },
+    },
+  }
 }
 
-function emptyRange(): SourceRange {
+/** Return `v` when it is a real finite number, else `fallback`. Unlike `??`,
+ *  this also rejects NaN (Chevrotain's EOF token positions). */
+function finite(v: number | undefined, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback
+}
+
+/** Position just past the last character of the source (1-based line/column,
+ *  0-based offset), where an "expecting more input" error is anchored. */
+function eofPos(source: string): SourcePos {
+  const nl = source.split('\n')
   return {
-    start: { line: 1, column: 1, offset: 0 },
-    end: { line: 1, column: 1, offset: 0 },
+    line: nl.length,
+    column: (nl[nl.length - 1]?.length ?? 0) + 1,
+    offset: source.length,
   }
 }

@@ -80,6 +80,13 @@ export interface BridgeUiState {
 
 const FLASH_MS = 1200
 const RECONCILE_POLL_MS = 400
+// Coalesce outbound disk writes. The editor drives `setSource` on every keystroke
+// (and a drag drives `moveNodes` on every grid step), so without this every one
+// of those would be its own socket send + disk write + watcher round-trip. We
+// send immediately on the first change of a burst (leading edge — keeps the save
+// cue and the "busy" guard responsive) and collapse the rest into one trailing
+// write once edits go quiet.
+const OUTBOUND_DEBOUNCE_MS = 250
 // Grace period before falling back to the browser backup when the bridge hasn't
 // hydrated (server unreachable). Short enough to avoid a long blank, long enough
 // that a healthy connection hydrates first (no flash of the local copy).
@@ -102,6 +109,9 @@ export const useBridge = (): BridgeUiState => {
   // Count of edits sent to disk but not yet confirmed by the server's `applied`.
   // > 0 means "Saving…"; back to 0 means every edit is on disk ("Saved").
   const [pendingWrites, setPendingWrites] = useState(0)
+  // A local edit is buffered behind the outbound debounce, not yet dispatched.
+  // Also counts as "Saving…" so the cue never says "Saved" with edits in hand.
+  const [unsentEdits, setUnsentEdits] = useState(false)
   const [remoteError, setRemoteError] = useState<string | null>(null)
   const [usingLocalCopy, setUsingLocalCopy] = useState(false)
   const [clash, setClash] = useState<ClashInfo | null>(null)
@@ -354,30 +364,68 @@ export const useBridge = (): BridgeUiState => {
     }
   }, [])
 
-  // Outbound: any local source/layout change is sent (dirty kinds only).
+  // Outbound: any local source/layout change is sent (dirty kinds only),
+  // debounced so a keystroke/drag burst collapses to a couple of writes.
   useEffect(() => {
     if (!active) return
+    let sendTimer: ReturnType<typeof setTimeout> | undefined
+    let trailing = false
+
+    // Push the store's current state to disk. Validity-gated and echo-suppressed
+    // by the client's per-kind lastKey, so a remote echo dedups to nothing here
+    // (sent === invalid === []) and never bounces back out. Returns whether this
+    // was a real local edit (a send or an invalid-withhold) vs an echo/no-op —
+    // only a real edit opens the debounce window.
+    const flush = (): boolean => {
+      const client = clientRef.current
+      if (!client) return false
+      const state = useDiagramStore.getState()
+      const { sent, invalid } = client.apply([
+        { kind: 'd2', content: state.source },
+        { kind: 'layout', content: layoutToText(state.layout) },
+      ])
+      const real = sent.length > 0 || invalid.length > 0
+      // Only a real edit counts as "user activity" (an echo must not mark busy).
+      if (real) interaction.noteActivity()
+      // A dispatched envelope is now awaiting the server's `applied` ack.
+      if (sent.length > 0) setPendingWrites((n) => n + 1)
+      setInvalidUnsaved(invalid.includes('d2'))
+      setUnsentEdits(false)
+      return real
+    }
+
+    const arm = () => {
+      if (sendTimer) clearTimeout(sendTimer)
+      sendTimer = setTimeout(() => {
+        sendTimer = undefined
+        if (trailing) {
+          trailing = false
+          flush()
+        }
+      }, OUTBOUND_DEBOUNCE_MS)
+    }
+
     const unsub = useDiagramStore.subscribe((state, prev) => {
       if (state.source === prev.source && state.layout === prev.layout) return
       // Never write before the first hydrate — the store could still be the empty
       // bootstrap baseline, and writing it would clobber the user's file on a
       // slow/failed reconnect.
       if (!hydratedRef.current) return
-      const client = clientRef.current
-      if (!client) return
-      const { sent, invalid } = client.apply([
-        { kind: 'd2', content: state.source },
-        { kind: 'layout', content: layoutToText(state.layout) },
-      ])
-      // A real local edit produces a send or an invalid-withhold; a remote echo
-      // dedups to nothing. Only the former counts as "user activity".
-      if (sent.length > 0 || invalid.length > 0) interaction.noteActivity()
-      // A dispatched envelope is now awaiting the server's `applied` ack.
-      if (sent.length > 0) setPendingWrites((n) => n + 1)
-      setInvalidUnsaved(invalid.includes('d2'))
+      if (!sendTimer) {
+        // Leading edge: ship at once so the cue + busy-guard stay responsive.
+        // A no-op/echo (e.g. the hydrate's own store write) must NOT open the
+        // window, or the next real edit would be misfiled as a trailing send.
+        if (flush()) arm()
+      } else {
+        // Mid-burst: buffer the latest; the trailing send fires once quiet.
+        trailing = true
+        setUnsentEdits(true)
+        arm()
+      }
     })
     return () => {
       unsub()
+      if (sendTimer) clearTimeout(sendTimer)
     }
   }, [active])
 
@@ -428,7 +476,7 @@ export const useBridge = (): BridgeUiState => {
       ? 'offline'
       : invalidUnsaved
         ? 'unsaved'
-        : pendingWrites > 0
+        : pendingWrites > 0 || unsentEdits
           ? 'saving'
           : 'saved'
 

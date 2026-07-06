@@ -29,6 +29,7 @@ import { exportPng, type ExportFrame } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
+import { normalizeForRoute } from '@/layout/normalize'
 import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
 import { readInjectedBridge } from '@/bridge/config'
@@ -107,7 +108,9 @@ export const App = () => {
   const moveNodes = useDiagramStore((s) => s.moveNodes)
   const setEdgeLabelOffset = useDiagramStore((s) => s.setEdgeLabelOffset)
   const resizeNode = useDiagramStore((s) => s.resizeNode)
-  const areaDragStartRef = useRef<Record<string, { cx: number; cy: number }>>({})
+  const areaDragStartRef = useRef<
+    Record<string, { cx: number; cy: number; w: number; h: number }>
+  >({})
   const [fitVersion, setFitVersion] = useState(0)
   const [openedName, setOpenedName] = useState(DEFAULT_DOC_NAME)
   const [activeTab, setActiveTab] = useState<'d2' | 'layout'>('d2')
@@ -515,10 +518,19 @@ export const App = () => {
                 if (!parseResult.ok) return
                 const area = parseResult.diagram.areas.find((a) => a.id === areaId)
                 if (!area) return
-                const starts: Record<string, { cx: number; cy: number }> = {}
+                // Seed from the normalized layout, not the raw sidecar, so a
+                // freshly-typed group whose members are still auto-placed (no
+                // sidecar entry yet) drags too — normalizeForRoute gives every
+                // member the exact grid position + size it's drawn at.
+                const { layout } = useDiagramStore.getState()
+                const norm = normalizeForRoute(parseResult.diagram, layout)
+                const starts: Record<
+                  string,
+                  { cx: number; cy: number; w: number; h: number }
+                > = {}
                 for (const memberId of area.members) {
-                  const ln = useDiagramStore.getState().layout.nodes[memberId]
-                  if (ln) starts[memberId] = { cx: ln.cx, cy: ln.cy }
+                  const n = norm.nodes[memberId]
+                  if (n) starts[memberId] = { cx: n.cx, cy: n.cy, w: n.w, h: n.h }
                 }
                 areaDragStartRef.current = starts
               }}
@@ -526,9 +538,12 @@ export const App = () => {
                 const { gridSize } = useDiagramStore.getState().layout
                 const dgx = Math.round(dx / gridSize)
                 const dgy = Math.round(dy / gridSize)
-                const moves: Record<string, { cx: number; cy: number }> = {}
+                const moves: Record<
+                  string,
+                  { cx: number; cy: number; w: number; h: number }
+                > = {}
                 for (const [id, start] of Object.entries(areaDragStartRef.current)) {
-                  moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy }
+                  moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy, w: start.w, h: start.h }
                 }
                 moveNodes(moves)
               }}

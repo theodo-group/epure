@@ -181,6 +181,36 @@ describe('useBridge', () => {
     expect(result.current.saveState).toBe('saved')
   })
 
+  it('coalesces a burst of edits into a leading + single trailing write', async () => {
+    const { result } = renderHook(() => useBridge())
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    const applyMsgs = () =>
+      lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    expect(applyMsgs()).toHaveLength(0)
+
+    // Three edits fired synchronously — a stand-in for a keystroke/drag burst.
+    await act(async () => {
+      const st = useDiagramStore.getState()
+      st.moveNode('a', 400, 80) // cx 10
+      st.moveNode('a', 480, 80) // cx 12
+      st.moveNode('a', 560, 80) // cx 14
+    })
+    // Only the leading edge has shipped; the other two are buffered behind the
+    // debounce, but the cue already reflects unsaved work.
+    expect(applyMsgs()).toHaveLength(1)
+    expect(result.current.saveState).toBe('saving')
+
+    // Once edits go quiet, exactly one trailing write carries the FINAL state.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 350))
+    })
+    const applies = applyMsgs()
+    expect(applies).toHaveLength(2)
+    const lastLayout = applies.at(-1)!.files.find((f: { kind: string }) => f.kind === 'layout')
+    expect(JSON.parse(lastLayout.content).nodes.a.cx).toBe(14)
+  })
+
   const layoutObj = (cx: number): LayoutSidecar => ({
     gridSize: 40,
     nodes: { a: { cx, cy: 2, w: 4, h: 2 } },
