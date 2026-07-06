@@ -1,0 +1,59 @@
+src/editor/minimalDocChange.test.ts
+  s_4dda15cfdd0462::t_e89e1848d9429c 1-59
+src/bridge/useBridge.test.tsx
+  s_4dda15cfdd0462::t_d131d2b0bcebfe 184-213
+server/core/bridge.ts
+  s_4dda15cfdd0462::t_910a6afbe06acc 139
+  s_4dda15cfdd0462::t_859e25a0725ff1 105-107
+  s_4dda15cfdd0462::t_7bb141cc47e914 54-62
+  s_4dda15cfdd0462::t_e41ac1d1694cee 76-88
+  s_4dda15cfdd0462::t_223450af4d3d7e 32-36
+  s_4dda15cfdd0462::t_acf1a96607a1b1 170
+src/App.tsx
+  s_4dda15cfdd0462::t_6bcd43a7e5ceac 32
+  s_4dda15cfdd0462::t_e69cd2a467a353 111-113
+  s_4dda15cfdd0462::t_93e0960c250e44 521-530,532-533,541-544,546
+server/core/bridge.test.ts
+  s_4dda15cfdd0462::t_37ed21b39815ca 103-121
+src/editor/CodeMirrorPane.tsx
+  s_4dda15cfdd0462::t_3a0175c7505e88 400-403
+  s_4dda15cfdd0462::t_9e1179a658ee79 19
+  s_4dda15cfdd0462::t_c8bd04961d66fd 168-170
+  s_4dda15cfdd0462::t_b1c43803ed4028 431
+  s_4dda15cfdd0462::t_236fd83087ea28 46-79
+  s_4dda15cfdd0462::t_6cc7f7673fbcc9 133-135
+src/bridge/useBridge.ts
+  s_4dda15cfdd0462::t_1d3de811d71bf9 83-89
+  s_4dda15cfdd0462::t_819b00295f90f5 112-114
+  s_4dda15cfdd0462::t_52c5ccbf1483b1 367-368,371-375,382,393,395-396,408-414,419,421-422,424,428
+  s_4dda15cfdd0462::t_933bd819893f9f 376-379,381,387-389,394,397-407,415-418,420,423
+  s_4dda15cfdd0462::t_d82598691f7a47 479
+src/store/diagramStore.ts
+  s_4dda15cfdd0462::t_be8870d1019aac 72-77
+  s_4dda15cfdd0462::t_98e80da54fbb74 208,210-215
+src/parser/index.ts
+  s_4dda15cfdd0462::t_e33a3db5cbc354 69-76,78-91,94-103,105-107
+  s_4dda15cfdd0462::t_1b66b4177f7e09 29-31,33
+  s_4dda15cfdd0462::t_45425cc97b9119 5
+  s_4dda15cfdd0462::t_a3b763e77b2b1a 6-14
+src/parser/eofError.test.ts
+  s_4dda15cfdd0462::t_c5eb03299fac7c 1-36
+src/store/moveNodes.test.ts
+  s_4dda15cfdd0462::t_f2a5134e946dec 1-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8099828a28fc078e365801581b9b26ef525aed62",
+  "prompts": {},
+  "sessions": {
+    "s_4dda15cfdd0462": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a6cdf24-66e4-4b38-a1a1-2b1bd2082325",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
