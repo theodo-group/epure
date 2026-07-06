@@ -69,7 +69,12 @@ export interface DiagramActions {
   setSource: (source: string) => void
   setLayout: (layout: LayoutSidecar) => void
   moveNode: (id: string, x: number, y: number) => void
-  moveNodes: (positions: Record<string, { cx: number; cy: number }>) => void
+  /** Set absolute grid positions for a batch of nodes. A node with no sidecar
+   *  entry yet (e.g. an auto-placed group member) is created — pass its `w`/`h`
+   *  so it materializes at the size it was rendered, not the default. */
+  moveNodes: (
+    positions: Record<string, { cx: number; cy: number; w?: number; h?: number }>,
+  ) => void
   resizeNode: (id: string, side: Side, pxX: number, pxY: number) => void
   setEdgeSide: (edgeKey: string, end: 'source' | 'target', side: Side) => void
   /** Nudge an edge's label off its routed anchor, in grid units. Pass a routed
@@ -200,10 +205,14 @@ export const useDiagramStore = create<DiagramStore>()(
       moveNodes: (positions) =>
         set((s) => {
           const nextNodes = { ...s.layout.nodes }
-          for (const [id, { cx, cy }] of Object.entries(positions)) {
+          for (const [id, { cx, cy, w, h }] of Object.entries(positions)) {
             const ex = nextNodes[id]
-            if (!ex) continue
-            nextNodes[id] = { ...ex, cx, cy }
+            // Upsert: move an existing node (keeping its size), or materialize a
+            // not-yet-pinned member at the size it was drawn (falling back to the
+            // canonical default, matching `moveNode`).
+            nextNodes[id] = ex
+              ? { ...ex, cx, cy }
+              : { cx, cy, w: w ?? 4, h: h ?? 2 }
           }
           return {
             ...s,

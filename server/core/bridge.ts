@@ -29,6 +29,11 @@ export interface BridgeCoreOptions {
   onFileChanged: (msg: FileChangedMsg) => void
 }
 
+// How many recent self-write keys to remember per kind for echo suppression.
+// The client writes on every keystroke, so a burst is many writes; this only has
+// to outlast the watcher's coalescing + read latency, not a whole session.
+const ECHO_HISTORY = 64
+
 /** Thrown by `applyInbound` when a kind fails validation; the host turns it
  *  into a `rejected` frame and keeps last-good bytes on disk. */
 export class InvalidApplyError extends Error {
@@ -46,9 +51,15 @@ export class BridgeCore {
   private readonly onFileChanged: BridgeCoreOptions['onFileChanged']
   private watcher: FSWatcher | null = null
   private readonly pathToKind = new Map<string, FileKind>()
-  /** Content-key of the last bytes we wrote per kind; an incoming watch event
-   *  with a matching key is our own write and is dropped. */
-  private readonly lastWrittenKey: Partial<Record<FileKind, string>> = {}
+  /** Content-keys we've written per kind, oldest→newest (capped at
+   *  ECHO_HISTORY). An incoming watch event whose key matches ANY of these is
+   *  our own write and is dropped. Remembering only the *latest* write is not
+   *  enough: the client writes on every keystroke, chokidar coalesces those
+   *  writes on its side, and an `awaitWriteFinish` event can surface an EARLIER
+   *  write's content (read async, after `applyInbound` has already recorded a
+   *  newer key). Matching just the newest key lets that stale self-write look
+   *  like an external "disk changed" and clobber the editor mid-type. */
+  private readonly writtenKeys = new Map<FileKind, string[]>()
 
   constructor(opts: BridgeCoreOptions) {
     this.pair = opts.pair
@@ -60,6 +71,19 @@ export class BridgeCore {
 
   get doc(): string {
     return this.pair.stem
+  }
+
+  /** Remember a key we just wrote, capped to the most-recent ECHO_HISTORY. */
+  private recordWrite(kind: FileKind, key: string): void {
+    const keys = this.writtenKeys.get(kind) ?? []
+    keys.push(key)
+    if (keys.length > ECHO_HISTORY) keys.splice(0, keys.length - ECHO_HISTORY)
+    this.writtenKeys.set(kind, keys)
+  }
+
+  /** True when a disk event's key matches one of our recent writes (an echo). */
+  private isOwnEcho(kind: FileKind, key: string): boolean {
+    return this.writtenKeys.get(kind)?.includes(key) ?? false
   }
 
   /** Begin watching the pair. `awaitWriteFinish` coalesces editors' temp-write
@@ -78,7 +102,9 @@ export class BridgeCore {
     this.watcher.on('unlink', (path) => {
       const kind = this.pathToKind.get(path)
       if (!kind) return
-      delete this.lastWrittenKey[kind]
+      // A delete is a genuine external event; forget our write history for this
+      // kind so a later re-add of previously-written content isn't suppressed.
+      this.writtenKeys.delete(kind)
       this.onFileChanged({
         type: 'fileChanged',
         doc: this.doc,
@@ -110,7 +136,7 @@ export class BridgeCore {
     // formatting differences don't masquerade as a change.
     if (frame.valid && frame.content !== null) {
       const key = verdictFor(kind, frame.content).key
-      if (key !== null && key === this.lastWrittenKey[kind]) return
+      if (key !== null && this.isOwnEcho(kind, key)) return
     }
 
     this.onFileChanged({
@@ -141,7 +167,7 @@ export class BridgeCore {
     //    already recognised as ours by the time they arrive.
     for (const p of planned) {
       const key = verdictFor(p.kind, p.bytes).key
-      if (key !== null) this.lastWrittenKey[p.kind] = key
+      if (key !== null) this.recordWrite(p.kind, key)
     }
 
     // 3. Coherent write: all temps first, then rename back-to-back. True

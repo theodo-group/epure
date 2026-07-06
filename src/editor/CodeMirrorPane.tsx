@@ -16,7 +16,7 @@ import {
   WidgetType,
   type DecorationSet,
 } from '@codemirror/view'
-import { defaultKeymap } from '@codemirror/commands'
+import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 import {
   bracketMatching,
   indentOnInput,
@@ -41,6 +41,40 @@ export interface CodeMirrorPaneProps {
   onChange: (value: string) => void
   errors?: ParseError[]
   language?: LanguageSupport
+}
+
+/**
+ * Narrow an external value update to just the span that actually changed, by
+ * peeling off the common prefix and suffix. Replacing the whole document (from
+ * 0 to end) instead collapses the selection to the top — so a remote edit that
+ * touches one line elsewhere would yank the user's cursor to line 1. Dispatching
+ * only the differing middle lets CodeMirror map the selection through the change,
+ * keeping the caret put whenever the edit doesn't straddle it.
+ */
+export const minimalDocChange = (
+  current: string,
+  next: string,
+): { from: number; to: number; insert: string } => {
+  const maxLen = Math.min(current.length, next.length)
+  let from = 0
+  while (from < maxLen && current.charCodeAt(from) === next.charCodeAt(from)) {
+    from++
+  }
+  // Common suffix, but never overlapping the shared prefix on either string.
+  let suffix = 0
+  const maxSuffix = maxLen - from
+  while (
+    suffix < maxSuffix &&
+    current.charCodeAt(current.length - 1 - suffix) ===
+      next.charCodeAt(next.length - 1 - suffix)
+  ) {
+    suffix++
+  }
+  return {
+    from,
+    to: current.length - suffix,
+    insert: next.slice(from, next.length - suffix),
+  }
 }
 
 // Surface parser errors directly in the editor: a highlighted line, a wavy
@@ -96,6 +130,9 @@ const selectionField = StateField.define<DecorationSet>({
         const decos = []
         const stampedLines = new Set<number>()
         for (const { from, to } of e.value) {
+          // A non-finite endpoint would poison the clamps below into NaN and
+          // crash `doc.lineAt(NaN)`; skip such ranges rather than render them.
+          if (!Number.isFinite(from) || !Number.isFinite(to)) continue
           const safeFrom = Math.max(0, Math.min(doc.length, from))
           const safeTo = Math.max(safeFrom, Math.min(doc.length, to))
           const startLine = doc.lineAt(safeFrom).number
@@ -128,7 +165,9 @@ const errorField = StateField.define<DecorationSet>({
         const messagedLines = new Set<number>()
         for (const err of errors) {
           const line = err.range.start.line
-          if (line < 1 || line > doc.lines) continue
+          // Guard non-integers too: a NaN line (e.g. an EOF-anchored error)
+          // slips past a bare `< 1 || > lines` check and crashes `doc.line`.
+          if (!Number.isInteger(line) || line < 1 || line > doc.lines) continue
           const lineObj = doc.line(line)
           decos.push(errorLineDeco.range(lineObj.from))
           // Wavy underline on the exact range, when it has width.
@@ -358,7 +397,10 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           bracketMatching(),
           indentOnInput(),
           search({ top: true }),
-          keymap.of([...defaultKeymap, ...searchKeymap]),
+          // Tab / Shift-Tab indent and dedent. CodeMirror leaves this out of the
+          // default keymap (Tab is reserved for focus traversal), but an indented
+          // block language like d2 wants it; listed last so it wins the binding.
+          keymap.of([...defaultKeymap, ...searchKeymap, indentWithTab]),
           language ?? d2Support,
           baseTheme,
           selectionField,
@@ -386,9 +428,7 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
       if (!view) return
       const current = view.state.doc.toString()
       if (current === value) return
-      view.dispatch({
-        changes: { from: 0, to: current.length, insert: value },
-      })
+      view.dispatch({ changes: minimalDocChange(current, value) })
     }, [value])
 
     // Project parse errors into the editor (line highlight + underline + message).
