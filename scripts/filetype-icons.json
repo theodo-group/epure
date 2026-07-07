@@ -1,0 +1,2431 @@
+[
+  {
+    "ext": "7z",
+    "label": "7Z",
+    "name": "7-Zip Archive",
+    "color": "#388e3c",
+    "category": "archive"
+  },
+  {
+    "ext": "apk",
+    "label": "APK",
+    "name": "Android Package",
+    "color": "#a4c639",
+    "category": "archive"
+  },
+  {
+    "ext": "bz2",
+    "label": "BZ2",
+    "name": "Bzip2 Archive",
+    "color": "#8d6e41",
+    "category": "archive"
+  },
+  {
+    "ext": "cab",
+    "label": "CAB",
+    "name": "Windows Cabinet",
+    "color": "#5c6bc0",
+    "category": "archive"
+  },
+  {
+    "ext": "crx",
+    "label": "CRX",
+    "name": "Chrome Extension",
+    "color": "#4285f4",
+    "category": "archive"
+  },
+  {
+    "ext": "deb",
+    "label": "DEB",
+    "name": "Debian Package",
+    "color": "#a80030",
+    "category": "archive"
+  },
+  {
+    "ext": "dmg",
+    "label": "DMG",
+    "name": "Apple Disk Image",
+    "color": "#78909c",
+    "category": "archive"
+  },
+  {
+    "ext": "ear",
+    "label": "EAR",
+    "name": "Enterprise Archive",
+    "color": "#c96a00",
+    "category": "archive"
+  },
+  {
+    "ext": "flatpak",
+    "label": "FLAT",
+    "name": "Flatpak Package",
+    "color": "#4a90d9",
+    "category": "archive"
+  },
+  {
+    "ext": "gem",
+    "label": "GEM",
+    "name": "RubyGem Package",
+    "color": "#cc342d",
+    "category": "archive"
+  },
+  {
+    "ext": "gz",
+    "label": "GZ",
+    "name": "Gzip Archive",
+    "color": "#795548",
+    "category": "archive"
+  },
+  {
+    "ext": "img",
+    "label": "IMG",
+    "name": "Disk Image",
+    "color": "#607d8b",
+    "category": "archive"
+  },
+  {
+    "ext": "iso",
+    "label": "ISO",
+    "name": "ISO Disk Image",
+    "color": "#546e7a",
+    "category": "archive"
+  },
+  {
+    "ext": "jar",
+    "label": "JAR",
+    "name": "Java Archive",
+    "color": "#ed8b00",
+    "category": "archive"
+  },
+  {
+    "ext": "lz",
+    "label": "LZ",
+    "name": "Lzip Archive",
+    "color": "#4e342e",
+    "category": "archive"
+  },
+  {
+    "ext": "lz4",
+    "label": "LZ4",
+    "name": "LZ4 Archive",
+    "color": "#0277bd",
+    "category": "archive"
+  },
+  {
+    "ext": "lzma",
+    "label": "LZMA",
+    "name": "LZMA Archive",
+    "color": "#455a64",
+    "category": "archive"
+  },
+  {
+    "ext": "nupkg",
+    "label": "NUPK",
+    "name": "NuGet Package",
+    "color": "#004880",
+    "category": "archive"
+  },
+  {
+    "ext": "pkg",
+    "label": "PKG",
+    "name": "macOS Installer Package",
+    "color": "#78909c",
+    "category": "archive"
+  },
+  {
+    "ext": "rar",
+    "label": "RAR",
+    "name": "RAR Archive",
+    "color": "#7b1fa2",
+    "category": "archive"
+  },
+  {
+    "ext": "rpm",
+    "label": "RPM",
+    "name": "RPM Package",
+    "color": "#cc0000",
+    "category": "archive"
+  },
+  {
+    "ext": "snap",
+    "label": "SNAP",
+    "name": "Snap Package",
+    "color": "#82bea0",
+    "category": "archive"
+  },
+  {
+    "ext": "tar",
+    "label": "TAR",
+    "name": "Tarball",
+    "color": "#6d4c41",
+    "category": "archive"
+  },
+  {
+    "ext": "tbz2",
+    "label": "TBZ2",
+    "name": "Bzipped Tarball",
+    "color": "#8d6e41",
+    "category": "archive"
+  },
+  {
+    "ext": "tgz",
+    "label": "TGZ",
+    "name": "Gzipped Tarball",
+    "color": "#795548",
+    "category": "archive"
+  },
+  {
+    "ext": "txz",
+    "label": "TXZ",
+    "name": "XZ Tarball",
+    "color": "#5d4037",
+    "category": "archive"
+  },
+  {
+    "ext": "vsix",
+    "label": "VSIX",
+    "name": "VS Code Extension",
+    "color": "#007acc",
+    "category": "archive"
+  },
+  {
+    "ext": "war",
+    "label": "WAR",
+    "name": "Web Application Archive",
+    "color": "#e07b00",
+    "category": "archive"
+  },
+  {
+    "ext": "whl",
+    "label": "WHL",
+    "name": "Python Wheel",
+    "color": "#3776ab",
+    "category": "archive"
+  },
+  {
+    "ext": "xpi",
+    "label": "XPI",
+    "name": "Firefox Extension",
+    "color": "#ff7139",
+    "category": "archive"
+  },
+  {
+    "ext": "xz",
+    "label": "XZ",
+    "name": "XZ Archive",
+    "color": "#5d4037",
+    "category": "archive"
+  },
+  {
+    "ext": "zip",
+    "label": "ZIP",
+    "name": "ZIP Archive",
+    "color": "#f9a825",
+    "category": "archive"
+  },
+  {
+    "ext": "zst",
+    "label": "ZST",
+    "name": "Zstandard Archive",
+    "color": "#00838f",
+    "category": "archive"
+  },
+  {
+    "ext": "aac",
+    "label": "AAC",
+    "name": "AAC Audio",
+    "color": "#ff7043",
+    "category": "audio"
+  },
+  {
+    "ext": "ac3",
+    "label": "AC3",
+    "name": "Dolby Digital Audio",
+    "color": "#00274d",
+    "category": "audio"
+  },
+  {
+    "ext": "aif",
+    "label": "AIF",
+    "name": "AIFF Audio",
+    "color": "#26a69a",
+    "category": "audio"
+  },
+  {
+    "ext": "aiff",
+    "label": "AIFF",
+    "name": "AIFF Audio",
+    "color": "#26a69a",
+    "category": "audio"
+  },
+  {
+    "ext": "alac",
+    "label": "ALAC",
+    "name": "Apple Lossless Audio",
+    "color": "#5c6bc0",
+    "category": "audio"
+  },
+  {
+    "ext": "amr",
+    "label": "AMR",
+    "name": "AMR Audio",
+    "color": "#78909c",
+    "category": "audio"
+  },
+  {
+    "ext": "caf",
+    "label": "CAF",
+    "name": "Core Audio Format",
+    "color": "#455a64",
+    "category": "audio"
+  },
+  {
+    "ext": "flac",
+    "label": "FLAC",
+    "name": "FLAC Audio",
+    "color": "#1976d2",
+    "category": "audio"
+  },
+  {
+    "ext": "m4a",
+    "label": "M4A",
+    "name": "MPEG-4 Audio",
+    "color": "#ab47bc",
+    "category": "audio"
+  },
+  {
+    "ext": "m4b",
+    "label": "M4B",
+    "name": "MPEG-4 Audiobook",
+    "color": "#9575cd",
+    "category": "audio"
+  },
+  {
+    "ext": "mid",
+    "label": "MID",
+    "name": "MIDI Audio",
+    "color": "#43a047",
+    "category": "audio"
+  },
+  {
+    "ext": "midi",
+    "label": "MIDI",
+    "name": "MIDI Audio",
+    "color": "#43a047",
+    "category": "audio"
+  },
+  {
+    "ext": "mp3",
+    "label": "MP3",
+    "name": "MP3 Audio",
+    "color": "#e91e63",
+    "category": "audio"
+  },
+  {
+    "ext": "oga",
+    "label": "OGA",
+    "name": "Ogg Audio",
+    "color": "#ef6c00",
+    "category": "audio"
+  },
+  {
+    "ext": "ogg",
+    "label": "OGG",
+    "name": "Ogg Vorbis Audio",
+    "color": "#f57c00",
+    "category": "audio"
+  },
+  {
+    "ext": "opus",
+    "label": "OPUS",
+    "name": "Opus Audio",
+    "color": "#8e24aa",
+    "category": "audio"
+  },
+  {
+    "ext": "wav",
+    "label": "WAV",
+    "name": "WAV Audio",
+    "color": "#00acc1",
+    "category": "audio"
+  },
+  {
+    "ext": "wma",
+    "label": "WMA",
+    "name": "Windows Media Audio",
+    "color": "#0288d1",
+    "category": "audio"
+  },
+  {
+    "ext": "a",
+    "label": "A",
+    "name": "Static Library Archive",
+    "color": "#795548",
+    "category": "binary"
+  },
+  {
+    "ext": "app",
+    "label": "APP",
+    "name": "macOS Application Bundle",
+    "color": "#333333",
+    "category": "binary"
+  },
+  {
+    "ext": "appimage",
+    "label": "AIMG",
+    "name": "AppImage (Linux)",
+    "color": "#0e7c86",
+    "category": "binary"
+  },
+  {
+    "ext": "bin",
+    "label": "BIN",
+    "name": "Binary File",
+    "color": "#546e7a",
+    "category": "binary"
+  },
+  {
+    "ext": "class",
+    "label": "CLSS",
+    "name": "Java Class File",
+    "color": "#ed8b00",
+    "category": "binary"
+  },
+  {
+    "ext": "com",
+    "label": "COM",
+    "name": "DOS Command Executable",
+    "color": "#5c6bc0",
+    "category": "binary"
+  },
+  {
+    "ext": "dll",
+    "label": "DLL",
+    "name": "Dynamic Link Library",
+    "color": "#6d8086",
+    "category": "binary"
+  },
+  {
+    "ext": "dylib",
+    "label": "DYLB",
+    "name": "Dynamic Library (macOS)",
+    "color": "#8e44ad",
+    "category": "binary"
+  },
+  {
+    "ext": "elf",
+    "label": "ELF",
+    "name": "ELF Executable",
+    "color": "#455a64",
+    "category": "binary"
+  },
+  {
+    "ext": "exe",
+    "label": "EXE",
+    "name": "Windows Executable",
+    "color": "#4d76c3",
+    "category": "binary"
+  },
+  {
+    "ext": "ko",
+    "label": "KO",
+    "name": "Linux Kernel Module",
+    "color": "#d34516",
+    "category": "binary"
+  },
+  {
+    "ext": "lib",
+    "label": "LIB",
+    "name": "Static Library (Windows)",
+    "color": "#8d6e63",
+    "category": "binary"
+  },
+  {
+    "ext": "msi",
+    "label": "MSI",
+    "name": "Windows Installer Package",
+    "color": "#4d76c3",
+    "category": "binary"
+  },
+  {
+    "ext": "o",
+    "label": "O",
+    "name": "Object File",
+    "color": "#607d8b",
+    "category": "binary"
+  },
+  {
+    "ext": "obj",
+    "label": "OBJ",
+    "name": "Object File (Windows)",
+    "color": "#607d8b",
+    "category": "binary"
+  },
+  {
+    "ext": "out",
+    "label": "OUT",
+    "name": "Compiled Executable (a.out)",
+    "color": "#546e7a",
+    "category": "binary"
+  },
+  {
+    "ext": "pyc",
+    "label": "PYC",
+    "name": "Python Compiled Bytecode",
+    "color": "#3776ab",
+    "category": "binary"
+  },
+  {
+    "ext": "pyd",
+    "label": "PYD",
+    "name": "Python Extension Module",
+    "color": "#3776ab",
+    "category": "binary"
+  },
+  {
+    "ext": "pyo",
+    "label": "PYO",
+    "name": "Python Optimized Bytecode",
+    "color": "#4b8bbe",
+    "category": "binary"
+  },
+  {
+    "ext": "so",
+    "label": "SO",
+    "name": "Shared Object",
+    "color": "#ec6b2d",
+    "category": "binary"
+  },
+  {
+    "ext": "sys",
+    "label": "SYS",
+    "name": "Windows System Driver",
+    "color": "#4d4d4d",
+    "category": "binary"
+  },
+  {
+    "ext": "ada",
+    "label": "ADA",
+    "name": "Ada",
+    "color": "#02f88c",
+    "category": "code"
+  },
+  {
+    "ext": "asm",
+    "label": "ASM",
+    "name": "Assembly",
+    "color": "#6e4c13",
+    "category": "code"
+  },
+  {
+    "ext": "c",
+    "label": "C",
+    "name": "C",
+    "color": "#a8b9cc",
+    "category": "code"
+  },
+  {
+    "ext": "cc",
+    "label": "CC",
+    "name": "C++ Source",
+    "color": "#00599c",
+    "category": "code"
+  },
+  {
+    "ext": "cjs",
+    "label": "CJS",
+    "name": "CommonJS JavaScript",
+    "color": "#f7df1e",
+    "category": "code"
+  },
+  {
+    "ext": "clj",
+    "label": "CLJ",
+    "name": "Clojure",
+    "color": "#5881d8",
+    "category": "code"
+  },
+  {
+    "ext": "cljs",
+    "label": "CLJS",
+    "name": "ClojureScript",
+    "color": "#5881d8",
+    "category": "code"
+  },
+  {
+    "ext": "coffee",
+    "label": "COFF",
+    "name": "CoffeeScript",
+    "color": "#3e2723",
+    "category": "code"
+  },
+  {
+    "ext": "cpp",
+    "label": "CPP",
+    "name": "C++",
+    "color": "#00599c",
+    "category": "code"
+  },
+  {
+    "ext": "cr",
+    "label": "CR",
+    "name": "Crystal",
+    "color": "#000000",
+    "category": "code"
+  },
+  {
+    "ext": "cs",
+    "label": "CS",
+    "name": "C#",
+    "color": "#68217a",
+    "category": "code"
+  },
+  {
+    "ext": "cxx",
+    "label": "CXX",
+    "name": "C++ Source",
+    "color": "#00599c",
+    "category": "code"
+  },
+  {
+    "ext": "d",
+    "label": "D",
+    "name": "D",
+    "color": "#ba595e",
+    "category": "code"
+  },
+  {
+    "ext": "dart",
+    "label": "DART",
+    "name": "Dart",
+    "color": "#0175c2",
+    "category": "code"
+  },
+  {
+    "ext": "elm",
+    "label": "ELM",
+    "name": "Elm",
+    "color": "#60b5cc",
+    "category": "code"
+  },
+  {
+    "ext": "erl",
+    "label": "ERL",
+    "name": "Erlang",
+    "color": "#a90533",
+    "category": "code"
+  },
+  {
+    "ext": "ex",
+    "label": "EX",
+    "name": "Elixir",
+    "color": "#6e4a7e",
+    "category": "code"
+  },
+  {
+    "ext": "exs",
+    "label": "EXS",
+    "name": "Elixir Script",
+    "color": "#6e4a7e",
+    "category": "code"
+  },
+  {
+    "ext": "f90",
+    "label": "F90",
+    "name": "Fortran",
+    "color": "#734f96",
+    "category": "code"
+  },
+  {
+    "ext": "fs",
+    "label": "FS",
+    "name": "F#",
+    "color": "#378bba",
+    "category": "code"
+  },
+  {
+    "ext": "go",
+    "label": "GO",
+    "name": "Go",
+    "color": "#00add8",
+    "category": "code"
+  },
+  {
+    "ext": "groovy",
+    "label": "GRVY",
+    "name": "Groovy",
+    "color": "#4298b8",
+    "category": "code"
+  },
+  {
+    "ext": "h",
+    "label": "H",
+    "name": "C Header",
+    "color": "#a8b9cc",
+    "category": "code"
+  },
+  {
+    "ext": "hh",
+    "label": "HH",
+    "name": "C++ Header",
+    "color": "#00599c",
+    "category": "code"
+  },
+  {
+    "ext": "hpp",
+    "label": "HPP",
+    "name": "C++ Header",
+    "color": "#00599c",
+    "category": "code"
+  },
+  {
+    "ext": "hs",
+    "label": "HS",
+    "name": "Haskell",
+    "color": "#5e5086",
+    "category": "code"
+  },
+  {
+    "ext": "hx",
+    "label": "HX",
+    "name": "Haxe",
+    "color": "#ea8220",
+    "category": "code"
+  },
+  {
+    "ext": "java",
+    "label": "JAVA",
+    "name": "Java",
+    "color": "#ea2d2e",
+    "category": "code"
+  },
+  {
+    "ext": "jl",
+    "label": "JL",
+    "name": "Julia",
+    "color": "#9558b2",
+    "category": "code"
+  },
+  {
+    "ext": "js",
+    "label": "JS",
+    "name": "JavaScript",
+    "color": "#f7df1e",
+    "category": "code"
+  },
+  {
+    "ext": "jsx",
+    "label": "JSX",
+    "name": "JavaScript JSX",
+    "color": "#f7df1e",
+    "category": "code"
+  },
+  {
+    "ext": "kt",
+    "label": "KT",
+    "name": "Kotlin",
+    "color": "#7f52ff",
+    "category": "code"
+  },
+  {
+    "ext": "kts",
+    "label": "KTS",
+    "name": "Kotlin Script",
+    "color": "#7f52ff",
+    "category": "code"
+  },
+  {
+    "ext": "lua",
+    "label": "LUA",
+    "name": "Lua",
+    "color": "#2c2d72",
+    "category": "code"
+  },
+  {
+    "ext": "m",
+    "label": "M",
+    "name": "Objective-C",
+    "color": "#438eff",
+    "category": "code"
+  },
+  {
+    "ext": "mjs",
+    "label": "MJS",
+    "name": "ES Module JavaScript",
+    "color": "#f7df1e",
+    "category": "code"
+  },
+  {
+    "ext": "ml",
+    "label": "ML",
+    "name": "OCaml",
+    "color": "#ec6813",
+    "category": "code"
+  },
+  {
+    "ext": "mm",
+    "label": "MM",
+    "name": "Objective-C++",
+    "color": "#438eff",
+    "category": "code"
+  },
+  {
+    "ext": "nim",
+    "label": "NIM",
+    "name": "Nim",
+    "color": "#ffe953",
+    "category": "code"
+  },
+  {
+    "ext": "pas",
+    "label": "PAS",
+    "name": "Pascal",
+    "color": "#e3f171",
+    "category": "code"
+  },
+  {
+    "ext": "php",
+    "label": "PHP",
+    "name": "PHP",
+    "color": "#777bb4",
+    "category": "code"
+  },
+  {
+    "ext": "pl",
+    "label": "PL",
+    "name": "Perl",
+    "color": "#39457e",
+    "category": "code"
+  },
+  {
+    "ext": "py",
+    "label": "PY",
+    "name": "Python",
+    "color": "#3776ab",
+    "category": "code"
+  },
+  {
+    "ext": "pyi",
+    "label": "PYI",
+    "name": "Python Stub File",
+    "color": "#3776ab",
+    "category": "code"
+  },
+  {
+    "ext": "r",
+    "label": "R",
+    "name": "R",
+    "color": "#276dc3",
+    "category": "code"
+  },
+  {
+    "ext": "rb",
+    "label": "RB",
+    "name": "Ruby",
+    "color": "#cc342d",
+    "category": "code"
+  },
+  {
+    "ext": "rkt",
+    "label": "RKT",
+    "name": "Racket",
+    "color": "#3c5caa",
+    "category": "code"
+  },
+  {
+    "ext": "rs",
+    "label": "RS",
+    "name": "Rust",
+    "color": "#dea584",
+    "category": "code"
+  },
+  {
+    "ext": "scala",
+    "label": "SCAL",
+    "name": "Scala",
+    "color": "#dc322f",
+    "category": "code"
+  },
+  {
+    "ext": "scm",
+    "label": "SCM",
+    "name": "Scheme",
+    "color": "#1e4aec",
+    "category": "code"
+  },
+  {
+    "ext": "sol",
+    "label": "SOL",
+    "name": "Solidity",
+    "color": "#363636",
+    "category": "code"
+  },
+  {
+    "ext": "swift",
+    "label": "SWFT",
+    "name": "Swift",
+    "color": "#f05138",
+    "category": "code"
+  },
+  {
+    "ext": "tcl",
+    "label": "TCL",
+    "name": "Tcl",
+    "color": "#e4cd45",
+    "category": "code"
+  },
+  {
+    "ext": "ts",
+    "label": "TS",
+    "name": "TypeScript",
+    "color": "#3178c6",
+    "category": "code"
+  },
+  {
+    "ext": "tsx",
+    "label": "TSX",
+    "name": "TypeScript JSX",
+    "color": "#3178c6",
+    "category": "code"
+  },
+  {
+    "ext": "vala",
+    "label": "VALA",
+    "name": "Vala",
+    "color": "#a56de2",
+    "category": "code"
+  },
+  {
+    "ext": "vb",
+    "label": "VB",
+    "name": "Visual Basic",
+    "color": "#004e8c",
+    "category": "code"
+  },
+  {
+    "ext": "vy",
+    "label": "VY",
+    "name": "Vyper",
+    "color": "#2980b9",
+    "category": "code"
+  },
+  {
+    "ext": "zig",
+    "label": "ZIG",
+    "name": "Zig",
+    "color": "#f7a41d",
+    "category": "code"
+  },
+  {
+    "ext": "babelrc",
+    "label": "BABL",
+    "name": "Babel Config",
+    "color": "#f9dc3e",
+    "category": "config"
+  },
+  {
+    "ext": "bazel",
+    "label": "BAZL",
+    "name": "Bazel Build",
+    "color": "#43a047",
+    "category": "config"
+  },
+  {
+    "ext": "browserslistrc",
+    "label": "BRWS",
+    "name": "Browserslist Config",
+    "color": "#ffd539",
+    "category": "config"
+  },
+  {
+    "ext": "bzl",
+    "label": "BZL",
+    "name": "Bazel Starlark",
+    "color": "#43a047",
+    "category": "config"
+  },
+  {
+    "ext": "cfg",
+    "label": "CFG",
+    "name": "Config File",
+    "color": "#607d8b",
+    "category": "config"
+  },
+  {
+    "ext": "cmake",
+    "label": "CMAK",
+    "name": "CMake",
+    "color": "#064f8c",
+    "category": "config"
+  },
+  {
+    "ext": "conf",
+    "label": "CONF",
+    "name": "Config File",
+    "color": "#607d8b",
+    "category": "config"
+  },
+  {
+    "ext": "crt",
+    "label": "CRT",
+    "name": "Security Certificate",
+    "color": "#4caf50",
+    "category": "config"
+  },
+  {
+    "ext": "csproj",
+    "label": "CSPR",
+    "name": "C# Project",
+    "color": "#68217a",
+    "category": "config"
+  },
+  {
+    "ext": "csr",
+    "label": "CSR",
+    "name": "Certificate Signing Request",
+    "color": "#4caf50",
+    "category": "config"
+  },
+  {
+    "ext": "dockerfile",
+    "label": "DOCK",
+    "name": "Dockerfile",
+    "color": "#2496ed",
+    "category": "config"
+  },
+  {
+    "ext": "dockerignore",
+    "label": "DIGN",
+    "name": "Docker Ignore",
+    "color": "#2496ed",
+    "category": "config"
+  },
+  {
+    "ext": "editorconfig",
+    "label": "EDIT",
+    "name": "EditorConfig",
+    "color": "#fdfdfd",
+    "category": "config"
+  },
+  {
+    "ext": "env",
+    "label": "ENV",
+    "name": "Environment Variables",
+    "color": "#ecd53f",
+    "category": "config"
+  },
+  {
+    "ext": "eslintrc",
+    "label": "ESLT",
+    "name": "ESLint Config",
+    "color": "#4b32c3",
+    "category": "config"
+  },
+  {
+    "ext": "gitattributes",
+    "label": "GATT",
+    "name": "Git Attributes",
+    "color": "#f05032",
+    "category": "config"
+  },
+  {
+    "ext": "gitignore",
+    "label": "GIT",
+    "name": "Git Ignore",
+    "color": "#f05032",
+    "category": "config"
+  },
+  {
+    "ext": "gitmodules",
+    "label": "GMOD",
+    "name": "Git Submodules",
+    "color": "#f05032",
+    "category": "config"
+  },
+  {
+    "ext": "gradle",
+    "label": "GRDL",
+    "name": "Gradle Build",
+    "color": "#02303a",
+    "category": "config"
+  },
+  {
+    "ext": "htaccess",
+    "label": "HTAC",
+    "name": "Apache Access Config",
+    "color": "#d22128",
+    "category": "config"
+  },
+  {
+    "ext": "jenkinsfile",
+    "label": "JENK",
+    "name": "Jenkins Pipeline",
+    "color": "#d33833",
+    "category": "config"
+  },
+  {
+    "ext": "lock",
+    "label": "LOCK",
+    "name": "Lockfile",
+    "color": "#8d6e63",
+    "category": "config"
+  },
+  {
+    "ext": "makefile",
+    "label": "MAKE",
+    "name": "Makefile",
+    "color": "#6d8086",
+    "category": "config"
+  },
+  {
+    "ext": "mk",
+    "label": "MK",
+    "name": "Makefile Include",
+    "color": "#6d8086",
+    "category": "config"
+  },
+  {
+    "ext": "nix",
+    "label": "NIX",
+    "name": "Nix",
+    "color": "#7ebae4",
+    "category": "config"
+  },
+  {
+    "ext": "npmrc",
+    "label": "NPM",
+    "name": "npm Config",
+    "color": "#cb3837",
+    "category": "config"
+  },
+  {
+    "ext": "nvmrc",
+    "label": "NVM",
+    "name": "Node Version",
+    "color": "#5fa04e",
+    "category": "config"
+  },
+  {
+    "ext": "pem",
+    "label": "PEM",
+    "name": "PEM Certificate",
+    "color": "#4caf50",
+    "category": "config"
+  },
+  {
+    "ext": "pom",
+    "label": "POM",
+    "name": "Maven POM",
+    "color": "#c71a36",
+    "category": "config"
+  },
+  {
+    "ext": "prettierrc",
+    "label": "PRET",
+    "name": "Prettier Config",
+    "color": "#f7b93e",
+    "category": "config"
+  },
+  {
+    "ext": "procfile",
+    "label": "PROC",
+    "name": "Procfile",
+    "color": "#430098",
+    "category": "config"
+  },
+  {
+    "ext": "properties",
+    "label": "PROP",
+    "name": "Properties",
+    "color": "#6d8086",
+    "category": "config"
+  },
+  {
+    "ext": "service",
+    "label": "SVC",
+    "name": "systemd Unit",
+    "color": "#30d475",
+    "category": "config"
+  },
+  {
+    "ext": "sln",
+    "label": "SLN",
+    "name": "Visual Studio Solution",
+    "color": "#5c2d91",
+    "category": "config"
+  },
+  {
+    "ext": "stylelintrc",
+    "label": "STYL",
+    "name": "Stylelint Config",
+    "color": "#263238",
+    "category": "config"
+  },
+  {
+    "ext": "tf",
+    "label": "TF",
+    "name": "Terraform",
+    "color": "#7b42bc",
+    "category": "config"
+  },
+  {
+    "ext": "tfvars",
+    "label": "TFVR",
+    "name": "Terraform Variables",
+    "color": "#7b42bc",
+    "category": "config"
+  },
+  {
+    "ext": "vagrantfile",
+    "label": "VGRT",
+    "name": "Vagrant Configuration",
+    "color": "#1868f2",
+    "category": "config"
+  },
+  {
+    "ext": "arff",
+    "label": "ARFF",
+    "name": "Attribute-Relation File Format",
+    "color": "#795548",
+    "category": "data"
+  },
+  {
+    "ext": "avro",
+    "label": "AVRO",
+    "name": "Apache Avro",
+    "color": "#1a5276",
+    "category": "data"
+  },
+  {
+    "ext": "cbor",
+    "label": "CBOR",
+    "name": "Concise Binary Object Representation",
+    "color": "#5c6bc0",
+    "category": "data"
+  },
+  {
+    "ext": "cson",
+    "label": "CSON",
+    "name": "CoffeeScript Object Notation",
+    "color": "#3e2723",
+    "category": "data"
+  },
+  {
+    "ext": "csv",
+    "label": "CSV",
+    "name": "Comma-Separated Values",
+    "color": "#217346",
+    "category": "data"
+  },
+  {
+    "ext": "dtd",
+    "label": "DTD",
+    "name": "Document Type Definition",
+    "color": "#f1662a",
+    "category": "data"
+  },
+  {
+    "ext": "edn",
+    "label": "EDN",
+    "name": "Extensible Data Notation",
+    "color": "#5881d8",
+    "category": "data"
+  },
+  {
+    "ext": "geojson",
+    "label": "GEO",
+    "name": "GeoJSON",
+    "color": "#3a9c5e",
+    "category": "data"
+  },
+  {
+    "ext": "gql",
+    "label": "GQL",
+    "name": "GraphQL Schema",
+    "color": "#e10098",
+    "category": "data"
+  },
+  {
+    "ext": "graphql",
+    "label": "GQL",
+    "name": "GraphQL Schema",
+    "color": "#e10098",
+    "category": "data"
+  },
+  {
+    "ext": "hcl",
+    "label": "HCL",
+    "name": "HashiCorp Configuration Language",
+    "color": "#7b42bc",
+    "category": "data"
+  },
+  {
+    "ext": "ini",
+    "label": "INI",
+    "name": "INI Configuration",
+    "color": "#6d8086",
+    "category": "data"
+  },
+  {
+    "ext": "json",
+    "label": "JSON",
+    "name": "JSON",
+    "color": "#cbcb41",
+    "category": "data"
+  },
+  {
+    "ext": "json5",
+    "label": "JSN5",
+    "name": "JSON5",
+    "color": "#cbcb41",
+    "category": "data"
+  },
+  {
+    "ext": "jsonc",
+    "label": "JSNC",
+    "name": "JSON with Comments",
+    "color": "#cbcb41",
+    "category": "data"
+  },
+  {
+    "ext": "jsonl",
+    "label": "JSNL",
+    "name": "JSON Lines",
+    "color": "#cbcb41",
+    "category": "data"
+  },
+  {
+    "ext": "msgpack",
+    "label": "MPCK",
+    "name": "MessagePack",
+    "color": "#c13a37",
+    "category": "data"
+  },
+  {
+    "ext": "ndjson",
+    "label": "NDJS",
+    "name": "Newline-Delimited JSON",
+    "color": "#cbcb41",
+    "category": "data"
+  },
+  {
+    "ext": "neon",
+    "label": "NEON",
+    "name": "NEON Configuration",
+    "color": "#4a90d9",
+    "category": "data"
+  },
+  {
+    "ext": "orc",
+    "label": "ORC",
+    "name": "Apache ORC",
+    "color": "#d6a419",
+    "category": "data"
+  },
+  {
+    "ext": "parquet",
+    "label": "PARQ",
+    "name": "Apache Parquet",
+    "color": "#50abf1",
+    "category": "data"
+  },
+  {
+    "ext": "plist",
+    "label": "PLST",
+    "name": "Property List",
+    "color": "#8e8e93",
+    "category": "data"
+  },
+  {
+    "ext": "proto",
+    "label": "PROT",
+    "name": "Protocol Buffers",
+    "color": "#4285f4",
+    "category": "data"
+  },
+  {
+    "ext": "sql",
+    "label": "SQL",
+    "name": "SQL",
+    "color": "#e38c00",
+    "category": "data"
+  },
+  {
+    "ext": "toml",
+    "label": "TOML",
+    "name": "TOML",
+    "color": "#9c4221",
+    "category": "data"
+  },
+  {
+    "ext": "tsv",
+    "label": "TSV",
+    "name": "Tab-Separated Values",
+    "color": "#1e874a",
+    "category": "data"
+  },
+  {
+    "ext": "xsd",
+    "label": "XSD",
+    "name": "XML Schema Definition",
+    "color": "#f1662a",
+    "category": "data"
+  },
+  {
+    "ext": "xsl",
+    "label": "XSL",
+    "name": "XSLT Stylesheet",
+    "color": "#f1662a",
+    "category": "data"
+  },
+  {
+    "ext": "yaml",
+    "label": "YAML",
+    "name": "YAML",
+    "color": "#cb171e",
+    "category": "data"
+  },
+  {
+    "ext": "yml",
+    "label": "YML",
+    "name": "YAML",
+    "color": "#cb171e",
+    "category": "data"
+  },
+  {
+    "ext": "accdb",
+    "label": "ACDB",
+    "name": "Access Database",
+    "color": "#a4373a",
+    "category": "database"
+  },
+  {
+    "ext": "bak",
+    "label": "BAK",
+    "name": "Database Backup",
+    "color": "#607d8b",
+    "category": "database"
+  },
+  {
+    "ext": "bson",
+    "label": "BSON",
+    "name": "Binary JSON",
+    "color": "#589636",
+    "category": "database"
+  },
+  {
+    "ext": "db",
+    "label": "DB",
+    "name": "Database File",
+    "color": "#003b57",
+    "category": "database"
+  },
+  {
+    "ext": "db3",
+    "label": "DB3",
+    "name": "SQLite Database",
+    "color": "#003b57",
+    "category": "database"
+  },
+  {
+    "ext": "dbf",
+    "label": "DBF",
+    "name": "dBASE Database File",
+    "color": "#8d6e63",
+    "category": "database"
+  },
+  {
+    "ext": "dump",
+    "label": "DUMP",
+    "name": "Database Dump",
+    "color": "#455a64",
+    "category": "database"
+  },
+  {
+    "ext": "fdb",
+    "label": "FDB",
+    "name": "Firebird Database",
+    "color": "#d9411e",
+    "category": "database"
+  },
+  {
+    "ext": "frm",
+    "label": "FRM",
+    "name": "MySQL Table Definition",
+    "color": "#00758f",
+    "category": "database"
+  },
+  {
+    "ext": "gdb",
+    "label": "GDB",
+    "name": "Geodatabase",
+    "color": "#2ca02c",
+    "category": "database"
+  },
+  {
+    "ext": "ibd",
+    "label": "IBD",
+    "name": "InnoDB Tablespace",
+    "color": "#00758f",
+    "category": "database"
+  },
+  {
+    "ext": "kdbx",
+    "label": "KDBX",
+    "name": "KeePass Database",
+    "color": "#4cae4c",
+    "category": "database"
+  },
+  {
+    "ext": "ldf",
+    "label": "LDF",
+    "name": "SQL Server Log File",
+    "color": "#cc2927",
+    "category": "database"
+  },
+  {
+    "ext": "mdb",
+    "label": "MDB",
+    "name": "Access Database",
+    "color": "#a4373a",
+    "category": "database"
+  },
+  {
+    "ext": "mdf",
+    "label": "MDF",
+    "name": "SQL Server Data File",
+    "color": "#cc2927",
+    "category": "database"
+  },
+  {
+    "ext": "myd",
+    "label": "MYD",
+    "name": "MyISAM Data File",
+    "color": "#00758f",
+    "category": "database"
+  },
+  {
+    "ext": "myi",
+    "label": "MYI",
+    "name": "MyISAM Index File",
+    "color": "#00758f",
+    "category": "database"
+  },
+  {
+    "ext": "ndf",
+    "label": "NDF",
+    "name": "SQL Server Secondary Data File",
+    "color": "#cc2927",
+    "category": "database"
+  },
+  {
+    "ext": "nsf",
+    "label": "NSF",
+    "name": "Notes Storage Facility",
+    "color": "#0f62fe",
+    "category": "database"
+  },
+  {
+    "ext": "odb",
+    "label": "ODB",
+    "name": "OpenDocument Database",
+    "color": "#2196f3",
+    "category": "database"
+  },
+  {
+    "ext": "pdb",
+    "label": "PDB",
+    "name": "Program Database",
+    "color": "#5c6bc0",
+    "category": "database"
+  },
+  {
+    "ext": "rdb",
+    "label": "RDB",
+    "name": "Redis Database Dump",
+    "color": "#dc382d",
+    "category": "database"
+  },
+  {
+    "ext": "sqlite",
+    "label": "SQLI",
+    "name": "SQLite Database",
+    "color": "#003b57",
+    "category": "database"
+  },
+  {
+    "ext": "sqlite3",
+    "label": "SQL3",
+    "name": "SQLite 3 Database",
+    "color": "#003b57",
+    "category": "database"
+  },
+  {
+    "ext": "sqlitedb",
+    "label": "SQLI",
+    "name": "SQLite Database",
+    "color": "#003b57",
+    "category": "database"
+  },
+  {
+    "ext": "wdb",
+    "label": "WDB",
+    "name": "Windows Database",
+    "color": "#4d76c3",
+    "category": "database"
+  },
+  {
+    "ext": "adoc",
+    "label": "ADOC",
+    "name": "AsciiDoc",
+    "color": "#e40046",
+    "category": "document"
+  },
+  {
+    "ext": "doc",
+    "label": "DOC",
+    "name": "Word Document",
+    "color": "#2b579a",
+    "category": "document"
+  },
+  {
+    "ext": "docx",
+    "label": "DOCX",
+    "name": "Word Document",
+    "color": "#2b579a",
+    "category": "document"
+  },
+  {
+    "ext": "epub",
+    "label": "EPUB",
+    "name": "EPUB eBook",
+    "color": "#85b81a",
+    "category": "document"
+  },
+  {
+    "ext": "log",
+    "label": "LOG",
+    "name": "Log File",
+    "color": "#78909c",
+    "category": "document"
+  },
+  {
+    "ext": "md",
+    "label": "MD",
+    "name": "Markdown",
+    "color": "#083fa1",
+    "category": "document"
+  },
+  {
+    "ext": "mdx",
+    "label": "MDX",
+    "name": "MDX",
+    "color": "#1b1f24",
+    "category": "document"
+  },
+  {
+    "ext": "odt",
+    "label": "ODT",
+    "name": "OpenDocument Text",
+    "color": "#2196f3",
+    "category": "document"
+  },
+  {
+    "ext": "org",
+    "label": "ORG",
+    "name": "Org Mode",
+    "color": "#77aa99",
+    "category": "document"
+  },
+  {
+    "ext": "pages",
+    "label": "PAGE",
+    "name": "Apple Pages",
+    "color": "#f8a800",
+    "category": "document"
+  },
+  {
+    "ext": "pdf",
+    "label": "PDF",
+    "name": "PDF Document",
+    "color": "#e02d2d",
+    "category": "document"
+  },
+  {
+    "ext": "rst",
+    "label": "RST",
+    "name": "reStructuredText",
+    "color": "#3a7ca5",
+    "category": "document"
+  },
+  {
+    "ext": "rtf",
+    "label": "RTF",
+    "name": "Rich Text Format",
+    "color": "#5a5a5a",
+    "category": "document"
+  },
+  {
+    "ext": "tex",
+    "label": "TEX",
+    "name": "LaTeX",
+    "color": "#008080",
+    "category": "document"
+  },
+  {
+    "ext": "txt",
+    "label": "TXT",
+    "name": "Plain Text",
+    "color": "#607d8b",
+    "category": "document"
+  },
+  {
+    "ext": "wpd",
+    "label": "WPD",
+    "name": "WordPerfect Document",
+    "color": "#004b8d",
+    "category": "document"
+  },
+  {
+    "ext": "bdf",
+    "label": "BDF",
+    "name": "Glyph Bitmap Distribution Format",
+    "color": "#ad1457",
+    "category": "font"
+  },
+  {
+    "ext": "eot",
+    "label": "EOT",
+    "name": "Embedded OpenType Font",
+    "color": "#8e44ad",
+    "category": "font"
+  },
+  {
+    "ext": "fnt",
+    "label": "FNT",
+    "name": "Bitmap Font",
+    "color": "#c2185b",
+    "category": "font"
+  },
+  {
+    "ext": "fon",
+    "label": "FON",
+    "name": "Windows Font",
+    "color": "#d81b60",
+    "category": "font"
+  },
+  {
+    "ext": "otf",
+    "label": "OTF",
+    "name": "OpenType Font",
+    "color": "#ff5252",
+    "category": "font"
+  },
+  {
+    "ext": "pcf",
+    "label": "PCF",
+    "name": "Portable Compiled Font",
+    "color": "#e53935",
+    "category": "font"
+  },
+  {
+    "ext": "pfb",
+    "label": "PFB",
+    "name": "Printer Font Binary",
+    "color": "#7b1fa2",
+    "category": "font"
+  },
+  {
+    "ext": "pfm",
+    "label": "PFM",
+    "name": "Printer Font Metrics",
+    "color": "#9c27b0",
+    "category": "font"
+  },
+  {
+    "ext": "sfd",
+    "label": "SFD",
+    "name": "FontForge Spline Font Database",
+    "color": "#00897b",
+    "category": "font"
+  },
+  {
+    "ext": "ttc",
+    "label": "TTC",
+    "name": "TrueType Collection",
+    "color": "#ef5350",
+    "category": "font"
+  },
+  {
+    "ext": "ttf",
+    "label": "TTF",
+    "name": "TrueType Font",
+    "color": "#ff5252",
+    "category": "font"
+  },
+  {
+    "ext": "woff",
+    "label": "WOFF",
+    "name": "Web Open Font Format",
+    "color": "#6a1b9a",
+    "category": "font"
+  },
+  {
+    "ext": "woff2",
+    "label": "WOF2",
+    "name": "Web Open Font Format 2",
+    "color": "#6a1b9a",
+    "category": "font"
+  },
+  {
+    "ext": "ai",
+    "label": "AI",
+    "name": "Adobe Illustrator",
+    "color": "#ff9a00",
+    "category": "image"
+  },
+  {
+    "ext": "apng",
+    "label": "APNG",
+    "name": "Animated PNG",
+    "color": "#26a69a",
+    "category": "image"
+  },
+  {
+    "ext": "arw",
+    "label": "ARW",
+    "name": "Sony Raw Image",
+    "color": "#ff6600",
+    "category": "image"
+  },
+  {
+    "ext": "avif",
+    "label": "AVIF",
+    "name": "AVIF Image",
+    "color": "#1a73e8",
+    "category": "image"
+  },
+  {
+    "ext": "bmp",
+    "label": "BMP",
+    "name": "Bitmap Image",
+    "color": "#8d6e63",
+    "category": "image"
+  },
+  {
+    "ext": "cr2",
+    "label": "CR2",
+    "name": "Canon Raw Image",
+    "color": "#c8102e",
+    "category": "image"
+  },
+  {
+    "ext": "dng",
+    "label": "DNG",
+    "name": "Digital Negative",
+    "color": "#546e7a",
+    "category": "image"
+  },
+  {
+    "ext": "eps",
+    "label": "EPS",
+    "name": "Encapsulated PostScript",
+    "color": "#ff6f00",
+    "category": "image"
+  },
+  {
+    "ext": "fig",
+    "label": "FIG",
+    "name": "Figma File",
+    "color": "#f24e1e",
+    "category": "image"
+  },
+  {
+    "ext": "gif",
+    "label": "GIF",
+    "name": "GIF Image",
+    "color": "#9c27b0",
+    "category": "image"
+  },
+  {
+    "ext": "heic",
+    "label": "HEIC",
+    "name": "HEIC Image",
+    "color": "#00838f",
+    "category": "image"
+  },
+  {
+    "ext": "heif",
+    "label": "HEIF",
+    "name": "HEIF Image",
+    "color": "#0097a7",
+    "category": "image"
+  },
+  {
+    "ext": "ico",
+    "label": "ICO",
+    "name": "Icon File",
+    "color": "#5c6bc0",
+    "category": "image"
+  },
+  {
+    "ext": "jpeg",
+    "label": "JPEG",
+    "name": "JPEG Image",
+    "color": "#f4a259",
+    "category": "image"
+  },
+  {
+    "ext": "jpg",
+    "label": "JPG",
+    "name": "JPEG Image",
+    "color": "#f4a259",
+    "category": "image"
+  },
+  {
+    "ext": "jxl",
+    "label": "JXL",
+    "name": "JPEG XL Image",
+    "color": "#ff6f00",
+    "category": "image"
+  },
+  {
+    "ext": "nef",
+    "label": "NEF",
+    "name": "Nikon Raw Image",
+    "color": "#ffcc00",
+    "category": "image"
+  },
+  {
+    "ext": "png",
+    "label": "PNG",
+    "name": "PNG Image",
+    "color": "#26a69a",
+    "category": "image"
+  },
+  {
+    "ext": "psd",
+    "label": "PSD",
+    "name": "Photoshop Document",
+    "color": "#31a8ff",
+    "category": "image"
+  },
+  {
+    "ext": "raw",
+    "label": "RAW",
+    "name": "Raw Image",
+    "color": "#455a64",
+    "category": "image"
+  },
+  {
+    "ext": "sketch",
+    "label": "SKCH",
+    "name": "Sketch Document",
+    "color": "#fdad00",
+    "category": "image"
+  },
+  {
+    "ext": "svg",
+    "label": "SVG",
+    "name": "SVG Vector Image",
+    "color": "#ffb13b",
+    "category": "image"
+  },
+  {
+    "ext": "tif",
+    "label": "TIF",
+    "name": "TIFF Image",
+    "color": "#607d8b",
+    "category": "image"
+  },
+  {
+    "ext": "tiff",
+    "label": "TIFF",
+    "name": "TIFF Image",
+    "color": "#607d8b",
+    "category": "image"
+  },
+  {
+    "ext": "webp",
+    "label": "WEBP",
+    "name": "WebP Image",
+    "color": "#4c8b2b",
+    "category": "image"
+  },
+  {
+    "ext": "xcf",
+    "label": "XCF",
+    "name": "GIMP Image",
+    "color": "#5c5543",
+    "category": "image"
+  },
+  {
+    "ext": "key",
+    "label": "KEY",
+    "name": "Keynote Presentation",
+    "color": "#00b0ff",
+    "category": "presentation"
+  },
+  {
+    "ext": "odp",
+    "label": "ODP",
+    "name": "OpenDocument Presentation",
+    "color": "#ed6c47",
+    "category": "presentation"
+  },
+  {
+    "ext": "potx",
+    "label": "POTX",
+    "name": "PowerPoint Template",
+    "color": "#d24726",
+    "category": "presentation"
+  },
+  {
+    "ext": "pps",
+    "label": "PPS",
+    "name": "PowerPoint Slide Show",
+    "color": "#d24726",
+    "category": "presentation"
+  },
+  {
+    "ext": "ppsx",
+    "label": "PPSX",
+    "name": "PowerPoint Slide Show",
+    "color": "#d24726",
+    "category": "presentation"
+  },
+  {
+    "ext": "ppt",
+    "label": "PPT",
+    "name": "PowerPoint Presentation (Legacy)",
+    "color": "#d24726",
+    "category": "presentation"
+  },
+  {
+    "ext": "pptx",
+    "label": "PPTX",
+    "name": "PowerPoint Presentation",
+    "color": "#d24726",
+    "category": "presentation"
+  },
+  {
+    "ext": "applescript",
+    "label": "APPL",
+    "name": "AppleScript",
+    "color": "#4c4c4c",
+    "category": "shell"
+  },
+  {
+    "ext": "awk",
+    "label": "AWK",
+    "name": "AWK Script",
+    "color": "#8f4e8b",
+    "category": "shell"
+  },
+  {
+    "ext": "bash",
+    "label": "BASH",
+    "name": "Bash Script",
+    "color": "#4eaa25",
+    "category": "shell"
+  },
+  {
+    "ext": "bat",
+    "label": "BAT",
+    "name": "Batch File",
+    "color": "#4d4d4d",
+    "category": "shell"
+  },
+  {
+    "ext": "cmd",
+    "label": "CMD",
+    "name": "Command Script",
+    "color": "#4d4d4d",
+    "category": "shell"
+  },
+  {
+    "ext": "csh",
+    "label": "CSH",
+    "name": "C Shell Script",
+    "color": "#6b9b37",
+    "category": "shell"
+  },
+  {
+    "ext": "expect",
+    "label": "EXP",
+    "name": "Expect Script",
+    "color": "#7a5c3e",
+    "category": "shell"
+  },
+  {
+    "ext": "fish",
+    "label": "FISH",
+    "name": "Fish Shell Script",
+    "color": "#3b8686",
+    "category": "shell"
+  },
+  {
+    "ext": "ipynb",
+    "label": "IPYN",
+    "name": "Jupyter Notebook",
+    "color": "#f37626",
+    "category": "shell"
+  },
+  {
+    "ext": "ksh",
+    "label": "KSH",
+    "name": "KornShell Script",
+    "color": "#5f8a2e",
+    "category": "shell"
+  },
+  {
+    "ext": "nu",
+    "label": "NU",
+    "name": "Nushell Script",
+    "color": "#3aa675",
+    "category": "shell"
+  },
+  {
+    "ext": "ps1",
+    "label": "PS1",
+    "name": "PowerShell Script",
+    "color": "#012456",
+    "category": "shell"
+  },
+  {
+    "ext": "psm1",
+    "label": "PSM1",
+    "name": "PowerShell Module",
+    "color": "#012456",
+    "category": "shell"
+  },
+  {
+    "ext": "rmd",
+    "label": "RMD",
+    "name": "R Markdown Notebook",
+    "color": "#276dc3",
+    "category": "shell"
+  },
+  {
+    "ext": "sed",
+    "label": "SED",
+    "name": "sed Script",
+    "color": "#b05a3c",
+    "category": "shell"
+  },
+  {
+    "ext": "sh",
+    "label": "SH",
+    "name": "Shell Script",
+    "color": "#4eaa25",
+    "category": "shell"
+  },
+  {
+    "ext": "vbs",
+    "label": "VBS",
+    "name": "VBScript",
+    "color": "#867db1",
+    "category": "shell"
+  },
+  {
+    "ext": "zsh",
+    "label": "ZSH",
+    "name": "Zsh Script",
+    "color": "#4eaa25",
+    "category": "shell"
+  },
+  {
+    "ext": "numbers",
+    "label": "NUM",
+    "name": "Apple Numbers Spreadsheet",
+    "color": "#23a642",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "ods",
+    "label": "ODS",
+    "name": "OpenDocument Spreadsheet",
+    "color": "#2e7d32",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "xls",
+    "label": "XLS",
+    "name": "Excel Spreadsheet (Legacy)",
+    "color": "#217346",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "xlsb",
+    "label": "XLSB",
+    "name": "Excel Binary Spreadsheet",
+    "color": "#185c34",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "xlsm",
+    "label": "XLSM",
+    "name": "Excel Macro-Enabled Spreadsheet",
+    "color": "#1d6f42",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "xlsx",
+    "label": "XLSX",
+    "name": "Excel Spreadsheet",
+    "color": "#217346",
+    "category": "spreadsheet"
+  },
+  {
+    "ext": "3gp",
+    "label": "3GP",
+    "name": "3GPP Video",
+    "color": "#00897b",
+    "category": "video"
+  },
+  {
+    "ext": "asf",
+    "label": "ASF",
+    "name": "Advanced Systems Format Video",
+    "color": "#0288d1",
+    "category": "video"
+  },
+  {
+    "ext": "avi",
+    "label": "AVI",
+    "name": "AVI Video",
+    "color": "#5c6bc0",
+    "category": "video"
+  },
+  {
+    "ext": "flv",
+    "label": "FLV",
+    "name": "Flash Video",
+    "color": "#e91e63",
+    "category": "video"
+  },
+  {
+    "ext": "m2ts",
+    "label": "M2TS",
+    "name": "MPEG-2 Transport Stream",
+    "color": "#5e35b1",
+    "category": "video"
+  },
+  {
+    "ext": "m4v",
+    "label": "M4V",
+    "name": "iTunes Video",
+    "color": "#9575cd",
+    "category": "video"
+  },
+  {
+    "ext": "mkv",
+    "label": "MKV",
+    "name": "Matroska Video",
+    "color": "#1e88e5",
+    "category": "video"
+  },
+  {
+    "ext": "mov",
+    "label": "MOV",
+    "name": "QuickTime Video",
+    "color": "#455a64",
+    "category": "video"
+  },
+  {
+    "ext": "mp4",
+    "label": "MP4",
+    "name": "MPEG-4 Video",
+    "color": "#7e57c2",
+    "category": "video"
+  },
+  {
+    "ext": "mpeg",
+    "label": "MPEG",
+    "name": "MPEG Video",
+    "color": "#8e24aa",
+    "category": "video"
+  },
+  {
+    "ext": "mpg",
+    "label": "MPG",
+    "name": "MPEG Video",
+    "color": "#8e24aa",
+    "category": "video"
+  },
+  {
+    "ext": "mts",
+    "label": "MTS",
+    "name": "AVCHD Video",
+    "color": "#5e35b1",
+    "category": "video"
+  },
+  {
+    "ext": "ogv",
+    "label": "OGV",
+    "name": "Ogg Video",
+    "color": "#f57c00",
+    "category": "video"
+  },
+  {
+    "ext": "vob",
+    "label": "VOB",
+    "name": "DVD Video Object",
+    "color": "#455a64",
+    "category": "video"
+  },
+  {
+    "ext": "webm",
+    "label": "WEBM",
+    "name": "WebM Video",
+    "color": "#4c8b2b",
+    "category": "video"
+  },
+  {
+    "ext": "wmv",
+    "label": "WMV",
+    "name": "Windows Media Video",
+    "color": "#0288d1",
+    "category": "video"
+  },
+  {
+    "ext": "astro",
+    "label": "ASTR",
+    "name": "Astro",
+    "color": "#ff5d01",
+    "category": "web"
+  },
+  {
+    "ext": "css",
+    "label": "CSS",
+    "name": "CSS",
+    "color": "#1572b6",
+    "category": "web"
+  },
+  {
+    "ext": "ejs",
+    "label": "EJS",
+    "name": "EJS Template",
+    "color": "#a91e50",
+    "category": "web"
+  },
+  {
+    "ext": "hbs",
+    "label": "HBS",
+    "name": "Handlebars",
+    "color": "#f0772b",
+    "category": "web"
+  },
+  {
+    "ext": "htm",
+    "label": "HTM",
+    "name": "HTML",
+    "color": "#e34f26",
+    "category": "web"
+  },
+  {
+    "ext": "html",
+    "label": "HTML",
+    "name": "HTML",
+    "color": "#e34f26",
+    "category": "web"
+  },
+  {
+    "ext": "less",
+    "label": "LESS",
+    "name": "Less",
+    "color": "#1d365d",
+    "category": "web"
+  },
+  {
+    "ext": "liquid",
+    "label": "LIQ",
+    "name": "Liquid",
+    "color": "#7ab55c",
+    "category": "web"
+  },
+  {
+    "ext": "mustache",
+    "label": "MUST",
+    "name": "Mustache",
+    "color": "#724b3b",
+    "category": "web"
+  },
+  {
+    "ext": "njk",
+    "label": "NJK",
+    "name": "Nunjucks",
+    "color": "#3d8137",
+    "category": "web"
+  },
+  {
+    "ext": "pug",
+    "label": "PUG",
+    "name": "Pug",
+    "color": "#a86454",
+    "category": "web"
+  },
+  {
+    "ext": "sass",
+    "label": "SASS",
+    "name": "Sass",
+    "color": "#cc6699",
+    "category": "web"
+  },
+  {
+    "ext": "scss",
+    "label": "SCSS",
+    "name": "Sass (SCSS)",
+    "color": "#cc6699",
+    "category": "web"
+  },
+  {
+    "ext": "styl",
+    "label": "STYL",
+    "name": "Stylus",
+    "color": "#ff6347",
+    "category": "web"
+  },
+  {
+    "ext": "svelte",
+    "label": "SVLT",
+    "name": "Svelte",
+    "color": "#ff3e00",
+    "category": "web"
+  },
+  {
+    "ext": "twig",
+    "label": "TWIG",
+    "name": "Twig",
+    "color": "#78c845",
+    "category": "web"
+  },
+  {
+    "ext": "vue",
+    "label": "VUE",
+    "name": "Vue",
+    "color": "#42b883",
+    "category": "web"
+  },
+  {
+    "ext": "wasm",
+    "label": "WASM",
+    "name": "WebAssembly",
+    "color": "#654ff0",
+    "category": "web"
+  },
+  {
+    "ext": "xhtml",
+    "label": "XHTM",
+    "name": "XHTML",
+    "color": "#e34f26",
+    "category": "web"
+  },
+  {
+    "ext": "xml",
+    "label": "XML",
+    "name": "XML",
+    "color": "#f1662a",
+    "category": "web"
+  }
+]
