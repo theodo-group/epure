@@ -76,7 +76,9 @@ api -> db: "writes"
 
 You rarely write these by hand — Claude Code does. See
 [`fixtures/system.epr.*`](./fixtures) for a complete example, and pick from
-hundreds of cloud/infra logos via the **Icon** control in the editor.
+thousands of cloud/infra/brand logos — plus a badge for every standard file
+type (`.js`, `.py`, `.pdf`, `.docx`, `.zip`, …) — via the **Icon** control in
+the editor.
 
 Keeping diagrams in a repo? Add this to its `CLAUDE.md` so Claude Code uses them:
 
