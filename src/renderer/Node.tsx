@@ -45,6 +45,11 @@ interface NodeProps {
   onSelect?: (id: string, additive: boolean) => void
   onMove?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
   onResize?: (id: string, side: Side, pxX: number, pxY: number) => void
+  /** Double-click to edit this node's label inline. */
+  onStartEdit?: (id: string) => void
+  /** When true this node's label is being edited in the overlay editor, so the
+   *  baked SVG label is suppressed to avoid rendering it twice. */
+  editing?: boolean
   gridSize: number
   textScale?: number
   fontFamily?: string
@@ -94,6 +99,8 @@ export const Node: FC<NodeProps> = ({
   onSelect,
   onMove,
   onResize,
+  onStartEdit,
+  editing,
   gridSize,
   textScale = 1,
   fontFamily = 'Inter, system-ui, sans-serif',
@@ -260,6 +267,15 @@ export const Node: FC<NodeProps> = ({
     <g
       data-node-id={id}
       onMouseDown={handlePointerDown}
+      onDoubleClick={
+        onStartEdit
+          ? (event) => {
+              event.stopPropagation()
+              event.preventDefault()
+              onStartEdit(id)
+            }
+          : undefined
+      }
       style={{ cursor: onMove ? 'grab' : 'pointer' }}
     >
       <g filter='url(#ep-node-shadow)'>
@@ -360,7 +376,7 @@ export const Node: FC<NodeProps> = ({
           />
         </g>
       ) : null}
-      {rich.map((line, i) => {
+      {!editing && rich.map((line, i) => {
         if (isLineEmpty(line)) {
           // Preserve vertical spacing for explicit blank lines without
           // emitting an empty <text> element.
@@ -377,6 +393,7 @@ export const Node: FC<NodeProps> = ({
             fill={labelFill}
             pointerEvents='none'
           >
+            {line.bullet ? <tspan>{'• '}</tspan> : null}
             {line.words.map((wd, j) => {
               const weight = wd.bold ? 700 : undefined
               const style = wd.italic ? 'italic' : undefined

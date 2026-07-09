@@ -120,9 +120,13 @@ export class D2Visitor extends BaseVisitor {
   }): NodeDecl | AreaDecl | undefined {
     const idTok = ctx.Identifier[0]!
     const id = idTok.image
+    const idRange = makeRange(idTok, idTok)
 
     const label = ctx.labelOrValue
       ? (this.visit(ctx.labelOrValue) as LabelOrValueResult).text
+      : undefined
+    const labelRange = ctx.labelOrValue?.[0]
+      ? this.labelValueRange(ctx.labelOrValue[0])
       : undefined
 
     const block = this.collectBlock(ctx)
@@ -136,7 +140,7 @@ export class D2Visitor extends BaseVisitor {
 
     // No body at all: treat as a bare node declaration with default shape.
     if (!ctx.LCurly) {
-      return makeNode(id, label, 'rectangle', range)
+      return makeNode(id, label, 'rectangle', range, idRange, labelRange)
     }
 
     const hasMembers = block.items.some((i) => i.kind === 'member')
@@ -153,7 +157,7 @@ export class D2Visitor extends BaseVisitor {
       return this.buildArea(id, label, block, range)
     }
 
-    return this.buildNode(id, label, block, range)
+    return this.buildNode(id, label, block, range, idRange, labelRange)
   }
 
   private buildNode(
@@ -161,6 +165,8 @@ export class D2Visitor extends BaseVisitor {
     label: string | undefined,
     block: BlockResult,
     range: SourceRange,
+    idRange: SourceRange,
+    labelRange: SourceRange | undefined,
   ): NodeDecl {
     let shape: ShapeName = 'rectangle'
     for (const item of block.items) {
@@ -188,7 +194,7 @@ export class D2Visitor extends BaseVisitor {
         })
       }
     }
-    return makeNode(id, label, shape, range)
+    return makeNode(id, label, shape, range, idRange, labelRange)
   }
 
   private buildArea(
@@ -377,6 +383,20 @@ export class D2Visitor extends BaseVisitor {
     return ids?.[ids.length - 1]
   }
 
+  // Source span covering the label value: the StringLit (quotes included) or
+  // the run of unquoted identifier tokens. Used to rewrite a node's label in
+  // place from the canvas editor.
+  private labelValueRange(node: CstNode): SourceRange | undefined {
+    const ch = node.children as {
+      StringLit?: IToken[]
+      Identifier?: IToken[]
+    }
+    if (ch.StringLit?.[0]) return makeRange(ch.StringLit[0], ch.StringLit[0])
+    const ids = ch.Identifier
+    if (ids && ids.length > 0) return makeRange(ids[0]!, ids[ids.length - 1]!)
+    return undefined
+  }
+
   private lastTokenOfAttrValue(node: CstNode): IToken {
     const ch = node.children as {
       StringLit?: IToken[]
@@ -394,8 +414,18 @@ function makeNode(
   label: string | undefined,
   shape: ShapeName,
   range: SourceRange,
+  idRange: SourceRange,
+  labelRange: SourceRange | undefined,
 ): NodeDecl {
-  return { kind: 'node', id, label, shape, range }
+  return {
+    kind: 'node',
+    id,
+    label,
+    shape,
+    range,
+    idRange,
+    ...(labelRange ? { labelRange } : {}),
+  }
 }
 
 function makeRange(start: IToken, end: IToken): SourceRange {

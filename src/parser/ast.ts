@@ -33,6 +33,13 @@ export interface NodeDecl {
   label?: string
   shape: ShapeName
   range: SourceRange
+  /** Span of just the id token — the insertion point for a `: "label"` when the
+   *  node has no label yet (used by the canvas label editor to write back). */
+  idRange: SourceRange
+  /** Span of the label value in the source (quotes included for a quoted
+   *  label), when the node declares one. Lets the editor replace the label
+   *  in place without reformatting the rest of the declaration. */
+  labelRange?: SourceRange
 }
 
 export interface EdgeDecl {
