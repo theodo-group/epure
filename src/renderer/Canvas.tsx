@@ -12,6 +12,7 @@ import {
 import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
 import { computeCrossings } from '@/layout/crossings'
 import type { RoutedDiagram, Side } from '@/layout/types'
+import { resolveFill, solidOf, TEXT_SIZE } from '@/style/palette'
 
 import { Area, AreaLabel } from './Area'
 import { computeContentBounds } from './bounds'
@@ -19,6 +20,7 @@ import { beginDrag, endDrag } from './dragState'
 import { Edge, EdgeDefs } from './Edge'
 import { Grid } from './Grid'
 import { Node } from './Node'
+import { NodeLabelEditor } from './NodeLabelEditor'
 
 export interface NodeMeta {
   shape: ShapeName
@@ -50,6 +52,9 @@ interface CanvasProps {
   onResizeNode?: (id: string, side: Side, pxX: number, pxY: number) => void
   /** Drag an edge label to a new offset (grid units, relative to its anchor). */
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
+  /** Commit an inline label edit (double-click a node). `markup` is the D2
+   *  label subset; an empty string clears the label. */
+  onCommitNodeLabel?: (id: string, markup: string) => void
   onAreaDragStart?: (areaId: string) => void
   onAreaDragMove?: (areaId: string, dxPixels: number, dyPixels: number) => void
   /** Increment to refit the view to current content bounds. */
@@ -89,6 +94,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onMoveNode,
       onResizeNode,
       onMoveLabel,
+      onCommitNodeLabel,
       onAreaDragStart,
       onAreaDragMove,
       fitVersion,
@@ -113,6 +119,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     >(null)
     const [tool, setTool] = useState<Tool>('select')
     const [spaceHeld, setSpaceHeld] = useState(false)
+    // Id of the node whose label is being edited inline (double-click), or null.
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
 
     const panActive = tool === 'pan' || spaceHeld
 
@@ -123,6 +131,17 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       () => computeCrossings(diagram.edges),
       [diagram.edges],
     )
+
+    // Close the inline label editor if its node disappears (deleted in the .d2,
+    // renamed, or a remote edit dropped it) so the overlay never dangles.
+    useEffect(() => {
+      if (
+        editingNodeId &&
+        !diagram.nodes.some((n) => n.id === editingNodeId)
+      ) {
+        setEditingNodeId(null)
+      }
+    }, [diagram, editingNodeId])
 
     // Track container size.
     useLayoutEffect(() => {
@@ -381,6 +400,13 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
 
     const cursor = panActive ? 'grab' : 'default'
 
+    // The node currently under inline label editing, resolved to its live
+    // routed geometry so the overlay tracks pan/zoom and re-layout.
+    const editingNode =
+      editingNodeId != null
+        ? diagram.nodes.find((n) => n.id === editingNodeId) ?? null
+        : null
+
     return (
       <div className="pane-canvas-inner" style={{ position: 'absolute', inset: 0 }}>
         <svg
@@ -455,6 +481,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   onSelect={onSelectNode}
                   onMove={onMoveNode}
                   onResize={onResizeNode}
+                  onStartEdit={onCommitNodeLabel ? setEditingNodeId : undefined}
+                  editing={editingNodeId === node.id}
                   gridSize={diagram.gridSize}
                   textScale={textScale}
                   fontFamily={fontFamily}
@@ -484,6 +512,41 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             ) : null}
           </g>
         </svg>
+
+        {editingNode
+          ? (() => {
+              const fillResolved = resolveFill(editingNode.fillColor)
+              const background =
+                !fillResolved || fillResolved === 'transparent'
+                  ? '#ffffff'
+                  : fillResolved
+              const color = editingNode.textColor
+                ? solidOf(editingNode.textColor)
+                : '#1f2430'
+              const editorFontSize =
+                TEXT_SIZE[editingNode.textSize ?? 'M'] * textScale * z
+              return (
+                <NodeLabelEditor
+                  key={editingNode.id}
+                  initialLabel={nodes[editingNode.id]?.label ?? ''}
+                  left={(editingNode.x - viewBoxX) * z}
+                  top={(editingNode.y - viewBoxY) * z}
+                  width={editingNode.w * z}
+                  height={editingNode.h * z}
+                  fontSize={editorFontSize}
+                  fontFamily={fontFamily ?? 'Inter, system-ui, sans-serif'}
+                  color={color}
+                  background={background}
+                  onCommit={(markup) => {
+                    const id = editingNode.id
+                    setEditingNodeId(null)
+                    onCommitNodeLabel?.(id, markup)
+                  }}
+                  onCancel={() => setEditingNodeId(null)}
+                />
+              )
+            })()
+          : null}
 
         {/* Top-left: tool palette + hint */}
         <div className="ep-canvas-floating" style={{ top: 16, left: 16 }}>

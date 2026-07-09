@@ -1006,3 +1006,102 @@ body.epure-dragging * {
   font-size: 11px;
   color: var(--ep-text-subtle);
 }
+
+/* ── Inline node-label editor (double-click a node) ─────────────────────── */
+
+.ep-label-editor {
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  pointer-events: auto;
+}
+
+.ep-label-editable {
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--ep-accent);
+  box-shadow:
+    0 0 0 3px var(--ep-accent-bg),
+    var(--ep-shadow-card);
+  outline: none;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+/* Lists read as a normal bulleted block while editing (the baked SVG label
+   centers them, but a left-aligned list is far easier to edit). */
+.ep-label-editable ul {
+  margin: 2px 0;
+  padding-left: 1.2em;
+  text-align: left;
+  list-style: disc;
+}
+
+.ep-label-editable li {
+  margin: 0;
+}
+
+.ep-label-editable small {
+  opacity: 0.7;
+}
+
+.ep-label-toolbar {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--ep-surface);
+  border: 1px solid var(--ep-border);
+  border-radius: 9px;
+  box-shadow: var(--ep-shadow-card);
+  white-space: nowrap;
+}
+
+.ep-label-toolbar.below {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+
+.ep-label-tool {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ep-text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.ep-label-tool:hover {
+  background: var(--ep-bg);
+  color: var(--ep-text);
+}
+
+.ep-label-tool.active {
+  background: var(--ep-accent-bg);
+  border-color: var(--ep-accent-border);
+  color: var(--ep-accent-deep);
+}
+
+.ep-label-tool-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--ep-border);
+}

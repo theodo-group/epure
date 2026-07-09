@@ -25,6 +25,7 @@ import {
   type StoredDoc,
 } from '@/file/localStore'
 import { locateLayoutKeyRanges } from '@/file/layoutSchema'
+import { editorHtmlToLabel, labelToEditorHtml, quoteD2 } from '@/editor/labelMarkup'
 import { exportPng, type ExportFrame } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import { computeContentBounds } from '@/renderer/bounds'
@@ -332,6 +333,13 @@ export const App = () => {
   // Global keyboard shortcuts.
   useEffect(() => {
     const onKeyDown = async (ev: KeyboardEvent) => {
+      // Don't hijack ⌘Z/⌘Y/⌘E/⌘O while the user is typing in the inline label
+      // editor — the contentEditable handles its own editing keys (native undo,
+      // bold/italic, commit). Without this, ⌘Z would undo the whole diagram.
+      const target = ev.target
+      if (target instanceof HTMLElement && target.closest('.ep-label-editable')) {
+        return
+      }
       const mod = ev.metaKey || ev.ctrlKey
       if (!mod) return
       const key = ev.key.toLowerCase()
@@ -366,6 +374,42 @@ export const App = () => {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [handleOpen, onExportPng])
+
+  // Commit an inline label edit from the canvas: rewrite the node's label in
+  // the .d2 source in place (or insert one after the id when the node has none).
+  // Read source/parse from the store so the closure never goes stale between
+  // edits. Routes through `setSource`, so it reparses/reroutes/persists and
+  // syncs to disk exactly like a keystroke in the code editor.
+  const handleCommitNodeLabel = useCallback(
+    (id: string, markup: string) => {
+      const { source: src, parseResult: parsed } = useDiagramStore.getState()
+      if (!parsed.ok) return
+      const node = parsed.diagram.nodes.find((n) => n.id === id)
+      if (!node) return
+      // Skip the write when the edit is a no-op against the *canonical* form of
+      // the stored label — the source may use <strong>/<em>, real newlines, or
+      // stray whitespace, and merely opening then dismissing the editor (or a
+      // genuine no-change commit) must not rewrite the .d2 into canonical form.
+      const probe = document.createElement('div')
+      probe.innerHTML = labelToEditorHtml(node.label ?? '')
+      if (markup === editorHtmlToLabel(probe)) return
+      let next: string
+      if (node.labelRange) {
+        next =
+          src.slice(0, node.labelRange.start.offset) +
+          quoteD2(markup) +
+          src.slice(node.labelRange.end.offset)
+      } else {
+        // No label declared yet; nothing to write if it's still empty.
+        if (markup === '') return
+        const at = node.idRange.end.offset
+        next = `${src.slice(0, at)}: ${quoteD2(markup)}${src.slice(at)}`
+      }
+      interaction.noteActivity()
+      setSource(next)
+    },
+    [setSource],
+  )
 
   const placeholderDiagram: RoutedDiagram = useMemo(
     () => ({
@@ -502,6 +546,7 @@ export const App = () => {
               }}
               onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
               onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
+              onCommitNodeLabel={handleCommitNodeLabel}
               onMarqueeSelect={(nodeIds, areaIds, additive) => {
                 if (additive) {
                   const st = useDiagramStore.getState()
