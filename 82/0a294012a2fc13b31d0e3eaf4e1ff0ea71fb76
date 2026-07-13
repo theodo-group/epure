@@ -1,0 +1,55 @@
+server/render/index.ts
+  s_3008fa838317da::t_f3cee80181ae2f 7
+  s_3008fa838317da::t_57263d2f7215d1 27-29,37-41,47
+server/core/bridge.ts
+  s_3008fa838317da::t_59b1cffb954baa 8-9,16
+  s_3008fa838317da::t_7e76f553957fa3 62-77
+  s_3008fa838317da::t_63dc741625255c 170-173
+  s_3008fa838317da::t_00230412991686 114-117
+  s_3008fa838317da::t_1fb1198ea1d50a 28-34,38-41,47-49
+  s_3008fa838317da::t_61dcbdffec49aa 57-61
+  s_3008fa838317da::t_a1f16d86b3170a 15
+  s_3008fa838317da::t_6a1fd465f52920 35-37
+  s_3008fa838317da::t_20928a6781a6e1 238-240,244-294
+  s_3008fa838317da::t_ad8741ab639e09 104-108,113
+  s_3008fa838317da::t_453c761011aca0 295
+server/vite-plugin.ts
+  s_3008fa838317da::t_d3b2267b5ff438 87-89,97
+  s_3008fa838317da::t_85052461453ce2 90-96
+  s_3008fa838317da::t_2293c7372a4435 12
+server/standalone.ts
+  s_3008fa838317da::t_c6337cba64a126 111-113,120
+  s_3008fa838317da::t_ea38dcb84ca8c6 114-119
+server/core/bridge.test.ts
+  s_3008fa838317da::t_d8ca7526e094df 17-27
+  s_3008fa838317da::t_4b2beb583e6ec3 135-138
+  s_3008fa838317da::t_bcc1cc5c82f825 133-134,139-171
+server/render/render.test.ts
+  s_3008fa838317da::t_ba547e3b9a7c6e 81-116
+  s_3008fa838317da::t_3582fbdd575bbf 7-8
+server/render/pngText.ts
+  s_3008fa838317da::t_07438250bf68c6 1-105
+server/standalone.test.ts
+  s_3008fa838317da::t_3cdd4ef18368f3 101-121,135,137
+  s_3008fa838317da::t_1767f7047552da 1
+  s_3008fa838317da::t_50c78fc8f43690 43-45
+  s_3008fa838317da::t_0bcb285802dea7 3
+  s_3008fa838317da::t_98c440866c1a34 25-33
+  s_3008fa838317da::t_17520e9cf1e0a9 122-134,136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "820a294012a2fc13b31d0e3eaf4e1ff0ea71fb76",
+  "prompts": {},
+  "sessions": {
+    "s_3008fa838317da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2782e84c-9a86-42e2-93b1-8aa2408ee9e1",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
