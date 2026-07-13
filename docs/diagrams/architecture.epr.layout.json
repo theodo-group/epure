@@ -16,14 +16,14 @@
     "parser": { "cx": 43, "cy": 6, "w": 6, "h": 3, "borderColor": "orange" },
     "png": { "cx": 52, "cy": 31, "w": 4, "h": 2, "borderColor": "green", "fillColor": "green" },
     "store": { "cx": 32, "cy": 13, "w": 6, "h": 3, "borderColor": "purple" },
-    "user": { "cx": -1, "cy": 3, "w": 2, "h": 2, "borderColor": "gray" },
+    "user": { "cx": 0, "cy": 2, "w": 2, "h": 2, "borderColor": "gray" },
     "ws": { "cx": 18, "cy": 12, "w": 6, "h": 3, "textSize": "L", "borderColor": "blue" }
   },
   "edges": {
     "bclient->ws": { "sourceSide": "W", "targetSide": "E", "color": "blue" },
     "bridgecore->d2": { "color": "teal" },
     "bridgecore->layout": { "color": "teal" },
-    "cli->export": { "lineStyle": "dashed", "sourceSide": "E" },
+    "cli->export": { "sourceSide": "E", "lineStyle": "dashed" },
     "cli->http": { "sourceSide": "E" },
     "editor->store": { "sourceSide": "S", "targetSide": "N" },
     "elk->canvas": { "sourceSide": "W", "targetSide": "E", "color": "orange" },
@@ -35,8 +35,8 @@
     "store->bclient": { "color": "blue" },
     "store->canvas": { "sourceSide": "S", "targetSide": "N" },
     "store->parser": { "sourceSide": "E", "targetSide": "W" },
-    "user->app": { "sourceSide": "E", "targetSide": "W" },
-    "user->cli": { "sourceSide": "S", "targetSide": "N" },
+    "user->app": {},
+    "user->cli": {},
     "ws->bridgecore": { "sourceSide": "S", "targetSide": "N", "color": "blue" }
   },
   "areas": {
