@@ -204,6 +204,7 @@ export class D2Visitor extends BaseVisitor {
     range: SourceRange,
   ): AreaDecl {
     const members: string[] = []
+    const memberRanges: SourceRange[] = []
     for (const item of block.items) {
       if (item.kind !== 'member') continue
       const memberId = item.path[0]!
@@ -215,8 +216,9 @@ export class D2Visitor extends BaseVisitor {
         continue
       }
       members.push(memberId)
+      memberRanges.push(item.range)
     }
-    return { kind: 'area', id, label, members, range }
+    return { kind: 'area', id, label, members, memberRanges, range }
   }
 
   // -- edge ---------------------------------------------------------------

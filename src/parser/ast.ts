@@ -57,6 +57,10 @@ export interface AreaDecl {
   id: string
   label?: string
   members: string[]
+  /** Source span of each member's id token, parallel to `members`. Lets an edit
+   *  remove a single member from the block (e.g. when its node is deleted)
+   *  without touching the rest of the declaration. */
+  memberRanges: SourceRange[]
   range: SourceRange
 }
 
