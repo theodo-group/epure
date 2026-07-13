@@ -1,0 +1,19 @@
+docs/diagrams/architecture.epr.layout.json
+  s_3008fa838317da::t_dbae78f563abe6 19,26,38-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.13",
+  "base_commit_sha": "6c0bef236565d883205ef6695732ac3447557990",
+  "prompts": {},
+  "sessions": {
+    "s_3008fa838317da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2782e84c-9a86-42e2-93b1-8aa2408ee9e1",
+        "model": "unknown"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
