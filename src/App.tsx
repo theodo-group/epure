@@ -11,6 +11,7 @@ import { StylePanel } from '@/style/StylePanel'
 import {
   FONT_LABELS,
   FONT_STACKS,
+  mintNodeId,
   useDiagramStore,
   useTemporalStore,
   type FontFamilyId,
@@ -62,6 +63,16 @@ const parseFixtureLayout = (raw: string): LayoutSidecar => {
   }
 }
 
+// Append one or more statements to the .d2 source on their own lines, keeping a
+// single separating newline so the diff is exactly the lines added (the parser
+// collapses consecutive newlines, so a trailing one is harmless).
+const appendBlock = (src: string, lines: string[]): string => {
+  const body = lines.join('\n')
+  if (src.length === 0) return `${body}\n`
+  const sep = src.endsWith('\n') ? '' : '\n'
+  return `${src}${sep}${body}\n`
+}
+
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -105,6 +116,7 @@ export const App = () => {
   const selectArea = useDiagramStore((s) => s.selectArea)
   const selectEdge = useDiagramStore((s) => s.selectEdge)
   const setSelection = useDiagramStore((s) => s.setSelection)
+  const deleteSelection = useDiagramStore((s) => s.deleteSelection)
   const moveNode = useDiagramStore((s) => s.moveNode)
   const moveNodes = useDiagramStore((s) => s.moveNodes)
   const setEdgeLabelOffset = useDiagramStore((s) => s.setEdgeLabelOffset)
@@ -411,6 +423,74 @@ export const App = () => {
     [setSource],
   )
 
+  // Create a node from the canvas (N): mint a stable machine id, append a bare
+  // declaration to the .d2, and select it. Returns the new id so the canvas can
+  // open its inline label editor once the node lands (creation is async — it
+  // routes through setSource → reparse → reroute like any other edit, so the
+  // node doesn't exist yet when this returns). No layout.json is written: an
+  // unpositioned node is auto-placed by the router, keeping the diff to +1 line.
+  const handleCreateNode = useCallback((): string | null => {
+    const { source: src, parseResult: parsed } = useDiagramStore.getState()
+    if (!parsed.ok) return null
+    const id = mintNodeId(parsed.diagram)
+    interaction.noteActivity()
+    setSource(appendBlock(src, [id]))
+    selectNode(id, false)
+    return id
+  }, [setSource, selectNode])
+
+  // Connect the current node selection into a chain (C): append `a -> b`,
+  // `b -> c`… for the selected nodes in selection order (Shift+C reverses each
+  // arrow). Skips self-loops and any edge that already exists, and only wires
+  // real nodes (areas in the selection are ignored). Plain edges need no layout
+  // sidecar entry — the router picks the faces — so the diff is just the lines.
+  const handleConnectSelection = useCallback(
+    (reverse: boolean) => {
+      const {
+        source: src,
+        parseResult: parsed,
+        selectedNodeIds: sel,
+      } = useDiagramStore.getState()
+      if (!parsed.ok || sel.length < 2) return
+      const nodeIds = new Set(parsed.diagram.nodes.map((n) => n.id))
+      const seen = new Set(
+        parsed.diagram.edges.map((e) => `${e.source}->${e.target}`),
+      )
+      const lines: string[] = []
+      for (let i = 0; i < sel.length - 1; i += 1) {
+        const a = sel[i]!
+        const b = sel[i + 1]!
+        const from = reverse ? b : a
+        const to = reverse ? a : b
+        if (from === to) continue
+        if (!nodeIds.has(from) || !nodeIds.has(to)) continue
+        const key = `${from}->${to}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        lines.push(`${from} -> ${to}`)
+      }
+      if (lines.length === 0) return
+      interaction.noteActivity()
+      setSource(appendBlock(src, lines))
+    },
+    [setSource],
+  )
+
+  // Delete the current selection (Delete/Backspace). Routes through the store so
+  // the source + layout edit is a single undoable step; noteActivity keeps the
+  // bridge from clobbering it with an inbound apply mid-edit.
+  const handleDeleteSelection = useCallback(() => {
+    const st = useDiagramStore.getState()
+    if (
+      st.selectedNodeIds.length === 0 &&
+      st.selectedAreaIds.length === 0 &&
+      st.selectedEdgeIds.length === 0
+    )
+      return
+    interaction.noteActivity()
+    deleteSelection()
+  }, [deleteSelection])
+
   const placeholderDiagram: RoutedDiagram = useMemo(
     () => ({
       gridSize: layout.gridSize,
@@ -547,6 +627,9 @@ export const App = () => {
               onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
               onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
               onCommitNodeLabel={handleCommitNodeLabel}
+              onCreateNode={handleCreateNode}
+              onConnectSelection={handleConnectSelection}
+              onDeleteSelection={handleDeleteSelection}
               onMarqueeSelect={(nodeIds, areaIds, additive) => {
                 if (additive) {
                   const st = useDiagramStore.getState()

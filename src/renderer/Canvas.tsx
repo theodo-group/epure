@@ -55,6 +55,15 @@ interface CanvasProps {
   /** Commit an inline label edit (double-click a node). `markup` is the D2
    *  label subset; an empty string clears the label. */
   onCommitNodeLabel?: (id: string, markup: string) => void
+  /** Create a node (N). Returns the new node's id so the canvas can open its
+   *  inline label editor once the node lands in the routed diagram, or null if
+   *  the document can't currently accept one (e.g. an unparseable .d2). */
+  onCreateNode?: () => string | null
+  /** Connect the current node selection into a chain (C); `reverse` flips each
+   *  arrow direction (Shift+C). */
+  onConnectSelection?: (reverse: boolean) => void
+  /** Delete the current selection (Delete / Backspace). */
+  onDeleteSelection?: () => void
   onAreaDragStart?: (areaId: string) => void
   onAreaDragMove?: (areaId: string, dxPixels: number, dyPixels: number) => void
   /** Increment to refit the view to current content bounds. */
@@ -78,6 +87,16 @@ const MAX_ZOOM = 8
 const ZOOM_STEP = 1.2
 const TEXT_STEP = 1.15
 
+// True when the event originates from a text-entry surface (a form field or any
+// contentEditable — the code editor and the inline label editor both qualify),
+// so global canvas hotkeys don't fire while the user is typing.
+const isTypingTarget = (el: EventTarget | null): boolean => {
+  if (!(el instanceof HTMLElement)) return false
+  if (el.isContentEditable) return true
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
 export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
   (
     {
@@ -95,6 +114,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onResizeNode,
       onMoveLabel,
       onCommitNodeLabel,
+      onCreateNode,
+      onConnectSelection,
+      onDeleteSelection,
       onAreaDragStart,
       onAreaDragMove,
       fitVersion,
@@ -121,6 +143,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     const [spaceHeld, setSpaceHeld] = useState(false)
     // Id of the node whose label is being edited inline (double-click), or null.
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+    // Id of a just-created node (N) awaiting its inline label editor. The node
+    // is appended to the .d2 and only appears after an async reparse+reroute, so
+    // we can't open the editor synchronously — we wait for it to land below.
+    const [pendingEditId, setPendingEditId] = useState<string | null>(null)
 
     const panActive = tool === 'pan' || spaceHeld
 
@@ -189,12 +215,6 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
 
     // Space-to-pan, V/H tool hotkeys.
     useEffect(() => {
-      const isTypingTarget = (el: EventTarget | null) => {
-        if (!(el instanceof HTMLElement)) return false
-        if (el.isContentEditable) return true
-        const tag = el.tagName
-        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-      }
       const onDown = (e: KeyboardEvent) => {
         if (isTypingTarget(e.target)) return
         if (e.code === 'Space' && !e.repeat) {
@@ -220,6 +240,45 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
         window.removeEventListener('keyup', onUp)
       }
     }, [])
+
+    // N = add a node (then open its label editor to name it); C = connect the
+    // selection into a chain, Shift+C reverses the arrows; Delete/Backspace =
+    // remove the selection. Modifier combos are left alone so Cmd/Ctrl+C (copy)
+    // and friends keep working, and the typing guard means Backspace still edits
+    // text in the code editor / label editor as usual.
+    useEffect(() => {
+      if (!onCreateNode && !onConnectSelection && !onDeleteSelection) return
+      const onKey = (e: KeyboardEvent) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return
+        if (isTypingTarget(e.target)) return
+        const k = e.key.toLowerCase()
+        if (k === 'n' && onCreateNode) {
+          e.preventDefault()
+          const id = onCreateNode()
+          if (id) setPendingEditId(id)
+        } else if (k === 'c' && onConnectSelection) {
+          e.preventDefault()
+          onConnectSelection(e.shiftKey)
+        } else if ((k === 'delete' || k === 'backspace') && onDeleteSelection) {
+          e.preventDefault()
+          onDeleteSelection()
+        }
+      }
+      window.addEventListener('keydown', onKey)
+      return () => window.removeEventListener('keydown', onKey)
+    }, [onCreateNode, onConnectSelection, onDeleteSelection])
+
+    // Once a just-created node lands in the routed diagram, open its inline
+    // label editor so the user can name it immediately. We wait for it to exist
+    // (rather than opening blind) because the close-on-vanish guard above would
+    // otherwise snap the editor shut before the reparse+reroute completes.
+    useEffect(() => {
+      if (!pendingEditId) return
+      if (diagram.nodes.some((n) => n.id === pendingEditId)) {
+        setEditingNodeId(pendingEditId)
+        setPendingEditId(null)
+      }
+    }, [diagram, pendingEditId])
 
     const z = view?.zoom ?? 1
     const cx = view?.cx ?? 0
@@ -587,11 +646,14 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             </button>
           </div>
           <div className="ep-hint">
-            <span>Hold</span>
+            <span className="ep-kbd">N</span>
+            <span>new node</span>
+            <span className="ep-kbd">C</span>
+            <span>connect</span>
+            <span className="ep-kbd">⌫</span>
+            <span>delete</span>
             <span className="ep-kbd">Space</span>
-            <span>or</span>
-            <span className="ep-kbd">Scroll</span>
-            <span>to pan, or use the hand tool</span>
+            <span>pan</span>
           </div>
         </div>
 

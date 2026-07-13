@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
-import type { ParseResult } from '@/parser/ast'
+import type { Diagram, ParseResult } from '@/parser/ast'
 import { parse } from '@/parser'
 import type {
   AreaStyleSpec,
@@ -16,6 +16,60 @@ import { normalizeForRoute } from '@/layout/normalize'
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
 // `source->target` (shared across parallel edges), so strip the ordinal.
 const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0]!
+
+// Mint the first free machine id `n{k}` (n1, n2, …) not taken by any node, area,
+// or edge endpoint. Ids created from the canvas are deliberately meaningless
+// machine handles — meaning lives in the label — so we never derive an id from
+// user text and never rename it later (renaming would cascade through the .d2
+// source range, the layout key, and every edge reference). The gap-fill (return
+// the lowest free index, not `count+1`) keeps ids stable as nodes come and go.
+export const mintNodeId = (diagram: Diagram): string => {
+  const taken = new Set<string>()
+  for (const n of diagram.nodes) taken.add(n.id)
+  for (const a of diagram.areas) taken.add(a.id)
+  for (const e of diagram.edges) {
+    taken.add(e.source)
+    taken.add(e.target)
+  }
+  let k = 1
+  while (taken.has(`n${k}`)) k += 1
+  return `n${k}`
+}
+
+// Remove a set of character ranges from `src`, growing each range to swallow the
+// line it sits on: leading indentation before the range and one trailing
+// newline after it. That turns "delete this declaration/member token" into
+// "delete its whole line", so no blank line or dangling indent is left behind.
+// Ranges are merged, so adjacent deletions collapse cleanly.
+const spliceOut = (
+  src: string,
+  ranges: Array<{ start: number; end: number }>,
+): string => {
+  if (ranges.length === 0) return src
+  const isIndent = (c: string | undefined) => c === ' ' || c === '\t'
+  const grown = ranges
+    .map(({ start, end }) => {
+      let s = start
+      let e = end
+      if (src[e] === '\n') e += 1
+      while (s > 0 && isIndent(src[s - 1])) s -= 1
+      return { start: s, end: e }
+    })
+    .sort((a, b) => a.start - b.start)
+  const merged: Array<{ start: number; end: number }> = []
+  for (const r of grown) {
+    const last = merged[merged.length - 1]
+    if (last && r.start <= last.end) last.end = Math.max(last.end, r.end)
+    else merged.push({ ...r })
+  }
+  let out = ''
+  let pos = 0
+  for (const r of merged) {
+    out += src.slice(pos, r.start)
+    pos = r.end
+  }
+  return out + src.slice(pos)
+}
 
 export type ExportScale = 1 | 2 | 4
 
@@ -90,6 +144,13 @@ export interface DiagramActions {
   setSelectedEdgeIds: (ids: string[]) => void
   setSelection: (nodeIds: string[], areaIds: string[], edgeIds?: string[]) => void
   clearSelection: () => void
+  /** Delete the current selection (nodes, edges, areas) from the .d2 source and
+   *  the layout sidecar in one undoable step. Deleting a node also removes every
+   *  edge incident to it (a dangling edge would render a phantom box) and strips
+   *  its id from any surviving area's member list; deleting an area removes the
+   *  grouping only, never its member nodes. No-op when nothing is selected or the
+   *  document doesn't currently parse. */
+  deleteSelection: () => void
   /** Merge a style patch into every selected node / edge / area. */
   setNodeStyle: (patch: Partial<NodeStyle>) => void
   /** Merge a patch into every selected edge's sidecar entry. Besides visual
@@ -377,6 +438,69 @@ export const useDiagramStore = create<DiagramStore>()(
           selectedAreaIds: [],
           selectedEdgeIds: [],
         })),
+
+      deleteSelection: () =>
+        set((s) => {
+          if (!s.parseResult.ok) return s
+          const delNodes = new Set(s.selectedNodeIds)
+          const delAreas = new Set(s.selectedAreaIds)
+          // Selection holds routed edge ids (`src->tgt#i`); the .d2 and the style
+          // sidecar both key on `src->tgt`, so collapse to that shared key.
+          const delEdgeKeys = new Set(s.selectedEdgeIds.map(edgeStyleKey))
+          if (delNodes.size === 0 && delAreas.size === 0 && delEdgeKeys.size === 0)
+            return s
+
+          const { diagram } = s.parseResult
+          const cuts: Array<{ start: number; end: number }> = []
+          const cut = (r: { start: { offset: number }; end: { offset: number } }) =>
+            cuts.push({ start: r.start.offset, end: r.end.offset })
+
+          for (const n of diagram.nodes) if (delNodes.has(n.id)) cut(n.range)
+          for (const a of diagram.areas) if (delAreas.has(a.id)) cut(a.range)
+
+          // Edges: those explicitly selected, plus any incident to a deleted node
+          // (leaving one would render a phantom endpoint). Track the keys removed
+          // so the style sidecar is cleaned to match.
+          const removedEdgeKeys = new Set<string>()
+          for (const e of diagram.edges) {
+            const key = `${e.source}->${e.target}`
+            if (delEdgeKeys.has(key) || delNodes.has(e.source) || delNodes.has(e.target)) {
+              cut(e.range)
+              removedEdgeKeys.add(key)
+            }
+          }
+
+          // Strip deleted nodes from the member lists of areas that survive (a
+          // deleted area is being removed wholesale, so skip it).
+          for (const a of diagram.areas) {
+            if (delAreas.has(a.id)) continue
+            a.members.forEach((mid, i) => {
+              const r = a.memberRanges[i]
+              if (r && delNodes.has(mid)) cut(r)
+            })
+          }
+
+          const nextNodes = { ...s.layout.nodes }
+          for (const id of delNodes) delete nextNodes[id]
+          const nextEdges = { ...s.layout.edges }
+          for (const key of removedEdgeKeys) delete nextEdges[key]
+          for (const key of delEdgeKeys) delete nextEdges[key]
+          const nextLayout = { ...s.layout, nodes: nextNodes, edges: nextEdges }
+          if (nextLayout.areas && delAreas.size > 0) {
+            const nextAreas = { ...nextLayout.areas }
+            for (const id of delAreas) delete nextAreas[id]
+            nextLayout.areas = nextAreas
+          }
+
+          return {
+            ...s,
+            source: spliceOut(s.source, cuts),
+            layout: nextLayout,
+            selectedNodeIds: [],
+            selectedAreaIds: [],
+            selectedEdgeIds: [],
+          }
+        }),
 
       setNodeStyle: (patch) =>
         set((s) => {
