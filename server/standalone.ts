@@ -108,7 +108,16 @@ export const startStandalone = async (
     },
     opts.token,
   )
-  core = new BridgeCore({ pair, onFileChanged: ws.broadcast })
+  core = new BridgeCore({
+    pair,
+    onFileChanged: ws.broadcast,
+    // The rendered PNG trails the text pair on every edit; icons + routing wasm
+    // both live in the built SPA (vite copies `public/` to the dist root).
+    png: {
+      iconsDir: join(opts.distDir, 'icons'),
+      wasmPath: join(opts.distDir, 'libavoid.wasm'),
+    },
+  })
   await core.start()
 
   const port = await new Promise<number>((resolve, reject) => {

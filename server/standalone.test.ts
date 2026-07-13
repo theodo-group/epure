@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 import { WebSocket } from 'ws'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -22,6 +22,15 @@ const nextMessage = (socket: WebSocket): Promise<ServerMsg> =>
     socket.once('message', (raw) => resolve(JSON.parse(raw.toString()) as ServerMsg))
   })
 
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+const waitFor = async (check: () => Promise<boolean>, timeout: number) => {
+  for (let waited = 0; waited < timeout; waited += 100) {
+    if (await check()) return
+    await new Promise((r) => setTimeout(r, 100))
+  }
+}
+
 describe('standalone server', () => {
   let dir: string
   let distDir: string
@@ -31,6 +40,9 @@ describe('standalone server', () => {
     dir = await mkdtemp(join(tmpdir(), 'epure-srv-'))
     distDir = await mkdtemp(join(tmpdir(), 'epure-dist-'))
     await writeFile(join(distDir, 'index.html'), INDEX_HTML, 'utf8')
+    // The PNG sidecar routes through libavoid's wasm; give the host a real one
+    // (shipped in public/) so rendering exercises real routing, not the stub.
+    await copyFile(resolve(process.cwd(), 'public/libavoid.wasm'), join(distDir, 'libavoid.wasm'))
     await writeFile(join(dir, 'sys.epr.d2'), 'a\nb\na -> b\n', 'utf8')
     handle = await startStandalone({
       pairInput: join(dir, 'sys.epr.d2'),
@@ -85,6 +97,43 @@ describe('standalone server', () => {
     expect(onDisk.endsWith('}\n')).toBe(true) // canonical form
     socket.close()
   })
+
+  it('writes a PNG sidecar next to the pair after a WS apply', async () => {
+    const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
+    await new Promise((r) => socket.once('open', r))
+    socket.send(
+      JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'secret-token', doc: 'sys' }),
+    )
+    await nextMessage(socket) // hydrate
+
+    const layout = '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2},"b":{"cx":8,"cy":2,"w":4,"h":2}}, "edges":{} }'
+    socket.send(
+      JSON.stringify({
+        type: 'apply',
+        doc: 'sys',
+        files: [{ kind: 'd2', content: 'a\nb\na -> b\n' }, { kind: 'layout', content: layout }],
+      }),
+    )
+    await nextMessage(socket) // applied
+
+    const dest = join(dir, 'sys.png')
+    // Debounced (400ms) then rasterized.
+    await waitFor(async () => (await readFile(dest).catch(() => null)) !== null, 6000)
+    const first = await readFile(dest)
+    expect(first.subarray(0, 8)).toEqual(PNG_MAGIC)
+
+    // Regression: a SECOND edit must re-render the PNG too (the initial bug
+    // updated it once then went stale / crashed the host on the next render).
+    const firstMtime = (await stat(dest)).mtimeMs
+    await new Promise((r) => setTimeout(r, 20)) // ensure a distinct mtime
+    socket.send(
+      JSON.stringify({ type: 'apply', doc: 'sys', files: [{ kind: 'd2', content: 'a\nb\nc\na -> b\nb -> c\n' }] }),
+    )
+    await nextMessage(socket) // applied
+    await waitFor(async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime, 6000)
+    expect((await stat(dest)).mtimeMs).not.toBe(firstMtime)
+    socket.close()
+  }, 12000)
 
   it('rejects a WS hello with the wrong token', async () => {
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)

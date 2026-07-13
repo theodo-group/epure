@@ -4,6 +4,7 @@
 
 import { buildRenderModel } from './model'
 import { svgToPng, type PngOptions } from './png'
+import { embedPngText, PNG_SOURCE_KEYS } from './pngText'
 import { inlineIcons, renderSvgString, type SvgOptions } from './svg'
 
 export interface RenderOptions extends SvgOptions, PngOptions {
@@ -23,7 +24,9 @@ export const renderDiagramSvg = async (
   return opts.iconsDir ? inlineIcons(svg, opts.iconsDir) : svg
 }
 
-/** Render a pair to fit-to-content PNG bytes, or `{ error }` if the d2 is invalid. */
+/** Render a pair to fit-to-content PNG bytes, or `{ error }` if the d2 is
+ *  invalid. The diagram's own source (d2 + layout) is embedded as PNG text
+ *  metadata so the image is a self-contained, round-trippable record. */
 export const renderDiagramPng = async (
   d2: string,
   layoutText: string | null,
@@ -31,9 +34,14 @@ export const renderDiagramPng = async (
 ): Promise<Buffer | { error: string }> => {
   const svg = await renderDiagramSvg(d2, layoutText, opts)
   if (typeof svg !== 'string') return svg
-  return svgToPng(svg, opts)
+  const png = svgToPng(svg, opts)
+  return embedPngText(png, [
+    { keyword: PNG_SOURCE_KEYS.d2, text: d2 },
+    ...(layoutText !== null ? [{ keyword: PNG_SOURCE_KEYS.layout, text: layoutText }] : []),
+  ])
 }
 
 export { buildRenderModel } from './model'
 export { renderSvgString, inlineIcons } from './svg'
 export { svgToPng } from './png'
+export { embedPngText, readPngText, PNG_SOURCE_KEYS } from './pngText'

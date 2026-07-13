@@ -9,6 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import type { Server as HttpServer } from 'node:http'
+import { join } from 'node:path'
 
 import type { Plugin } from 'vite'
 
@@ -83,7 +84,17 @@ export const epureBridge = (): Plugin => {
       const { BridgeCore: BridgeCoreImpl } = (await server.ssrLoadModule(
         '/server/core/bridge.ts',
       )) as { BridgeCore: typeof BridgeCore }
-      core = new BridgeCoreImpl({ pair, onFileChanged: ws.broadcast })
+      core = new BridgeCoreImpl({
+        pair,
+        onFileChanged: ws.broadcast,
+        // Dev parity: render the PNG sidecar too. Icons + routing wasm are
+        // served from `public/` in dev — point at them on disk so the render
+        // matches the editor (and, crucially, so libavoid doesn't abort).
+        png: {
+          iconsDir: join(server.config.root, 'public', 'icons'),
+          wasmPath: join(server.config.root, 'public', 'libavoid.wasm'),
+        },
+      })
       void core.start()
       server.config.logger.info(`  ➜  Épure bridge: ${pair.stem} (${realPath})`)
 
