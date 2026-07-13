@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { buildRenderModel } from './model'
+import { renderDiagramPng } from './index'
+import { embedPngText, readPngText, PNG_SOURCE_KEYS } from './pngText'
 import { inlineIcons, renderSvgString } from './svg'
 import { svgToPng } from './png'
 
@@ -75,5 +77,41 @@ describe('headless diagram render', () => {
     if ('error' in model) throw new Error(model.error)
     const png = svgToPng(renderSvgString(model), { scale: 1 })
     expect(png.length).toBeGreaterThan(500)
+  })
+
+  it('embeds the diagram source in the rendered PNG (round-trips, incl. layout)', async () => {
+    const png = await renderDiagramPng(D2, LAYOUT, { iconsDir: ICONS, scale: 1 })
+    if (!Buffer.isBuffer(png)) throw new Error(png.error)
+    // Still a valid PNG after splicing metadata chunks.
+    expect(png.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    const meta = readPngText(png)
+    expect(meta[PNG_SOURCE_KEYS.d2]).toBe(D2)
+    expect(meta[PNG_SOURCE_KEYS.layout]).toBe(LAYOUT)
+  })
+
+  it('omits the layout key when a diagram has no layout file', async () => {
+    const png = await renderDiagramPng('a\nb\na -> b\n', null, { scale: 1 })
+    if (!Buffer.isBuffer(png)) throw new Error(png.error)
+    const meta = readPngText(png)
+    expect(meta[PNG_SOURCE_KEYS.d2]).toBe('a\nb\na -> b\n')
+    expect(meta[PNG_SOURCE_KEYS.layout]).toBeUndefined()
+  })
+})
+
+describe('PNG text metadata', () => {
+  it('round-trips UTF-8 keywords and text through iTXt chunks', () => {
+    // A minimal but valid PNG to splice into (1×1 via a tiny render).
+    const base = svgToPng('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>', { scale: 1 })
+    const text = 'user: Utilisateur { shape: person }\napi: "Café ☕ API"\nuser -> api: héllo\n'
+    const out = embedPngText(base, [{ keyword: 'epure.d2', text }])
+    expect(out.subarray(0, 8)).toEqual(base.subarray(0, 8)) // signature intact
+    expect(out.length).toBeGreaterThan(base.length)
+    expect(readPngText(out)['epure.d2']).toBe(text)
+  })
+
+  it('returns a non-PNG buffer untouched (never corrupts input)', () => {
+    const notPng = Buffer.from('not a png at all')
+    expect(embedPngText(notPng, [{ keyword: 'k', text: 'v' }])).toBe(notPng)
+    expect(readPngText(notPng)).toEqual({})
   })
 })

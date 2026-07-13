@@ -5,12 +5,15 @@
 // Both hosts (standalone server, Vite plugin) own a WebSocket and delegate all
 // file logic here; this module knows nothing about sockets.
 
-import { rename, writeFile } from 'node:fs/promises'
+import { readFile, rename, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { watch, type FSWatcher } from 'chokidar'
 
 import { canonicalizeLayout } from '../../src/file/canonicalLayout'
 import { validateLayoutJson } from '../../src/file/layoutSchema'
+import { setLibavoidWasmPath } from '../../src/layout/elk'
+import { renderDiagramPng } from '../render'
 
 import { readFrame, verdictFor } from './frames'
 import type { ResolvedPair } from './pair'
@@ -22,17 +25,55 @@ import {
   type FileKind,
 } from './protocol'
 
+/** Config for the rendered PNG that trails the text pair. When present, every
+ *  editor apply re-renders `<stem>.png` next to the sidecars so the image stays
+ *  in step with the reviewable `.epr.*` files. */
+export interface PngSidecarOptions {
+  /** Icons root so logos inline into the PNG (`<iconsDir>/aws/.../x.png`).
+   *  Omitted → icon hrefs are left as-is and the rasterizer skips them. */
+  iconsDir?: string
+  /** Absolute path to `libavoid.wasm` so edge routing matches the editor.
+   *  Omitted → routing falls back to stub routes (still a valid PNG). */
+  wasmPath?: string
+  /** Resolution multiplier; defaults to 2 (matches `epure export`). */
+  scale?: number
+}
+
 export interface BridgeCoreOptions {
   pair: ResolvedPair
   /** Called when a watched file changes on disk and the change is *not* an
    *  echo of our own write. */
   onFileChanged: (msg: FileChangedMsg) => void
+  /** When set, keep a rendered PNG sidecar in sync with the text pair on every
+   *  apply. Omit to disable (e.g. in tests, or hosts that can't render). */
+  png?: PngSidecarOptions
 }
 
 // How many recent self-write keys to remember per kind for echo suppression.
 // The client writes on every keystroke, so a burst is many writes; this only has
 // to outlast the watcher's coalescing + read latency, not a whole session.
 const ECHO_HISTORY = 64
+
+// Coalesce a keystroke burst (the client applies on every keystroke) into a
+// single PNG render: long enough to outlast a typing burst, short enough that
+// the image feels live once editing settles.
+const PNG_DEBOUNCE_MS = 400
+
+// Server-side rendering routes through libavoid's wasm. When the wasm can't
+// load, emscripten `abort()`s with a *floating* rejection that escapes the
+// render's try/catch and would crash the long-running host. Swallow ONLY
+// wasm/libavoid rejections (real bugs still surface via the re-throw). Installed
+// once per process, the first time a png-enabled core is created.
+let wasmRejectionGuardInstalled = false
+const installWasmRejectionGuard = (): void => {
+  if (wasmRejectionGuardInstalled) return
+  wasmRejectionGuardInstalled = true
+  process.on('unhandledRejection', (err) => {
+    const s = String(err)
+    if (s.includes('wasm') || s.includes('libavoid')) return
+    throw err
+  })
+}
 
 /** Thrown by `applyInbound` when a kind fails validation; the host turns it
  *  into a `rejected` frame and keeps last-good bytes on disk. */
@@ -60,10 +101,20 @@ export class BridgeCore {
    *  newer key). Matching just the newest key lets that stale self-write look
    *  like an external "disk changed" and clobber the editor mid-type. */
   private readonly writtenKeys = new Map<FileKind, string[]>()
+  /** PNG-sidecar rendering state; all inert when `png` is undefined. */
+  private readonly png?: PngSidecarOptions
+  private pngTimer: ReturnType<typeof setTimeout> | null = null
+  private pngRendering = false
+  private pngDirty = false
 
   constructor(opts: BridgeCoreOptions) {
     this.pair = opts.pair
     this.onFileChanged = opts.onFileChanged
+    this.png = opts.png
+    if (opts.png) {
+      if (opts.png.wasmPath) setLibavoidWasmPath(opts.png.wasmPath)
+      installWasmRejectionGuard()
+    }
     for (const kind of FILE_KINDS) {
       this.pathToKind.set(this.pair.paths[kind], kind)
     }
@@ -116,6 +167,10 @@ export class BridgeCore {
   }
 
   async stop(): Promise<void> {
+    if (this.pngTimer) {
+      clearTimeout(this.pngTimer)
+      this.pngTimer = null
+    }
     await this.watcher?.close()
     this.watcher = null
   }
@@ -180,7 +235,62 @@ export class BridgeCore {
       await rename(p.tmp, p.path)
     }
 
+    // 4. Keep the rendered PNG sidecar in step with the text pair.
+    if (this.png) this.schedulePng()
+
     return planned.map((p) => p.kind)
+  }
+
+  /** Debounce a PNG re-render so a keystroke burst collapses into one render
+   *  once editing settles. */
+  private schedulePng(): void {
+    if (this.pngTimer) clearTimeout(this.pngTimer)
+    this.pngTimer = setTimeout(() => {
+      this.pngTimer = null
+      void this.renderPngSidecar()
+    }, PNG_DEBOUNCE_MS)
+  }
+
+  /** Render the current on-disk pair to `<stem>.png`. Serialized: a render
+   *  requested while one is running marks the result dirty and re-renders after,
+   *  so the PNG never lags the latest edit. Failures are swallowed — the editor
+   *  write already succeeded, and a stale/missing PNG must never break it. */
+  private async renderPngSidecar(): Promise<void> {
+    if (this.pngRendering) {
+      this.pngDirty = true
+      return
+    }
+    this.pngRendering = true
+    this.pngDirty = false
+    try {
+      await this.writePng()
+    } catch (err) {
+      process.stderr.write(`epure: PNG sidecar render failed: ${String(err)}\n`)
+    } finally {
+      this.pngRendering = false
+      if (this.pngDirty) this.schedulePng()
+    }
+  }
+
+  private async writePng(): Promise<void> {
+    const png = this.png
+    if (!png) return
+    // Read the freshly-written pair back so d2 + layout are mutually coherent
+    // (applyInbound writes only the dirty kinds; the other is already on disk).
+    const [d2, layoutText] = await Promise.all([
+      readFile(this.pair.paths.d2, 'utf8').catch(() => null),
+      readFile(this.pair.paths.layout, 'utf8').catch(() => null),
+    ])
+    if (d2 === null) return // no topology yet — nothing to draw
+    const result = await renderDiagramPng(d2, layoutText, {
+      scale: png.scale ?? 2,
+      ...(png.iconsDir ? { iconsDir: png.iconsDir } : {}),
+    })
+    if (!Buffer.isBuffer(result)) return // invalid d2 → leave the last good PNG
+    const dest = join(this.pair.dir, `${this.pair.stem}.png`)
+    const tmp = `${dest}.epure.tmp`
+    await writeFile(tmp, result)
+    await rename(tmp, dest)
   }
 
   /** Validate content for a kind and return the exact bytes to persist:

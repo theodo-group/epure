@@ -14,6 +14,17 @@ import type { FileChangedMsg } from './protocol'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+/** Poll until `check()` is truthy or the deadline passes. */
+const waitFor = async (check: () => Promise<boolean>, timeout: number) => {
+  const step = 100
+  for (let waited = 0; waited < timeout; waited += step) {
+    if (await check()) return
+    await wait(step)
+  }
+}
+
 const D2 = 'a\nb\na -> b\n'
 const LAYOUT_MESSY =
   '{ "gridSize":40, "nodes": { "a": {"cy":2,"cx":1,"w":4,"h":2}, "b": {"cx":7,"cy":2,"w":4,"h":2} }, "edges":{} }'
@@ -118,6 +129,45 @@ describe('BridgeCore', () => {
     // Every emitted change would be one of our own writes → all must be dropped.
     expect(changes).toHaveLength(0)
   }, 6000)
+
+  it('renders a PNG sidecar next to the pair after an apply (png enabled)', async () => {
+    const pair = resolvePair(join(dir, 'system.epr.d2'))
+    // scale:1 keeps the raster small; real wasm path so routing runs (not the
+    // stub fallback); iconsDir omitted (plain a/b nodes need no icons).
+    const wasmPath = join(process.cwd(), 'public', 'libavoid.wasm')
+    const pngCore = new BridgeCore({ pair, onFileChanged: () => {}, png: { scale: 1, wasmPath } })
+    try {
+      await pngCore.applyInbound([
+        { kind: 'd2', content: D2 },
+        { kind: 'layout', content: LAYOUT_MESSY },
+      ])
+      const dest = join(dir, 'system.png')
+      // Debounced (400ms) then rasterized — poll for the finished file.
+      await waitFor(async () => {
+        const buf = await readFile(dest).catch(() => null)
+        return buf !== null && buf.length > 100
+      }, 6000)
+      const buf = await readFile(dest)
+      expect(buf.subarray(0, 8)).toEqual(PNG_MAGIC)
+      // No stray temp file left behind by the atomic write.
+      await expect(readFile(`${dest}.epure.tmp`)).rejects.toMatchObject({
+        code: 'ENOENT',
+      })
+    } finally {
+      await pngCore.stop()
+    }
+  }, 10000)
+
+  it('leaves no PNG sidecar when png is not configured', async () => {
+    await core.applyInbound([
+      { kind: 'd2', content: D2 },
+      { kind: 'layout', content: LAYOUT_MESSY },
+    ])
+    await wait(600)
+    await expect(readFile(join(dir, 'system.png'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+  })
 
   it('suppresses the echo of its own write but reports a real disk edit', async () => {
     await core.start()
