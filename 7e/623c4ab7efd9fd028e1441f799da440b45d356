@@ -1,0 +1,52 @@
+src/renderer/Canvas.tsx
+  s_d17030c3e328a5::t_6a71d190c2dba4 58-64
+  s_d17030c3e328a5::t_bc0bf2fdf9c6ad 244,249,251-261,265-268,270-282
+  s_d17030c3e328a5::t_a42bba25cd38b9 649-651,656
+  s_d17030c3e328a5::t_0d8289ea661760 652-654
+  s_d17030c3e328a5::t_d3cb69de2ef31e 65-66
+  s_d17030c3e328a5::t_a31f87d24e5144 245-248,250,262-264,269
+  s_d17030c3e328a5::t_8d3706cc3df31b 119
+  s_d17030c3e328a5::t_3e0deeeadd15d2 90-99
+  s_d17030c3e328a5::t_aabccddb07b66c 146-149
+  s_d17030c3e328a5::t_f4f3e9dc879397 117-118
+src/store/mintNodeId.test.ts
+  s_d17030c3e328a5::t_725e814debcad3 1-48
+src/parser/visitor.ts
+  s_d17030c3e328a5::t_ecb568a11e282d 207,219,221
+src/App.tsx
+  s_d17030c3e328a5::t_edc5a4c90ed951 630-631
+  s_d17030c3e328a5::t_866e480ca5b9fe 632
+  s_d17030c3e328a5::t_496c7ac9e693b8 426-478
+  s_d17030c3e328a5::t_018dbcf82b4e9b 66-75
+  s_d17030c3e328a5::t_a028d5fd36a974 479-493
+  s_d17030c3e328a5::t_3fc236da807219 14
+  s_d17030c3e328a5::t_6461b213b086e9 119
+src/store/diagramStore.ts
+  s_d17030c3e328a5::t_b1fd28769f4746 147-153
+  s_d17030c3e328a5::t_e4fd0eaca36090 39-73
+  s_d17030c3e328a5::t_7ef51f756d075f 3
+  s_d17030c3e328a5::t_fe119bcbf79c3d 20-38
+  s_d17030c3e328a5::t_63a9d93a93c3c2 442-504
+src/store/deleteSelection.test.ts
+  s_d17030c3e328a5::t_d6bba2bc1461e1 13
+  s_d17030c3e328a5::t_c78c33389ea686 1-12,14-43,47-105
+  s_d17030c3e328a5::t_fb6e83e20109b3 44-46
+src/parser/ast.ts
+  s_d17030c3e328a5::t_e488d0b3d05ac8 60-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "7e623c4ab7efd9fd028e1441f799da440b45d356",
+  "prompts": {},
+  "sessions": {
+    "s_d17030c3e328a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eba87317-d92f-4c26-b8be-c53b29d2ae68",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
