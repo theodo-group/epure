@@ -1,0 +1,28 @@
+src/file/canonicalLayout.ts
+  s_33508da0028e70::t_f19834a1a2e72c 21-24
+src/file/layoutSchema.ts
+  s_33508da0028e70::t_4597eb3bd9a57c 336-342,346-348
+tests/layoutSchema.test.ts
+  s_33508da0028e70::t_6e2b5ab9e52f63 106-110
+  s_33508da0028e70::t_cee0e53e580711 86-105,111-114
+fixtures/conversation-architecture.epr.d2
+  s_33508da0028e70::t_98c8cb33c643e7 1-94
+fixtures/conversation-architecture.epr.layout.json
+  s_33508da0028e70::t_95f2911b2b7a32 1-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "8d3a25b6188a286107ed6b071787501a1a1ea72a",
+  "prompts": {},
+  "sessions": {
+    "s_33508da0028e70": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "956fd51f-04c3-424b-a089-fe4f50c34c46",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
