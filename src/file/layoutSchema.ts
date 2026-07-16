@@ -333,11 +333,19 @@ const validateNode = (node: JsonNode, key: string, ctx: Ctx): void => {
     switch (entry.key) {
       case 'cx':
       case 'cy':
-        validateNumber(entry.value, entry.key, ctx, { integer: true })
+        // Grid units, may be negative. NOT constrained to integers: resizing an
+        // odd-spanned node lands its center on a half/quarter unit (see
+        // resizeNode in diagramStore.ts), and the renderer places everything via
+        // `(cx - w/2) * gridSize`, so fractional centers draw fine. Forcing
+        // integers here rejected such a node — and, because a single bad field
+        // nulls the *whole* layout, silently dropped every position and icon.
+        validateNumber(entry.value, entry.key, ctx)
         break
       case 'w':
       case 'h':
-        validateNumber(entry.value, entry.key, ctx, { integer: true, min: 1 })
+        // Grid units ≥ 1; fractional sizes arise the same way (resizing across
+        // an odd span), so no integer constraint here either.
+        validateNumber(entry.value, entry.key, ctx, { min: 1 })
         break
       case 'textSize':
         validateEnum(entry.value, SIZES, 'textSize', ctx)

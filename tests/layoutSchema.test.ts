@@ -83,11 +83,35 @@ describe('validateLayoutJson', () => {
     expect(r.errors[0]!.message).toMatch(/gridSize must be a number/)
   })
 
-  it('accepts the bundled fixture', async () => {
-    const fixture = await import('../fixtures/system.epr.layout.json?raw')
-    const r = validateLayoutJson(fixture.default)
-    expect(r.errors).toEqual([])
-    expect(r.value).not.toBeNull()
+  it('accepts fractional node coordinates and sizes', () => {
+    // Resizing an odd-spanned node lands its center/size on a half or quarter
+    // grid unit (see resizeNode in diagramStore.ts), and the renderer draws
+    // those fine. The schema must not reject them — a single rejected field
+    // nulls the whole layout, dropping every position and icon on load.
+    const text =
+      '{"gridSize":40,"nodes":{"a":{"cx":5.5,"cy":-4.5,"w":4,"h":1.5}},"edges":{}}'
+    const v = ok(text)
+    expect(v.nodes.a).toMatchObject({ cx: 5.5, cy: -4.5, w: 4, h: 1.5 })
+  })
+
+  it('still rejects a zero/negative node size', () => {
+    const r = validateLayoutJson(
+      '{"gridSize":40,"nodes":{"a":{"cx":1,"cy":1,"w":0,"h":2}},"edges":{}}',
+    )
+    expect(r.value).toBeNull()
+    expect(r.errors.some((e) => /w must be ≥ 1/.test(e.message))).toBe(true)
+  })
+
+  it('accepts the bundled fixtures', async () => {
+    const fixtures = await Promise.all([
+      import('../fixtures/system.epr.layout.json?raw'),
+      import('../fixtures/conversation-architecture.epr.layout.json?raw'),
+    ])
+    for (const fixture of fixtures) {
+      const r = validateLayoutJson(fixture.default)
+      expect(r.errors).toEqual([])
+      expect(r.value).not.toBeNull()
+    }
   })
 
   it('rejects unknown icon ids', () => {
