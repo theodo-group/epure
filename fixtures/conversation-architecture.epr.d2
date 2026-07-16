@@ -1,0 +1,94 @@
+user: User { shape: person }
+application: Jarvis bot
+
+title_1: "One-sentence title of the topic"
+summary_1: "Summary of past messages\n<small>Every overflow past 20 messages gets compacted"
+topic_1_message_1: "User message"
+topic_1_message_2: "AI message"
+topic_1_message_3: "User message"
+topic_1_message_4: "AI message"
+topic_1_message_5: "User message"
+topic_1_message_6: "AI message"
+
+topic_1: "Topic 1 – Active (<48h)" {
+  title_1
+  summary_1
+  topic_1_message_1
+  topic_1_message_2
+  topic_1_message_3
+  topic_1_message_4
+  topic_1_message_5
+  topic_1_message_6
+}
+
+title_2: "One-sentence title of the topic"
+summary_2: "Summary of past messages\n<small>Every overflow past 20 messages gets compacted"
+topic_2_message_1: "User message"
+topic_2_message_2: "AI message"
+topic_2_message_3: "User message"
+topic_2_message_4: "AI message"
+topic_2_message_5: "User message"
+topic_2_message_6: "AI message"
+
+topic_2: "Topic 2 – Active" {
+  title_2
+  summary_2
+  topic_2_message_1
+  topic_2_message_2
+  topic_2_message_3
+  topic_2_message_4
+  topic_2_message_5
+  topic_2_message_6
+}
+
+title_3: "One-sentence title of the topic"
+
+topic_3: "Topic 3 – Idle" {
+  title_3
+}
+
+topic_details: "Topic details, with tool calls and results"
+
+topics_context: "All conversation topics"
+topic_details -> topics_context: "Feeds"
+
+# Input to the kernel
+standard: "Standard\n\n<small>What a good conversation is</small>"
+data: "Topics context + user message"
+
+# Kernel
+react_llm: "<b>ReAct LLM</b><br><br><small>Reads active topics and decides if the message belongs to an existing topic. Then proceeds to think and answer</small>"
+tools: "Tools and memory\n\n<small>Provides read and write interactions with the real world</small>"
+system_prompt: System prompt
+
+
+# Edges in the kernel
+react_llm -> tools: Calls tools
+tools -> react_llm: Provides data
+system_prompt -> react_llm: User and agent personality
+
+# Recipe to agent
+standard -> react_llm
+data -> react_llm
+
+# User to recipe
+user -> application: Talks to the agent
+application -> data: "User message + 10 latest messages"
+
+# Agent to user
+
+task: Conversation context {
+  standard
+  data
+}
+
+jarvis_agent: Jarvis Agent {
+  react_llm
+  tools
+  system_prompt
+}
+topics_context -> data
+react_llm -> application: Agent answer
+react_llm -> topic_details: Stores new topic history
+tools -> topic_details: "\"read_topic\" tool gets topic full history" 
+topic_details -> tools: "Topic full history"

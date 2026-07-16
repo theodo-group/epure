@@ -18,8 +18,10 @@
 //     manually so numeric-looking ids never get reordered by JS object rules,
 //   - fields within each record emitted in a fixed order,
 //   - absent optionals omitted entirely (never `null`),
-//   - integers stay integers (the schema constrains cx/cy/w/h/gridSize to ints,
-//     so JSON has no float drift to introduce),
+//   - numbers round-trip verbatim via JSON.stringify: gridSize is an int, and
+//     cx/cy/w/h may be fractional (an odd-spanned node resized against the grid
+//     centers on a half/quarter unit) but a value like 1.5 stringifies to "1.5"
+//     stably, so the fixed-point property still holds,
 //   - exactly one trailing newline.
 
 import type { LayoutSidecar } from '@/layout/types'

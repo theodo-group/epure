@@ -1,0 +1,208 @@
+{
+  "gridSize": 40,
+  "nodes": {
+    "api": {
+      "cx": 10,
+      "cy": 5,
+      "w": 4,
+      "h": 2
+    },
+    "summary_1": {
+      "cx": 1,
+      "cy": 7,
+      "w": 6,
+      "h": 1.5
+    },
+    "summary_2": {
+      "cx": 9,
+      "cy": 7,
+      "w": 6,
+      "h": 1.5
+    },
+    "topic_1_message_1": {
+      "cx": 2,
+      "cy": 9,
+      "w": 4,
+      "h": 1
+    },
+    "topic_1_message_2": {
+      "cx": 0,
+      "cy": 11,
+      "w": 4,
+      "h": 1
+    },
+    "topic_1_message_3": {
+      "cx": 2,
+      "cy": 13,
+      "w": 4,
+      "h": 1
+    },
+    "topic_1_message_4": {
+      "cx": 0,
+      "cy": 15,
+      "w": 4,
+      "h": 1
+    },
+    "topic_1_message_5": {
+      "cx": 2,
+      "cy": 17,
+      "w": 4,
+      "h": 1
+    },
+    "topic_1_message_6": {
+      "cx": 0,
+      "cy": 19,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_1": {
+      "cx": 10,
+      "cy": 9,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_2": {
+      "cx": 8,
+      "cy": 11,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_3": {
+      "cx": 10,
+      "cy": 13,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_4": {
+      "cx": 8,
+      "cy": 15,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_5": {
+      "cx": 10,
+      "cy": 17,
+      "w": 4,
+      "h": 1
+    },
+    "topic_2_message_6": {
+      "cx": 8,
+      "cy": 19,
+      "w": 4,
+      "h": 1
+    },
+    "topic_details": {
+      "cx": 29,
+      "cy": 5,
+      "w": 5,
+      "h": 3,
+      "shape": "cylinder"
+    },
+    "user": {
+      "cx": -3,
+      "cy": -5,
+      "w": 2,
+      "h": 2,
+      "shape": "person"
+    },
+    "topics_context": {
+      "cx": 9,
+      "cy": 3,
+      "w": 24,
+      "h": 1,
+      "borderColor": "green"
+    },
+    "react_llm": {
+      "cx": 34,
+      "cy": -6,
+      "w": 4,
+      "h": 6,
+      "icon": "lobe/ai/claude",
+      "iconPosition": "top"
+    },
+    "tools": {
+      "cx": 29,
+      "cy": -1,
+      "w": 5,
+      "h": 3
+    },
+    "system_prompt": {
+      "cx": 28,
+      "cy": -10,
+      "w": 4,
+      "h": 2,
+      "icon": "filetype/document/md"
+    },
+    "application": {
+      "cx": 5,
+      "cy": -5,
+      "w": 4,
+      "h": 3,
+      "icon": "saas/chat/telegram",
+      "iconPosition": "top"
+    },
+    "standard": {
+      "cx": 18,
+      "cy": -8,
+      "w": 4,
+      "h": 2,
+      "icon": "filetype/document/md"
+    },
+    "data": {
+      "cx": 18,
+      "cy": -4.5,
+      "w": 4,
+      "h": 3
+    },
+    "title_1": {
+      "cx": 1,
+      "cy": 5,
+      "w": 6,
+      "h": 1
+    },
+    "title_2": {
+      "cx": 9,
+      "cy": 5,
+      "w": 6,
+      "h": 1
+    },
+    "title_3": {
+      "cx": 17,
+      "cy": 5,
+      "w": 6,
+      "h": 1
+    }
+  },
+  "edges": {
+    "topics_context->data": {},
+    "application->data": {
+      "targetSide": "W",
+      "labelDx": 1
+    },
+    "react_llm->topic_details": {
+      "labelDx": 2,
+      "labelDy": -2
+    },
+    "tools->topic_details": {
+      "labelDy": -1
+    },
+    "react_llm->application": {
+      "sourceSide": "N",
+      "targetSide": "N"
+    },
+    "topic_details->tools": {
+      "labelDx": 1
+    }
+  },
+  "areas": {
+    "topic_3": {
+      "borderColor": "green"
+    },
+    "topic_2": {
+      "borderColor": "green"
+    },
+    "topic_1": {
+      "borderColor": "green"
+    }
+  }
+}
