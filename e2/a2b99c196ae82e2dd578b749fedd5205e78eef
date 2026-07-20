@@ -1,0 +1,30 @@
+server/render/svg.tsx
+  s_118ac1e59e2edf::t_d841545dae9801 50-52
+src/renderer/Node.tsx
+  s_118ac1e59e2edf::t_0686a8a01a14b3 179
+  s_118ac1e59e2edf::t_240e9a8eed27de 67-69
+src/renderer/shapes/person.tsx
+  s_118ac1e59e2edf::t_93db5316df92b8 16-25,27-28
+src/store/diagramStore.ts
+  s_118ac1e59e2edf::t_4dc2f420aa9160 289-295,303,310,317,324
+src/store/resizeNode.test.ts
+  s_118ac1e59e2edf::t_13151c4e833803 1-23,28-52
+  s_118ac1e59e2edf::t_24f191d0ed987a 24
+  s_118ac1e59e2edf::t_2fff217ac937f3 25-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e2a2b99c196ae82e2dd578b749fedd5205e78eef",
+  "prompts": {},
+  "sessions": {
+    "s_118ac1e59e2edf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fe2df1e8-07e9-4b92-b558-5b80d311f88f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
