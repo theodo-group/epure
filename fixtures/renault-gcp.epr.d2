@@ -1,0 +1,95 @@
+okta: "On-Prem or External SSO"
+userPub: "Utilisateur public" { shape: person }
+userInt: "Utilisateur interne" { shape: person }
+apigee: "APIGEE API Platform"
+gw1: "API Gateway Controller"
+gw2: "API Gateway Controller"
+app1: "App A"
+app2: "App A"
+argo: "Argo CD"
+helm: "Helm"
+kustomize: "Kustomize"
+extdns: "External DNS"
+cdn: "Cloud CDN"
+webstore: "Cloud Storage"
+aem: "Adobe Experience Manager"
+pubsub: "Pubsub"
+cloudsql: "CloudSQL"
+memstore: "Memorystore for Valkey"
+datastore: "Cloud Storage"
+functions: "Cloud Functions"
+gitlab: "GitLab"
+
+userPub -> okta
+userInt -> okta
+userInt -> cdn
+apigee -> gw1
+apigee -> gw2
+gw1 -> app1
+gw2 -> app2
+app1 -> cloudsql
+cdn -> webstore
+aem -> argo
+aem -> datastore
+functions -> cloudsql
+gitlab -> argo: "Manages" { style.stroke-dash: 4 }
+gitlab -> functions { style.stroke-dash: 4 }
+gitlab -> datastore { style.stroke-dash: 4 }
+
+extIdp: "External IDP" {
+  okta
+}
+nsIngress: "Namespace Ingress" {
+  gw1
+  gw2
+}
+nsAppA: "Namespace App A" {
+  app1
+  app2
+}
+nsMgmt: "Namespace Management" {
+  argo
+  helm
+  kustomize
+  extdns
+}
+k8s: "Kubernetes Cluster" {
+  nsIngress
+  nsAppA
+  nsMgmt
+}
+staticWeb: "Static webapps" {
+  cdn
+  webstore
+}
+vms: "VMs" {
+  aem
+}
+subnetData: "Sous-réseau privé" {
+  pubsub
+  cloudsql
+  memstore
+  datastore
+}
+subnetFn: "Sous-réseau privé" {
+  functions
+}
+production: "Projet Production" {
+  k8s
+  staticWeb
+  vms
+  subnetData
+  subnetFn
+}
+tooling: "Projet tooling" {
+  gitlab
+}
+gcp: "Renault — Google Cloud" {
+  userPub
+  userInt
+  apigee
+  production
+  tooling
+}
+okta -> apigee
+userPub -> cdn

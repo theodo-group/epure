@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
 
-import { areaTitleRect, route } from './elk'
+import { areaTitleRect, NESTED_AREA_PAD, route } from './elk'
 import { normalizeForRoute } from './normalize'
 import type { LayoutSidecar, RoutedDiagram } from './types'
 
@@ -370,6 +370,128 @@ describe('edge obstacle avoidance', () => {
       }
     }
     expect(crossings).toBe(0)
+  })
+
+  it('wraps a nested area inside its parent with a NESTED_AREA_PAD ring', async () => {
+    // Inner { a b } is itself a member of Outer { Inner c }: the parent's box
+    // must contain the child's PADDED rect plus a full NESTED_AREA_PAD ring on
+    // every side (wider than the AREA_PAD used for plain nodes, so the title
+    // chips straddling the two borders never crowd each other).
+    const parsed = parse(
+      'a\nb\nc\nInner: "Inner" {\n  a\n  b\n}\nOuter: "Outer" {\n  Inner\n  c\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        a: { cx: 5, cy: 5, w: 4, h: 2 },
+        b: { cx: 11, cy: 5, w: 4, h: 2 },
+        c: { cx: 8, cy: 10, w: 4, h: 2 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const inner = routed.areas.find((x) => x.id === 'Inner')!
+    const outer = routed.areas.find((x) => x.id === 'Outer')!
+    expect(outer.x).toBeLessThanOrEqual(inner.x - NESTED_AREA_PAD)
+    expect(outer.y).toBeLessThanOrEqual(inner.y - NESTED_AREA_PAD)
+    expect(outer.x + outer.w).toBeGreaterThanOrEqual(inner.x + inner.w + NESTED_AREA_PAD)
+    expect(outer.y + outer.h).toBeGreaterThanOrEqual(inner.y + inner.h + NESTED_AREA_PAD)
+    // Parent-first paint order: Outer must be emitted before Inner so the
+    // nested box draws on top.
+    const order = routed.areas.map((x) => x.id)
+    expect(order.indexOf('Outer')).toBeLessThan(order.indexOf('Inner'))
+  })
+
+  it('lets an edge from a deeply nested node cross its own ancestors', async () => {
+    // leaf sits two containers deep; ext sits outside everything. Every area on
+    // the path (Inner ⊂ Outer) contains leaf, so neither may block the edge —
+    // it must simply connect (crossing both borders).
+    const parsed = parse(
+      'leaf\next\nleaf -> ext\nInner: "Inner" {\n  leaf\n}\nOuter: "Outer" {\n  Inner\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        leaf: { cx: 6, cy: 6, w: 4, h: 2 },
+        ext: { cx: 20, cy: 6, w: 4, h: 2 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('leaf->ext'))!
+    expect(edge.points.length).toBeGreaterThanOrEqual(2)
+    // Ends on ext's border (the ancestors didn't wall the edge in).
+    const ext = rectOf(routed, 'ext')
+    const end = edge.points[edge.points.length - 1]!
+    const onBorder =
+      Math.abs(end.x - ext.x) < 2 ||
+      Math.abs(end.x - (ext.x + ext.w)) < 2 ||
+      Math.abs(end.y - ext.y) < 2 ||
+      Math.abs(end.y - (ext.y + ext.h)) < 2
+    expect(onBorder).toBe(true)
+  })
+
+  it('routes an edge between nested cousins around an unrelated sibling area', async () => {
+    // Shared parent Top holds three child areas: A { src }, B { tgt }, and
+    // Mid { m1 m2 } sitting directly between them. src→tgt may cross into A, B
+    // and Top (its ancestors / the target's ancestors) but must detour around
+    // Mid — neither endpoint lives there.
+    const parsed = parse(
+      'src\ntgt\nm1\nm2\nsrc -> tgt\n' +
+        'A: "A" {\n  src\n}\n' +
+        'B: "B" {\n  tgt\n}\n' +
+        'Mid: "Mid" {\n  m1\n  m2\n}\n' +
+        'Top: "Top" {\n  A\n  B\n  Mid\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        src: { cx: 3, cy: 8, w: 4, h: 2 },
+        m1: { cx: 16, cy: 6, w: 4, h: 2 },
+        m2: { cx: 16, cy: 10, w: 4, h: 2 },
+        tgt: { cx: 30, cy: 8, w: 4, h: 2 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('src->tgt'))!
+    const mid = routed.areas.find((x) => x.id === 'Mid')!
+    const midRect = { x: mid.x, y: mid.y, w: mid.w, h: mid.h }
+    const crossesMid = edge.points.some((_, i) =>
+      i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, midRect) : false,
+    )
+    expect(crossesMid).toBe(false)
+    expect(edge.points.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('still blocks a fully-outside edge at the outermost nested rect', async () => {
+    // o1→o2 with a two-level cluster between them: the OUTER area is the solid
+    // obstacle (the inner one is redundant — its rect lies inside), and the
+    // route must clear the outer padded rect entirely.
+    const parsed = parse(
+      'o1\no2\nm1\no1 -> o2\nInner: "Inner" {\n  m1\n}\nOuter: "Outer" {\n  Inner\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {
+        o1: { cx: 3, cy: 8, w: 4, h: 2 },
+        m1: { cx: 16, cy: 8, w: 4, h: 2 },
+        o2: { cx: 30, cy: 8, w: 4, h: 2 },
+      },
+      edges: {},
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('o1->o2'))!
+    const outer = routed.areas.find((x) => x.id === 'Outer')!
+    const outerRect = { x: outer.x, y: outer.y, w: outer.w, h: outer.h }
+    const crosses = edge.points.some((_, i) =>
+      i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, outerRect) : false,
+    )
+    expect(crosses).toBe(false)
   })
 
   it('quick mode is valid and reuses the cached faces of the full route', async () => {
