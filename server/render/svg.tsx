@@ -47,8 +47,9 @@ const computeBounds = (
   for (const n of diagram.nodes) {
     grow(n.x, n.y)
     grow(n.x + n.w, n.y + n.h)
-    // Labels below person nodes and corner badges overhang slightly.
-    grow(n.x + n.w, n.y + n.h + 18)
+    // Labels below person nodes and corner badges overhang slightly. Keep this
+    // in sync with LABEL_BELOW_GAP + LINE_HEIGHT in Node.tsx (plus descender).
+    grow(n.x + n.w, n.y + n.h + 26)
   }
   for (const e of diagram.edges) {
     for (const p of e.points) grow(p.x, p.y)
