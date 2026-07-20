@@ -11,6 +11,7 @@ import {
 
 import type { Diagram } from '@/parser/ast'
 
+import { buildAreaTree } from './areaTree'
 import type {
   EdgeRoute,
   LayoutNode,
@@ -33,6 +34,14 @@ export const setLibavoidWasmPath = (path: string): void => {
 // the rendered area box and the area-as-obstacle rect so routing avoids exactly
 // what the user sees.
 const AREA_PAD = 24
+
+// Border-to-border padding between an area and a MEMBER AREA nested inside it.
+// A plain AREA_PAD is too tight for nesting: both borders carry a title chip
+// straddling them (each poking TITLE_HEIGHT/2 = 11px above its border), so at
+// 24px the parent's and child's chips would sit ~2px apart. 48px leaves a
+// clear lane between the chips and visually separates the two frames.
+// Exported for tests.
+export const NESTED_AREA_PAD = 48
 
 // Geometry of the area title "chip" — the rounded tab AreaLabel (renderer/Area.tsx)
 // draws straddling an area's top border, inset from the top-LEFT corner. These
@@ -62,9 +71,11 @@ export const areaTitleRect = (areaRect: Rect, label: string): Rect => ({
 })
 
 // An area treated as a routing obstacle: the padded bounding box of its members
-// plus the membership set. An area blocks an edge only when NEITHER endpoint is
-// one of its members — an edge incident to a member has to enter/leave the
-// cluster, so membership exempts it from that area.
+// plus the membership set. `members` holds the TRANSITIVE leaf-node ids —
+// nested member areas are flattened down to the nodes they contain — so an
+// area blocks an edge only when NEITHER endpoint lives anywhere inside it. An
+// edge incident to a (transitive) member has to enter/leave the cluster, so
+// membership exempts it from that area.
 type AreaObstacle = { id: string; rect: Rect; members: Set<string> }
 
 const areaBlocksEdge = (
@@ -72,6 +83,12 @@ const areaBlocksEdge = (
   srcId: string,
   tgtId: string,
 ): boolean => !area.members.has(srcId) && !area.members.has(tgtId)
+
+const rectContains = (outer: Rect, inner: Rect): boolean =>
+  inner.x >= outer.x &&
+  inner.y >= outer.y &&
+  inner.x + inner.w <= outer.x + outer.w &&
+  inner.y + inner.h <= outer.y + outer.h
 
 // Shared libavoid options. `crossingPenalty` is the single biggest global lever
 // for edge-edge crossings and was previously left at libavoid's default of 0 —
@@ -265,28 +282,64 @@ export const route = async (
 
   // Padded bounding box per area, computed up front so it can serve as a routing
   // obstacle (here) and be reused for the rendered area box below — the two can
-  // never drift. Areas with no resolvable members are skipped.
-  const areaObstacles: AreaObstacle[] = []
+  // never drift. Member areas are resolved CHILD-FIRST: a nested member
+  // contributes its own padded rect, inflated so the parent's border lands a
+  // full NESTED_AREA_PAD from the child's (title chips straddle both borders,
+  // so the plain AREA_PAD ring used for nodes would leave the two chips nearly
+  // touching). Areas with no resolvable members are skipped, and a parent
+  // skips an empty child the same way. The stack guard makes a membership
+  // cycle (rejected at parse time) terminate instead of recursing forever.
+  const areaTree = buildAreaTree(diagram.areas)
   const areaRectById = new Map<string, Rect>()
-  for (const a of diagram.areas) {
+  // Extra inflation for a member area's rect before unioning: the AREA_PAD
+  // applied to the union below then puts the borders NESTED_AREA_PAD apart.
+  const NEST_EXTRA = NESTED_AREA_PAD - AREA_PAD
+  const computeAreaRect = (aid: string, stack: Set<string>): Rect | null => {
+    const hit = areaRectById.get(aid)
+    if (hit) return hit
+    if (stack.has(aid)) return null
+    stack.add(aid)
+    const area = areaTree.byId.get(aid)!
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const mid of a.members) {
-      const r = pixelNodes[mid]
+    for (const mid of area.members) {
+      let r: Rect | null
+      if (areaTree.byId.has(mid)) {
+        const child = computeAreaRect(mid, stack)
+        r = child && {
+          x: child.x - NEST_EXTRA,
+          y: child.y - NEST_EXTRA,
+          w: child.w + NEST_EXTRA * 2,
+          h: child.h + NEST_EXTRA * 2,
+        }
+      } else {
+        r = pixelNodes[mid] ?? null
+      }
       if (!r) continue
       minX = Math.min(minX, r.x)
       minY = Math.min(minY, r.y)
       maxX = Math.max(maxX, r.x + r.w)
       maxY = Math.max(maxY, r.y + r.h)
     }
-    if (!isFinite(minX)) continue
+    stack.delete(aid)
+    if (!isFinite(minX)) return null
     const rect: Rect = {
       x: minX - AREA_PAD,
       y: minY - AREA_PAD,
       w: maxX - minX + AREA_PAD * 2,
       h: maxY - minY + AREA_PAD * 2,
     }
-    areaRectById.set(a.id, rect)
-    areaObstacles.push({ id: a.id, rect, members: new Set(a.members) })
+    areaRectById.set(aid, rect)
+    return rect
+  }
+  const areaObstacles: AreaObstacle[] = []
+  for (const a of diagram.areas) {
+    const rect = computeAreaRect(a.id, new Set())
+    if (!rect) continue
+    areaObstacles.push({
+      id: a.id,
+      rect,
+      members: areaTree.leafNodesOf.get(a.id) ?? new Set(),
+    })
   }
 
   // Area title chips as routing obstacles. An empty member set makes
@@ -448,7 +501,6 @@ export const route = async (
   // post-hoc endpoint snapping (which used to drag legs through nodes) needed.
   const srcPortId = (id: string) => `${id}::s`
   const tgtPortId = (id: string) => `${id}::t`
-  const isMember = (id: string) => areaObstacles.some((a) => a.members.has(id))
 
   const buildGraph = (anchors: Map<string, EdgeRoutingHints>) => {
     const portsByNode = new Map<string, ElkPort[]>()
@@ -478,59 +530,101 @@ export const route = async (
   // Run libavoid with areas injected as obstacle shapes. libavoid has no
   // per-edge obstacle set (and handles OVERLAPPING obstacles permissively — a
   // solid area rect laid over its own members lets routes thread the gaps
-  // between them), so areas are handled with a 2-call split:
-  //   • "outside" edges (neither endpoint is a member of any area) are routed
-  //     against the NON-member nodes plus each area as a SOLID obstacle. Member
-  //     nodes are omitted entirely — the area stands in for them, so there's no
-  //     overlap and the cluster is genuinely impassable.
-  //   • "inside" edges (incident to a member) are routed against all nodes and
-  //     NO area obstacles, so they can freely enter/leave their own cluster.
-  // With no areas this is a single call.
+  // between them), so edges are grouped by WHICH areas block them (an area
+  // blocks an edge when neither endpoint is a transitive member — see
+  // `areaBlocksEdge`) and one call runs per distinct blocking set:
+  //   • the group's blocking areas are SOLID obstacles, and the nodes they
+  //     (transitively) contain are omitted entirely — each rect stands in for
+  //     its nodes, so there's no overlap and the cluster is genuinely
+  //     impassable;
+  //   • areas that contain an endpoint are simply absent from the group's
+  //     obstacle set, so an edge crosses its own containers' borders freely.
+  // A blocking set is first reduced to its TOPMOST areas: a nested blocking
+  // area's rect lies inside its blocking ancestor's rect by construction, so
+  // the ancestor alone suffices. With flat areas this reproduces the old
+  // outside/inside 2-call split; with nested areas it yields hierarchy-aware
+  // routing — an edge between cousins detours around unrelated clusters while
+  // passing into its own ancestors. With no areas this is a single call.
   const runLibavoid = async (
     elkNodes: ElkNode[],
     elkEdges: ElkEdge[],
     skipAreas = false,
   ): Promise<Map<string, RouteResult>> => {
     await init(wasmLocator)
-    // Title chips block every edge, so they go into whichever call(s) run below.
+    // Title chips block every edge, so they go into every call below.
     // `skipAreas` (quick/mid-drag path) routes everything in ONE libavoid call
-    // instead of the 2-call area split — ~half the WASM work per frame. Areas are
-    // re-avoided by the full route that runs once the interaction settles.
+    // instead of the per-group area split — a fraction of the WASM work per
+    // frame. Areas are re-avoided by the full route once the interaction
+    // settles.
     if (skipAreas || areaObstacles.length === 0) {
       return routeEdges(
         { id: 'root', children: [...elkNodes, ...titleChildren], edges: elkEdges },
         options,
       )
     }
-    const areaChildren: ElkNode[] = areaObstacles.map((a) => ({
-      id: `__area__${a.id}`,
-      x: a.rect.x,
-      y: a.rect.y,
-      width: a.rect.w,
-      height: a.rect.h,
-    }))
-    const outsideEdges: ElkEdge[] = []
-    const insideEdges: ElkEdge[] = []
+    const groups = new Map<string, { areas: AreaObstacle[]; edges: ElkEdge[] }>()
     for (const e of elkEdges) {
       const m = edgeMeta.get(e.id)!
-      ;(isMember(m.source) || isMember(m.target) ? insideEdges : outsideEdges).push(e)
+      const blocking = areaObstacles.filter((a) => areaBlocksEdge(a, m.source, m.target))
+      const blockingIds = new Set(blocking.map((a) => a.id))
+      const topmost = blocking.filter((a) => {
+        const ancs = areaTree.ancestorsOf.get(a.id)
+        if (!ancs) return true
+        for (const anc of ancs) if (blockingIds.has(anc)) return false
+        return true
+      })
+      const sig = topmost
+        .map((a) => a.id)
+        .sort()
+        .join('|')
+      let g = groups.get(sig)
+      if (!g) {
+        g = { areas: topmost, edges: [] }
+        groups.set(sig, g)
+      }
+      g.edges.push(e)
     }
     const merged = new Map<string, RouteResult>()
-    if (outsideEdges.length > 0) {
-      const nonMemberNodes = elkNodes.filter((n) => !isMember(n.id))
+    for (const g of groups.values()) {
+      // Nodes covered by a solid blocking rect are omitted for this group; the
+      // group's edges never end on one (blocking ⇒ neither endpoint inside).
+      const covered = new Set<string>()
+      for (const a of g.areas) for (const nid of a.members) covered.add(nid)
+      const areaChildren: ElkNode[] = g.areas.map((a) => ({
+        id: `__area__${a.id}`,
+        x: a.rect.x,
+        y: a.rect.y,
+        width: a.rect.w,
+        height: a.rect.h,
+      }))
+      // Title chips FULLY contained in one of this group's solid rects are
+      // dropped from the call: they're redundant there (the rect already
+      // blocks the whole region) and libavoid handles a fully-overlapping
+      // obstacle pair permissively — a contained chip opens a phantom channel
+      // straight through the solid rect (routes squeezed between a nested
+      // area's chip and its parent's border). A chip merely STRADDLING its own
+      // border is kept — that partial overlap is the long-standing, safe case.
+      const groupTitles: ElkNode[] = []
+      for (const t of titleObstacles) {
+        if (g.areas.some((a) => rectContains(a.rect, t.rect))) continue
+        groupTitles.push({
+          id: `__title__${t.id}`,
+          x: t.rect.x,
+          y: t.rect.y,
+          width: t.rect.w,
+          height: t.rect.h,
+        })
+      }
       const r = await routeEdges(
         {
           id: 'root',
-          children: [...nonMemberNodes, ...areaChildren, ...titleChildren],
-          edges: outsideEdges,
+          children: [
+            ...elkNodes.filter((n) => !covered.has(n.id)),
+            ...areaChildren,
+            ...groupTitles,
+          ],
+          edges: g.edges,
         },
-        options,
-      )
-      for (const [k, v] of r) merged.set(k, v)
-    }
-    if (insideEdges.length > 0) {
-      const r = await routeEdges(
-        { id: 'root', children: [...elkNodes, ...titleChildren], edges: insideEdges },
         options,
       )
       for (const [k, v] of r) merged.set(k, v)
@@ -757,26 +851,37 @@ export const route = async (
   })
 
   // Reuse the padded boxes already computed for obstacle avoidance so the
-  // rendered area can never drift from the rect routing avoided.
-  const areas = diagram.areas.map((a) => {
-    const style = layout.areas?.[a.id]
-    const rect = areaRectById.get(a.id)
-    if (!rect) {
-      return { id: a.id, label: a.label, members: a.members, x: 0, y: 0, w: 0, h: 0, ...style }
-    }
-    return {
-      id: a.id,
-      label: a.label,
-      members: a.members,
-      x: rect.x,
-      y: rect.y,
-      w: rect.w,
-      h: rect.h,
-      borderColor: style?.borderColor,
-      borderStyle: style?.borderStyle,
-      fillColor: style?.fillColor,
-    }
-  })
+  // rendered area can never drift from the rect routing avoided. Areas are
+  // emitted PARENT-FIRST (shallower depth first, declaration order within a
+  // depth): both the canvas and the SSR export paint this array in order, so
+  // the sort IS the z-order — a nested area always draws on top of the
+  // container it sits in, and its fill/click surface is never buried.
+  const areas = diagram.areas
+    .map((a, declIndex) => ({ a, declIndex }))
+    .sort(
+      (x, y) =>
+        (areaTree.depthOf.get(x.a.id) ?? 0) - (areaTree.depthOf.get(y.a.id) ?? 0) ||
+        x.declIndex - y.declIndex,
+    )
+    .map(({ a }) => {
+      const style = layout.areas?.[a.id]
+      const rect = areaRectById.get(a.id)
+      if (!rect) {
+        return { id: a.id, label: a.label, members: a.members, x: 0, y: 0, w: 0, h: 0, ...style }
+      }
+      return {
+        id: a.id,
+        label: a.label,
+        members: a.members,
+        x: rect.x,
+        y: rect.y,
+        w: rect.w,
+        h: rect.h,
+        borderColor: style?.borderColor,
+        borderStyle: style?.borderStyle,
+        fillColor: style?.fillColor,
+      }
+    })
 
   return {
     gridSize,

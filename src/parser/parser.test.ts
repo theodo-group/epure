@@ -121,6 +121,16 @@ describe('parser — areas', () => {
     const d = expectOk('group: G { a; b; c }')
     expect(d.areas[0]!.members).toEqual(['a', 'b', 'c'])
   })
+
+  it('parses a nested area (an area listed as a member of another)', () => {
+    const d = expectOk(
+      ['a', 'b', 'inner: "Inner" {', '  a', '}', 'outer: "Outer" {', '  inner', '  b', '}'].join(
+        '\n',
+      ),
+    )
+    expect(d.areas.map((x) => x.id).sort()).toEqual(['inner', 'outer'])
+    expect(d.areas.find((x) => x.id === 'outer')!.members).toEqual(['inner', 'b'])
+  })
 })
 
 describe('parser — errors', () => {
@@ -138,11 +148,27 @@ describe('parser — errors', () => {
     expect(r.errors.some((e) => /Unknown shape/.test(e.message))).toBe(true)
   })
 
-  it('reports nested containers as a syntax error', () => {
-    // A member followed by `{` would have to be a nested container, which the
-    // grammar forbids: members are bare identifiers only.
+  it('reports LITERAL nested container blocks as a syntax error', () => {
+    // A member followed by `{` would have to be a literal nested container,
+    // which the grammar forbids: members are bare identifiers only. Nesting is
+    // expressed by REFERENCE instead — declare `inner` as its own area and
+    // list its id as a member of `group`.
     const r = parse('group: G {\n  inner: I {\n    a\n  }\n}')
     expect(r.ok).toBe(false)
+  })
+
+  it('reports an area that lists itself as a member', () => {
+    const r = parse('a\nbox: B {\n  a\n  box\n}')
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => /cannot contain itself/.test(e.message))).toBe(true)
+  })
+
+  it('reports a membership cycle between areas', () => {
+    const r = parse('a\nb\nx: X {\n  a\n  y\n}\ny: Y {\n  b\n  x\n}')
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.some((e) => /Membership cycle/.test(e.message))).toBe(true)
   })
 
   it('rejects dotted attribute paths longer than 2', () => {

@@ -31,6 +31,7 @@ import { exportPng, type ExportFrame } from '@/export/png'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
+import { buildAreaTree } from '@/layout/areaTree'
 import { normalizeForRoute } from '@/layout/normalize'
 import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
@@ -644,19 +645,24 @@ export const App = () => {
               }}
               onAreaDragStart={(areaId) => {
                 if (!parseResult.ok) return
-                const area = parseResult.diagram.areas.find((a) => a.id === areaId)
-                if (!area) return
+                const { diagram } = parseResult
+                if (!diagram.areas.some((a) => a.id === areaId)) return
                 // Seed from the normalized layout, not the raw sidecar, so a
                 // freshly-typed group whose members are still auto-placed (no
                 // sidecar entry yet) drags too — normalizeForRoute gives every
                 // member the exact grid position + size it's drawn at.
+                // Membership is resolved TRANSITIVELY: dragging a container
+                // carries the nodes of its nested member areas, whose derived
+                // boxes then follow along.
                 const { layout } = useDiagramStore.getState()
-                const norm = normalizeForRoute(parseResult.diagram, layout)
+                const norm = normalizeForRoute(diagram, layout)
+                const memberIds =
+                  buildAreaTree(diagram.areas).leafNodesOf.get(areaId) ?? new Set<string>()
                 const starts: Record<
                   string,
                   { cx: number; cy: number; w: number; h: number }
                 > = {}
-                for (const memberId of area.members) {
+                for (const memberId of memberIds) {
                   const n = norm.nodes[memberId]
                   if (n) starts[memberId] = { cx: n.cx, cy: n.cy, w: n.w, h: n.h }
                 }

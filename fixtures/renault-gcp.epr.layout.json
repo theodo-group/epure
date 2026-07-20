@@ -1,0 +1,46 @@
+{
+  "gridSize": 40,
+  "nodes": {
+    "aem": { "cx": 37, "cy": 27, "w": 5, "h": 3, "borderColor": "red", "fillColor": "white", "icon": "lobe/ai/adobe", "iconPosition": "top" },
+    "apigee": { "cx": 16, "cy": 15, "w": 5, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/api/apigee", "iconPosition": "top" },
+    "app1": { "cx": 31, "cy": 10, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "k8s/compute/pod", "iconPosition": "top" },
+    "app2": { "cx": 31, "cy": 15, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "k8s/compute/pod", "iconPosition": "top" },
+    "argo": { "cx": 24, "cy": 21, "w": 3, "h": 3, "textSize": "S", "borderColor": "gray", "fillColor": "white", "icon": "onprem/gitops/argocd", "iconPosition": "top" },
+    "cdn": { "cx": 24, "cy": 27, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/network/cdn", "iconPosition": "top" },
+    "cloudsql": { "cx": 44, "cy": 13, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/database/sql", "iconPosition": "top" },
+    "datastore": { "cx": 44, "cy": 21, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/storage/storage", "iconPosition": "top" },
+    "extdns": { "cx": 36, "cy": 21, "w": 3, "h": 3, "textSize": "S", "borderColor": "gray", "fillColor": "white", "icon": "k8s/ecosystem/external-dns", "iconPosition": "top" },
+    "functions": { "cx": 51, "cy": 13, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/compute/functions", "iconPosition": "top" },
+    "gitlab": { "cx": 59, "cy": 8, "w": 4, "h": 4, "borderColor": "orange", "fillColor": "white", "icon": "onprem/vcs/gitlab", "iconPosition": "top" },
+    "gw1": { "cx": 24, "cy": 10, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "k8s/compute/pod", "iconPosition": "top" },
+    "gw2": { "cx": 24, "cy": 15, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "k8s/compute/pod", "iconPosition": "top" },
+    "helm": { "cx": 28, "cy": 21, "w": 3, "h": 3, "textSize": "S", "borderColor": "gray", "fillColor": "white", "icon": "k8s/ecosystem/helm", "iconPosition": "top" },
+    "kustomize": { "cx": 32, "cy": 21, "w": 3, "h": 3, "textSize": "S", "borderColor": "gray", "fillColor": "white", "icon": "k8s/ecosystem/kustomize", "iconPosition": "top" },
+    "memstore": { "cx": 44, "cy": 17, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/database/memorystore", "iconPosition": "top" },
+    "okta": { "cx": 9, "cy": 15, "w": 6, "h": 3, "borderColor": "gray", "fillColor": "white", "icon": "saas/identity/okta", "iconPosition": "top" },
+    "pubsub": { "cx": 44, "cy": 9, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/analytics/pubsub", "iconPosition": "top" },
+    "userInt": { "cx": 1.125, "cy": 21, "w": 2.25, "h": 2, "borderColor": "blue" },
+    "userPub": { "cx": 1, "cy": 15, "w": 2.25, "h": 2, "borderColor": "blue" },
+    "webstore": { "cx": 30, "cy": 27, "w": 4, "h": 3, "borderColor": "blue", "fillColor": "white", "icon": "gcp/storage/storage", "iconPosition": "top" }
+  },
+  "edges": {
+    "gitlab->argo": { "color": "gray" },
+    "gitlab->datastore": { "color": "gray" },
+    "gitlab->functions": { "color": "gray" },
+    "userInt->okta": {}
+  },
+  "areas": {
+    "extIdp": { "borderColor": "gray", "fillColor": "white" },
+    "gcp": { "borderColor": "blue", "borderStyle": "solid", "fillColor": "blue" },
+    "k8s": { "borderColor": "pink", "borderStyle": "solid", "fillColor": "pink" },
+    "nsAppA": { "borderColor": "blue", "borderStyle": "solid", "fillColor": "blue" },
+    "nsIngress": { "borderColor": "blue", "borderStyle": "solid", "fillColor": "blue" },
+    "nsMgmt": { "borderColor": "blue", "borderStyle": "solid", "fillColor": "blue" },
+    "production": { "borderColor": "gray", "borderStyle": "solid", "fillColor": "white" },
+    "staticWeb": { "borderColor": "pink", "borderStyle": "solid", "fillColor": "pink" },
+    "subnetData": { "borderColor": "purple", "borderStyle": "solid", "fillColor": "purple" },
+    "subnetFn": { "borderColor": "purple", "borderStyle": "solid", "fillColor": "purple" },
+    "tooling": { "borderColor": "gray", "borderStyle": "solid", "fillColor": "white" },
+    "vms": { "borderColor": "gray", "borderStyle": "solid", "fillColor": "white" }
+  }
+}

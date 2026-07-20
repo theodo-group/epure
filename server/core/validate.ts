@@ -50,6 +50,21 @@ export const validatePair = async (
       for (const n of result.diagram.nodes) nodeIds.add(n.id)
       for (const e of result.diagram.edges) edgeKeys.add(`${e.source}->${e.target}`)
       for (const a of result.diagram.areas) areaIds.add(a.id)
+      // Area members must name a real node or area (nested containers are
+      // by-reference, so either kind is legal). A dangling member is silently
+      // skipped when the area's box is computed — surface the drift here.
+      for (const a of result.diagram.areas) {
+        a.members.forEach((mid, i) => {
+          if (nodeIds.has(mid) || areaIds.has(mid)) return
+          const range = a.memberRanges[i]
+          issues.push({
+            file: pair.paths.d2,
+            line: range?.start.line,
+            column: range?.start.column,
+            message: `area "${a.id}" lists member "${mid}", which is neither a node nor an area in the .epr.d2`,
+          })
+        })
+      }
     } else {
       for (const err of result.errors) {
         issues.push({

@@ -76,10 +76,20 @@ user -> api: "HTTPS"
 api  -> db:  "SQL"
 api  -> db  { style.stroke-dash: 3 }   # only stroke-dash (→ dashed/dotted) is read from .d2
 
-# groups (areas): an id with a block that LISTS member node ids (no `shape:`).
+# groups (areas): an id with a block that LISTS member ids (no `shape:`).
 Backend: "Backend" {
   api
   db
+}
+
+# NESTED groups: a member may be another area's id (nesting is by REFERENCE —
+# never write a literal block inside a block). Boxes derive outside-in: Platform
+# wraps Backend's box plus its own padding. Any depth works; edges freely cross
+# the borders of every container that (transitively) holds one of their
+# endpoints, and route around the ones that don't.
+Platform: "Platform" {
+  Backend
+  user
 }
 ```
 
@@ -88,6 +98,8 @@ Rules of thumb:
   styling** (color, size, edge caps, anchor sides) in the layout sidecar — that's what keeps diffs clean.
 - A block containing `shape:` (or other `key: value` attrs) is a **node**; a block that lists bare ids is
   an **area** (group). The area's label and membership come from here, never from the layout.
+- An area may not contain itself, and two areas may not contain each other (membership cycles are parse
+  errors). Deleting an area removes only the grouping — members (including nested areas) survive.
 - Labels may contain simple HTML: `gateway: "<b>Traefik</b><br><small>prod</small>"`.
 
 ## The `.epr.layout.json` schema (authoritative)

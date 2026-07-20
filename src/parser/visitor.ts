@@ -2,8 +2,13 @@
 //
 // The CST nodes are produced by D2Parser; we walk them and build the typed
 // `Diagram` shape declared in `./ast`. The visitor also runs the semantic
-// validations the grammar can't enforce (duplicate ids, nested containers,
-// unknown shapes, restricted dotted paths).
+// validations the grammar can't enforce (duplicate ids, unknown shapes,
+// restricted dotted paths, area self-membership and membership cycles).
+//
+// Containers nest BY REFERENCE: an area's member list may name another area's
+// id (a literal nested block is still a grammar error). The only illegal
+// member graphs are an area containing itself and a cycle between areas —
+// both would make the derived boxes undefined.
 
 import type { CstNode, IToken } from 'chevrotain'
 
@@ -94,7 +99,46 @@ export class D2Visitor extends BaseVisitor {
       }
     }
 
+    this.validateAreaNesting(diagram.areas)
+
     return diagram
+  }
+
+  // Nested containers are by-reference (an area listing another area's id as a
+  // member). The member graph must stay a DAG: an area containing itself or a
+  // cycle between areas would make the derived boxes undefined, so both are
+  // hard errors, anchored to the member token that closes the loop.
+  private validateAreaNesting(areas: AreaDecl[]): void {
+    const areaById = new Map(areas.map((a) => [a.id, a] as const))
+    // 1 = on the current DFS stack, 2 = fully explored.
+    const state = new Map<string, 1 | 2>()
+    const visit = (area: AreaDecl): void => {
+      state.set(area.id, 1)
+      area.members.forEach((mid, i) => {
+        const range = area.memberRanges[i] ?? area.range
+        if (mid === area.id) {
+          this.errors.push({
+            message: `Area "${area.id}" cannot contain itself.`,
+            range,
+          })
+          return
+        }
+        const child = areaById.get(mid)
+        if (!child) return // node (or dangling) member — nothing to check
+        if (state.get(mid) === 1) {
+          this.errors.push({
+            message: `Membership cycle: area "${area.id}" contains "${mid}", which already contains "${area.id}".`,
+            range,
+          })
+          return
+        }
+        if (!state.has(mid)) visit(child)
+      })
+      state.set(area.id, 2)
+    }
+    for (const a of areas) {
+      if (!state.has(a.id)) visit(a)
+    }
   }
 
   statement(ctx: {

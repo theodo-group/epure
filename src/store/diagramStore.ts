@@ -470,13 +470,15 @@ export const useDiagramStore = create<DiagramStore>()(
             }
           }
 
-          // Strip deleted nodes from the member lists of areas that survive (a
-          // deleted area is being removed wholesale, so skip it).
+          // Strip deleted nodes AND deleted areas from the member lists of
+          // areas that survive (a deleted area is being removed wholesale, so
+          // skip its own list). The area case covers nesting: removing a child
+          // container must not leave a dangling reference in its parent.
           for (const a of diagram.areas) {
             if (delAreas.has(a.id)) continue
             a.members.forEach((mid, i) => {
               const r = a.memberRanges[i]
-              if (r && delNodes.has(mid)) cut(r)
+              if (r && (delNodes.has(mid) || delAreas.has(mid))) cut(r)
             })
           }
 
