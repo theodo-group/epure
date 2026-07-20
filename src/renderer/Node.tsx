@@ -64,6 +64,9 @@ const SHAPE_COMPONENTS: Record<ShapeName, FC<ShapeProps>> = {
 const AVG_CHAR_PX = 6.6
 const RESIZE_HANDLE = 8
 const LINE_HEIGHT = 14
+// Breathing room between a person figure's bottom edge and its label, which
+// renders below the shape instead of inside it. Scaled with the global text.
+const LABEL_BELOW_GAP = 8
 
 // Word-wrap a plain string by approximate character width; matches the
 // previous behaviour for labels without any markup.
@@ -173,7 +176,7 @@ export const Node: FC<NodeProps> = ({
 
   let startY: number
   if (labelBelow) {
-    startY = y + h + lineHeight
+    startY = y + h + lineHeight + LABEL_BELOW_GAP * textScale
   } else if (topIcon) {
     // Center the label block in the leftover area below the icon.
     const availTop = topIcon.bottom + 4

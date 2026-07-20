@@ -286,6 +286,13 @@ export const useDiagramStore = create<DiagramStore>()(
           const grid = s.layout.gridSize || s.gridSize
           const node = s.layout.nodes[id]
           if (!node) return s
+          // Person shapes resize with a locked 1:1 aspect ratio so the figure
+          // never stretches: the dragged edge sets one dimension and the
+          // perpendicular one follows, staying centred on its current axis.
+          const shape = s.parseResult.ok
+            ? s.parseResult.diagram.nodes.find((n) => n.id === id)?.shape
+            : undefined
+          const lockAspect = shape === 'person'
           let { cx, cy, w, h } = node
           if (side === 'E') {
             const left = cx - w / 2
@@ -293,24 +300,28 @@ export const useDiagramStore = create<DiagramStore>()(
             const newW = Math.max(1, newRight - left)
             w = newW
             cx = left + newW / 2
+            if (lockAspect) h = newW
           } else if (side === 'W') {
             const right = cx + w / 2
             const newLeft = Math.round(pxX / grid)
             const newW = Math.max(1, right - newLeft)
             w = newW
             cx = right - newW / 2
+            if (lockAspect) h = newW
           } else if (side === 'S') {
             const top = cy - h / 2
             const newBottom = Math.round(pxY / grid)
             const newH = Math.max(1, newBottom - top)
             h = newH
             cy = top + newH / 2
+            if (lockAspect) w = newH
           } else {
             const bottom = cy + h / 2
             const newTop = Math.round(pxY / grid)
             const newH = Math.max(1, bottom - newTop)
             h = newH
             cy = bottom - newH / 2
+            if (lockAspect) w = newH
           }
           return {
             ...s,
