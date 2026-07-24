@@ -5,7 +5,13 @@ import { describe, expect, it } from 'vitest'
 
 import { buildRenderModel } from './model'
 import { renderDiagramPng } from './index'
-import { embedPngText, readPngText, PNG_SOURCE_KEYS } from './pngText'
+import {
+  embedPngText,
+  readPngText,
+  epureMetaEntries,
+  PNG_SOURCE_KEYS,
+  PNG_MARKER_KEYS,
+} from './pngText'
 import { inlineIcons, renderSvgString } from './svg'
 import { svgToPng } from './png'
 
@@ -87,6 +93,11 @@ describe('headless diagram render', () => {
     const meta = readPngText(png)
     expect(meta[PNG_SOURCE_KEYS.d2]).toBe(D2)
     expect(meta[PNG_SOURCE_KEYS.layout]).toBe(LAYOUT)
+    // Self-describing marker: a reader handed only the image can tell it's an
+    // Épure diagram and learn that its source is embedded + how to recover it.
+    expect(meta[PNG_MARKER_KEYS.software]).toContain('Épure')
+    expect(meta[PNG_MARKER_KEYS.description]).toContain('epure source')
+    expect(meta[PNG_MARKER_KEYS.description]).toContain(PNG_SOURCE_KEYS.d2)
   })
 
   it('omits the layout key when a diagram has no layout file', async () => {
@@ -113,5 +124,23 @@ describe('PNG text metadata', () => {
     const notPng = Buffer.from('not a png at all')
     expect(embedPngText(notPng, [{ keyword: 'k', text: 'v' }])).toBe(notPng)
     expect(readPngText(notPng)).toEqual({})
+  })
+
+  it('epureMetaEntries carries the marker + source, and omits layout when absent', () => {
+    const withLayout = epureMetaEntries('a -> b', '{}')
+    const keys = withLayout.map((e) => e.keyword)
+    expect(keys).toEqual(['Software', 'Description', 'epure.d2', 'epure.layout.json'])
+    expect(withLayout.find((e) => e.keyword === 'epure.d2')?.text).toBe('a -> b')
+
+    const noLayout = epureMetaEntries('a -> b', null)
+    expect(noLayout.map((e) => e.keyword)).not.toContain('epure.layout.json')
+    // The layout *chunk* isn't described when there's no layout (the recovery
+    // command still names the `.epr.layout.json` file, so key on the chunk id).
+    expect(noLayout.find((e) => e.keyword === 'Description')?.text).not.toContain(
+      PNG_SOURCE_KEYS.layout,
+    )
+    expect(withLayout.find((e) => e.keyword === 'Description')?.text).toContain(
+      PNG_SOURCE_KEYS.layout,
+    )
   })
 })

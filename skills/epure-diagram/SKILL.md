@@ -171,6 +171,29 @@ looks right, and whenever the user asks a visual question ("is it too cramped?",
 "do the groups read clearly?"). `--scale 2` (default) is crisp; `--scale 1` is
 lighter.
 
+## Every rendered PNG carries its own source (read this — it's how a PNG becomes editable)
+
+Every PNG Épure produces — the live `<stem>.png` sidecar that trails each edit, the output of
+`epure export`, and the editor's "Export PNG" button — **embeds the diagram's own source** in the image's
+text metadata: the `epure.d2` topology and the `epure.layout.json` layout, plus a `Software`/`Description`
+marker that names Épure and spells out how to recover them. So each image is a self-contained,
+git-reviewable, **round-trippable** record of the pair — the source is never lost by keeping only the
+picture, the way a draw.io PNG carries its own `mxfile`.
+
+Pull the source back out of any Épure PNG:
+
+```bash
+npx -y github:theodo-group/epure source ./path/to/diagram.png            # prints the .epr.d2 to stdout
+npx -y github:theodo-group/epure source ./path/to/diagram.png -o <name>  # rewrites the .epr.d2/.epr.layout.json pair, prints its .epr.d2 path
+```
+
+**Handed a `.png` that looks like an architecture diagram?** Assume it may be an Épure diagram and check
+before redrawing anything: run `epure source <file.png>` (or read the image's `Description` /
+`epure.d2` text chunks). If source comes back, it *is* an Épure diagram — don't recreate it from scratch.
+Recover the pair with `-o <name>`, then edit that pair and open it live with
+`npx -y github:theodo-group/epure <name>.epr.d2`. This is the intended round-trip: image in, editable
+diagram out.
+
 ## Guardrails — run before finishing
 
 ```bash

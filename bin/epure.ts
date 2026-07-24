@@ -3,6 +3,7 @@
 //   epure <file>              start the live bridge server (default)
 //   epure new <file>          scaffold a new pair from a seed (won't clobber)
 //   epure export <file>       render a fit-to-content PNG (so Claude Code can see it)
+//   epure source <file.png>   recover the .epr.d2/.epr.layout.json source a PNG embeds
 //   epure validate <path...>  validate pair(s); non-zero exit on problems
 //   epure fmt <file...>       rewrite layout(s) in canonical form
 //   epure icons [query]       list available icons (providers, or search)
@@ -30,7 +31,7 @@ import { ICON_CATALOG, searchIcons, PROVIDERS } from '../src/icons'
 import { resolvePair, type ResolvedPair, EXT } from '../server/core/pair'
 import { portForPath } from '../server/core/port'
 import { validatePair, type ValidationIssue } from '../server/core/validate'
-import { renderDiagramPng } from '../server/render'
+import { renderDiagramPng, readPngText, PNG_SOURCE_KEYS } from '../server/render'
 import { startStandalone } from '../server/standalone'
 
 // Injected at build time via esbuild --define; falls back for ts-direct runs.
@@ -306,6 +307,55 @@ const cmdExport = async (args: string[]): Promise<number> => {
   return 0
 }
 
+// Recover the diagram source that `epure export` / the live server embed in
+// every PNG. Hand this command any Épure-rendered `.png` and it prints (or
+// rewrites to disk) the editable `.epr.d2` / `.epr.layout.json` pair — the
+// bridge from "here's a picture" back to "here's the source, edit it in Épure".
+const cmdSource = async (args: string[]): Promise<number> => {
+  let file: string | undefined
+  let outStem: string | undefined
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i]!
+    if (a === '-o' || a === '--out') outStem = args[(i += 1)]
+    else if (!a.startsWith('-') && !file) file = a
+  }
+  if (!file) {
+    log('usage: epure source <file.png> [-o <name>]   # -o writes the .epr.d2/.epr.layout.json pair')
+    return 1
+  }
+
+  const png = await readFile(file).catch(() => null)
+  if (png === null) {
+    log(`no file at ${file}`)
+    return 1
+  }
+  const meta = readPngText(png)
+  const d2 = meta[PNG_SOURCE_KEYS.d2]
+  if (d2 === undefined) {
+    log(`${file}: no embedded Épure source (was it rendered by Épure?)`)
+    return 1
+  }
+  const layout = meta[PNG_SOURCE_KEYS.layout]
+
+  // `-o <name>`: reconstruct the editable pair on disk so it can be opened live.
+  if (outStem) {
+    const pair = resolvePair(outStem)
+    await writeFile(pair.paths.d2, d2)
+    if (layout !== undefined) await writeFile(pair.paths.layout, layout)
+    // Machine-readable: the .epr.d2 path, ready to hand to `epure <file>`.
+    process.stdout.write(pair.paths.d2 + '\n')
+    log(`recovered ${pair.stem} → ${pair.paths.d2}${layout !== undefined ? ` (+ layout)` : ''}`)
+    return 0
+  }
+
+  // Otherwise print the d2 topology to stdout; note the layout's availability.
+  process.stdout.write(d2.endsWith('\n') ? d2 : d2 + '\n')
+  if (layout !== undefined) {
+    log('(layout also embedded — pass `-o <name>` to write the full .epr.* pair)')
+  }
+  return 0
+}
+
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const formatIssue = (i: ValidationIssue): string =>
@@ -391,7 +441,7 @@ const main = async (): Promise<void> => {
 
   if (!first || first === '--help' || first === '-h') {
     process.stdout.write(
-      'usage: epure <file> | new <file> | export <file> | validate <path...> | fmt <file...> | icons [query] | skill install\n',
+      'usage: epure <file> | new <file> | export <file> | source <file.png> | validate <path...> | fmt <file...> | icons [query] | skill install\n',
     )
     process.exit(first ? 0 : 1)
   }
@@ -412,6 +462,9 @@ const main = async (): Promise<void> => {
       break
     case 'export':
       process.exit(await cmdExport(rest))
+      break
+    case 'source':
+      process.exit(await cmdSource(rest))
       break
     case 'icons':
       process.exit(cmdIcons(rest, json))
