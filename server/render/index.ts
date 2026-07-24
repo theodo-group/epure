@@ -4,7 +4,7 @@
 
 import { buildRenderModel } from './model'
 import { svgToPng, type PngOptions } from './png'
-import { embedPngText, PNG_SOURCE_KEYS } from './pngText'
+import { embedPngText, epureMetaEntries } from './pngText'
 import { inlineIcons, renderSvgString, type SvgOptions } from './svg'
 
 export interface RenderOptions extends SvgOptions, PngOptions {
@@ -26,7 +26,9 @@ export const renderDiagramSvg = async (
 
 /** Render a pair to fit-to-content PNG bytes, or `{ error }` if the d2 is
  *  invalid. The diagram's own source (d2 + layout) is embedded as PNG text
- *  metadata so the image is a self-contained, round-trippable record. */
+ *  metadata, alongside a self-describing "made with Épure, source inside"
+ *  marker, so the image is a self-contained, round-trippable, agent-readable
+ *  record of the pair. */
 export const renderDiagramPng = async (
   d2: string,
   layoutText: string | null,
@@ -35,13 +37,16 @@ export const renderDiagramPng = async (
   const svg = await renderDiagramSvg(d2, layoutText, opts)
   if (typeof svg !== 'string') return svg
   const png = svgToPng(svg, opts)
-  return embedPngText(png, [
-    { keyword: PNG_SOURCE_KEYS.d2, text: d2 },
-    ...(layoutText !== null ? [{ keyword: PNG_SOURCE_KEYS.layout, text: layoutText }] : []),
-  ])
+  return embedPngText(png, epureMetaEntries(d2, layoutText))
 }
 
 export { buildRenderModel } from './model'
 export { renderSvgString, inlineIcons } from './svg'
 export { svgToPng } from './png'
-export { embedPngText, readPngText, PNG_SOURCE_KEYS } from './pngText'
+export {
+  embedPngText,
+  readPngText,
+  epureMetaEntries,
+  PNG_SOURCE_KEYS,
+  PNG_MARKER_KEYS,
+} from './pngText'

@@ -28,7 +28,9 @@ import {
 import { locateLayoutKeyRanges } from '@/file/layoutSchema'
 import { editorHtmlToLabel, labelToEditorHtml, quoteD2 } from '@/editor/labelMarkup'
 import { exportPng, type ExportFrame } from '@/export/png'
+import { embedSourceInPngBlob } from '@/export/pngText'
 import { exportStandaloneHtml } from '@/export/standalone-html'
+import { layoutToText } from '@/bridge/sync'
 import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { buildAreaTree } from '@/layout/areaTree'
@@ -321,7 +323,7 @@ export const App = () => {
   const onExportPng = useCallback(async () => {
     const svg = svgRef.current
     if (!svg) return
-    const { exportScale } = useDiagramStore.getState()
+    const { exportScale, source, layout } = useDiagramStore.getState()
     let frame: ExportFrame | undefined
     if (routed) {
       const b = computeContentBounds(routed, edgesMeta, textScale)
@@ -333,7 +335,11 @@ export const App = () => {
       }
     }
     const blob = await exportPng(svg, exportScale, frame)
-    downloadBlob(blob, `${docName}.png`)
+    // Embed the diagram's own source so the exported image round-trips back to
+    // the editable pair (matches the headless `epure export`; recover with
+    // `epure source <file.png>`).
+    const withSource = await embedSourceInPngBlob(blob, source, layoutToText(layout))
+    downloadBlob(withSource, `${docName}.png`)
   }, [routed, edgesMeta, textScale, docName])
 
   const onExportHtml = useCallback(async () => {

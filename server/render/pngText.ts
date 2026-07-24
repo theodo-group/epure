@@ -103,3 +103,45 @@ export const PNG_SOURCE_KEYS = {
   d2: 'epure.d2',
   layout: 'epure.layout.json',
 } as const
+
+/** Standard PNG text keywords that announce — to any viewer, `exiftool`, or an
+ *  agent like Claude Code that reads the image's metadata — that this is an
+ *  Épure diagram carrying its own editable source. Using the registered
+ *  `Software`/`Description` keywords means generic tools surface them too. */
+export const PNG_MARKER_KEYS = {
+  software: 'Software',
+  description: 'Description',
+} as const
+
+const EPURE_SOFTWARE = 'Épure — github:theodo-group/epure'
+
+/** Plain-language note embedded in every rendered PNG so a reader handed only
+ *  the image (a human, or an agent like Claude Code) knows it is an Épure
+ *  diagram, that its editable source travels inside the file, and how to get it
+ *  back — without needing to have seen the source repo or this skill first. */
+const epureDescription = (hasLayout: boolean): string =>
+  [
+    'Architecture diagram made with Épure, a grid-snapped, git-reviewable diagram editor.',
+    `Its editable source is embedded in this PNG as text chunks: "${PNG_SOURCE_KEYS.d2}" is the` +
+      (hasLayout
+        ? ` diagram topology and "${PNG_SOURCE_KEYS.layout}" is the layout.`
+        : ' diagram topology.'),
+    'Extract it with `npx -y github:theodo-group/epure source <this-file.png>`,',
+    'then edit the .epr.d2 / .epr.layout.json pair and open it live with',
+    '`npx -y github:theodo-group/epure <name>.epr.d2`.',
+  ].join(' ')
+
+/** The complete set of text chunks embedded in every rendered PNG: a
+ *  self-describing marker (so the image announces "made with Épure, source
+ *  inside, here's how to edit it") followed by the exact `.epr.d2` /
+ *  `.epr.layout.json` bytes for a lossless round-trip back to the editable pair.
+ *  The browser "Export PNG" path mirrors this in `src/export/pngText.ts`. */
+export const epureMetaEntries = (
+  d2: string,
+  layoutText: string | null,
+): { keyword: string; text: string }[] => [
+  { keyword: PNG_MARKER_KEYS.software, text: EPURE_SOFTWARE },
+  { keyword: PNG_MARKER_KEYS.description, text: epureDescription(layoutText !== null) },
+  { keyword: PNG_SOURCE_KEYS.d2, text: d2 },
+  ...(layoutText !== null ? [{ keyword: PNG_SOURCE_KEYS.layout, text: layoutText }] : []),
+]
