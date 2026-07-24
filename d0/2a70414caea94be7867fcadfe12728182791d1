@@ -1,0 +1,44 @@
+bin/epure.ts
+  s_753435d7778ce4::t_efe69bae94f23e 444
+  s_753435d7778ce4::t_ccc5dce28f715a 6
+  s_753435d7778ce4::t_4ae0c85f753e29 34
+  s_753435d7778ce4::t_2d83944c45f641 310-358
+  s_753435d7778ce4::t_a5818ff492c70b 466-468
+server/render/render.test.ts
+  s_753435d7778ce4::t_c8bca470a10b35 96-100
+  s_753435d7778ce4::t_ef02b4aef3aabc 8-14
+  s_753435d7778ce4::t_3587eba08eeecf 137-144
+  s_753435d7778ce4::t_745f1711b5dc10 128-136,145
+src/export/pngText.ts
+  s_753435d7778ce4::t_11fe56e16a4d79 128-132
+  s_753435d7778ce4::t_023860ab9f7969 1-127,133
+server/render/pngText.ts
+  s_753435d7778ce4::t_60ab59b2e946d6 106-147
+src/export/pngText.test.ts
+  s_753435d7778ce4::t_e1a3728c368a7f 1-48
+src/App.tsx
+  s_753435d7778ce4::t_2da0a446650632 326,338-342
+  s_753435d7778ce4::t_05a1fc86f45dfd 31,33
+server/render/index.ts
+  s_753435d7778ce4::t_fed6479cbee526 29-31,40
+  s_753435d7778ce4::t_9a92a511299d16 7
+  s_753435d7778ce4::t_41b512ba96f8b1 46-52
+skills/epure-diagram/SKILL.md
+  s_753435d7778ce4::t_3f2cca9522f5d9 174-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "d02a70414caea94be7867fcadfe12728182791d1",
+  "prompts": {},
+  "sessions": {
+    "s_753435d7778ce4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "19e4f816-b7c3-4299-845b-820ebcf707c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
