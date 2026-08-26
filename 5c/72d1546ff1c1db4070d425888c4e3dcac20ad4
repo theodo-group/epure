@@ -1,0 +1,30 @@
+skills/epure-diagram/SKILL.md
+  s_090a8edca5addd::t_8f3d2a70d807dd 133
+README.md
+  s_090a8edca5addd::t_3b6d56d817eede 50
+  s_090a8edca5addd::t_de2010e6bfcdca 18,21
+  s_090a8edca5addd::t_4436f569fd21b7 5-6
+  s_090a8edca5addd::t_8f3abf195bb7cf 42
+  s_090a8edca5addd::t_7e2fbcf21a4c51 61
+  s_090a8edca5addd::t_00ed213f8b8e77 89-90
+RELEASING.md
+  s_090a8edca5addd::t_81a8e04988c1dc 12,14,21-22
+package.json
+  s_090a8edca5addd::t_9266d76e3a0ca2 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5c72d1546ff1c1db4070d425888c4e3dcac20ad4",
+  "prompts": {},
+  "sessions": {
+    "s_090a8edca5addd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c77e1ea5-967c-4db9-ab5c-d41bb5b8ea77",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Stanislas Bernard <bernardstanislas@gmail.com>"
+    }
+  }
+}
