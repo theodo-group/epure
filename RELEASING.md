@@ -9,17 +9,17 @@ npm i -g github:theodo-group/epure   # self-builds via the `prepare` script
 
 ## Publishing to npm
 
-The package is already named **`@theodo/epure`** (the bare `epure` name is held
+The package is named **`@theodo-group/epure`** (the bare `epure` name is held
 by an unrelated abandoned package). Publishing is one step once you're logged in
-to an account with access to the `@theodo` npm org:
+to an account that belongs to the `theodo-group` npm org:
 
 ```sh
 npm login           # interactive — browser + OTP
 npm publish         # publishConfig already sets access: public
 ```
 
-The bin name stays `epure`; users then run `npx @theodo/epure …` or
-`npm i -g @theodo/epure`. `prepack` builds `dist/` + `dist-server/`
+The bin name stays `epure`; users then run `npx @theodo-group/epure …` or
+`npm i -g @theodo-group/epure`. `prepack` builds `dist/` + `dist-server/`
 automatically and the `files` field ships only those plus `skills/`. Inspect the
 tarball first with `npm pack --dry-run` (note: it's ~7 MB — the bundled icon
 catalog dominates).
