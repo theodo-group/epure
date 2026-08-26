@@ -2,7 +2,8 @@
 
 > Architecture diagrams that live in your repo and that **Claude Code edits live while you watch**.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/@theodo-group/epure.svg)](https://www.npmjs.com/package/@theodo-group/epure)
+&nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 &nbsp;**[Try the editor online →](https://theodo-group.github.io/epure/)**
 
 ![An Épure diagram](./docs/hero.png)
@@ -14,10 +15,10 @@ files, you watch them render live, and you steer it in the conversation.
 
 ## Use it with Claude Code
 
-One-time setup (no install needed — `npx` runs it straight from GitHub):
+One-time setup (no install needed — `npx` fetches it from npm):
 
 ```sh
-npx github:theodo-group/epure skill install
+npx @theodo-group/epure skill install
 ```
 
 Then, in any repo, just ask Claude Code:
@@ -38,7 +39,7 @@ It creates the diagram, opens it live in your browser, and refines it as you tal
 install — edits stay in localStorage), or run it locally against a file pair:
 
 ```sh
-npx github:theodo-group/epure ./docs/diagrams/system.epr.d2
+npx @theodo-group/epure ./docs/diagrams/system.epr.d2
 ```
 
 This prints a local URL and serves the editor against that pair, syncing your
@@ -46,7 +47,7 @@ edits both ways. (It creates a starter diagram if the file doesn't exist yet.)
 
 ## Commands
 
-Every command is `npx github:theodo-group/epure <command>`:
+Every command is `npx @theodo-group/epure <command>`:
 
 | Command | What it does |
 |---|---|
@@ -57,7 +58,7 @@ Every command is `npx github:theodo-group/epure <command>`:
 | `fmt <file>` | Tidy the layout JSON so diffs stay small. |
 | `skill install` | Install the Claude Code skill into `~/.claude/skills` (add `--local` to install into the current repo's `.claude/skills` so it's committed and shared with the team). |
 
-> Typing that a lot? Install once — `npm i -g github:theodo-group/epure` — and use
+> Typing that a lot? Install once — `npm i -g @theodo-group/epure` — and use
 > the shorter `epure <command>`.
 
 ## The files
@@ -85,8 +86,8 @@ Keeping diagrams in a repo? Add this to its `CLAUDE.md` so Claude Code uses them
 ```md
 ## Architecture diagrams (Épure)
 Diagrams live as `<name>.epr.d2` + `<name>.epr.layout.json` under `docs/diagrams/`.
-Run `npx github:theodo-group/epure <file>.epr.d2 &` to open the live editor, edit
-the pair, and `npx github:theodo-group/epure export <file>.epr.d2 -o /tmp/x.png`
+Run `npx @theodo-group/epure <file>.epr.d2 &` to open the live editor, edit
+the pair, and `npx @theodo-group/epure export <file>.epr.d2 -o /tmp/x.png`
 to see the result.
 ```
 
