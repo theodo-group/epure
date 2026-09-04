@@ -37,12 +37,12 @@ Every command in this skill is shown with the `npx` launcher, which fetches-and-
 the user never has to install anything, and the only prerequisite is Node.js (which ships `npx`):
 
 ```bash
-npx -y github:theodo-group/epure <args>
+npx -y @theodo-group/epure <args>
 ```
 
 `-y` skips npx's confirmation prompt so it runs unattended; the first call downloads Épure and later
-calls reuse the cache. Always use the `github:` spec shown above — the bare `epure` name on npm is **not**
-this tool.
+calls reuse the cache. Always use the **scoped** `@theodo-group/epure` name shown above — the bare
+`epure` package on npm is an unrelated abandoned package, **not** this tool.
 
 ## Launch the live editor (idempotent, background)
 
@@ -50,7 +50,7 @@ Run once at the start of a diagram session. It is safe to run repeatedly — a s
 file reuses the existing server:
 
 ```bash
-npx -y github:theodo-group/epure ./docs/diagrams/<name>.epr.d2 &
+npx -y @theodo-group/epure ./docs/diagrams/<name>.epr.d2 &
 ```
 
 It prints exactly one machine-readable line to stdout — parse the URL from it:
@@ -60,7 +60,7 @@ epure: ready url=http://127.0.0.1:52219/ reused=false
 ```
 
 Open/print that URL for the user. Then edit the pair; saves sync live.
-(`npx -y github:theodo-group/epure <file>` seeds a starter pair if the files don't exist yet; append
+(`npx -y @theodo-group/epure <file>` seeds a starter pair if the files don't exist yet; append
 `new` to the same command to scaffold without clobbering.)
 
 ## The `.epr.d2` topology (a tiny D2 subset)
@@ -163,7 +163,7 @@ discuss visuals with the user — render it to a PNG and open that image. No
 browser needed; the output is always fit to the diagram's content:
 
 ```bash
-npx -y github:theodo-group/epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
+npx -y @theodo-group/epure export ./docs/diagrams/<name>.epr.d2 -o /tmp/<name>.png   # prints the path on stdout
 ```
 
 Then view `/tmp/<name>.png`. Use this after edits to verify the result actually
@@ -183,22 +183,22 @@ picture, the way a draw.io PNG carries its own `mxfile`.
 Pull the source back out of any Épure PNG:
 
 ```bash
-npx -y github:theodo-group/epure source ./path/to/diagram.png            # prints the .epr.d2 to stdout
-npx -y github:theodo-group/epure source ./path/to/diagram.png -o <name>  # rewrites the .epr.d2/.epr.layout.json pair, prints its .epr.d2 path
+npx -y @theodo-group/epure source ./path/to/diagram.png            # prints the .epr.d2 to stdout
+npx -y @theodo-group/epure source ./path/to/diagram.png -o <name>  # rewrites the .epr.d2/.epr.layout.json pair, prints its .epr.d2 path
 ```
 
 **Handed a `.png` that looks like an architecture diagram?** Assume it may be an Épure diagram and check
 before redrawing anything: run `epure source <file.png>` (or read the image's `Description` /
 `epure.d2` text chunks). If source comes back, it *is* an Épure diagram — don't recreate it from scratch.
 Recover the pair with `-o <name>`, then edit that pair and open it live with
-`npx -y github:theodo-group/epure <name>.epr.d2`. This is the intended round-trip: image in, editable
+`npx -y @theodo-group/epure <name>.epr.d2`. This is the intended round-trip: image in, editable
 diagram out.
 
 ## Guardrails — run before finishing
 
 ```bash
-npx -y github:theodo-group/epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
-npx -y github:theodo-group/epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
+npx -y @theodo-group/epure validate ./docs/diagrams/<name>.epr.d2   # parse + schema + cross-file ref checks; non-zero on error
+npx -y @theodo-group/epure fmt ./docs/diagrams/<name>.epr.d2        # canonicalize the layout JSON so diffs stay minimal
 ```
 
 `validate` confirms every `nodes`/`edges`/`areas` key in the layout references a real node/edge/area in

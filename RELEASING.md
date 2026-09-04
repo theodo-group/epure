@@ -1,7 +1,20 @@
 # Releasing Épure
 
-Today's primary distribution is **install-from-GitHub** — it needs no npm
-account and works the moment the repo is public:
+Épure is published to npm as **[`@theodo-group/epure`](https://www.npmjs.com/package/@theodo-group/epure)**,
+which is how users should get it:
+
+```sh
+npx -y @theodo-group/epure <file>.epr.d2   # zero-install
+npm i -g @theodo-group/epure               # then just `epure <file>.epr.d2`
+```
+
+The scope is not optional: the bare **`epure`** name on npm belongs to an
+unrelated package abandoned in 2017, so `npx epure` does **not** run this tool.
+(It may appear to work on a machine that already has the global install — npx
+prefers a binary already on `PATH` before hitting the registry.) Docs, the skill
+and the PNG metadata all spell out the scoped name for that reason.
+
+Installing from GitHub still works and is the way to run an unreleased `main`:
 
 ```sh
 npm i -g github:theodo-group/epure   # self-builds via the `prepare` script
@@ -9,20 +22,18 @@ npm i -g github:theodo-group/epure   # self-builds via the `prepare` script
 
 ## Publishing to npm
 
-The package is named **`@theodo-group/epure`** (the bare `epure` name is held
-by an unrelated abandoned package). Publishing is one step once you're logged in
-to an account that belongs to the `theodo-group` npm org:
+One step, once you're logged in to an account that belongs to the `theodo-group`
+npm org:
 
 ```sh
 npm login           # interactive — browser + OTP
 npm publish         # publishConfig already sets access: public
 ```
 
-The bin name stays `epure`; users then run `npx @theodo-group/epure …` or
-`npm i -g @theodo-group/epure`. `prepack` builds `dist/` + `dist-server/`
-automatically and the `files` field ships only those plus `skills/`. Inspect the
-tarball first with `npm pack --dry-run` (note: it's ~7 MB — the bundled icon
-catalog dominates).
+The bin name stays `epure`. `prepack` builds `dist/` + `dist-server/` +
+`dist-lib/` automatically and the `files` field ships only those plus `skills/`.
+Inspect the tarball first with `npm pack --dry-run` (note: it's ~7 MB — the
+bundled icon catalog dominates).
 
 ## Live editor demo
 

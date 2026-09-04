@@ -90,7 +90,7 @@ export const PNG_SOURCE_KEYS = {
   layout: 'epure.layout.json',
 } as const
 
-const EPURE_SOFTWARE = 'Épure — github:theodo-group/epure'
+const EPURE_SOFTWARE = 'Épure — @theodo-group/epure'
 
 const epureDescription = (hasLayout: boolean): string =>
   [
@@ -99,9 +99,9 @@ const epureDescription = (hasLayout: boolean): string =>
       (hasLayout
         ? ` diagram topology and "${PNG_SOURCE_KEYS.layout}" is the layout.`
         : ' diagram topology.'),
-    'Extract it with `npx -y github:theodo-group/epure source <this-file.png>`,',
+    'Extract it with `npx -y @theodo-group/epure source <this-file.png>`,',
     'then edit the .epr.d2 / .epr.layout.json pair and open it live with',
-    '`npx -y github:theodo-group/epure <name>.epr.d2`.',
+    '`npx -y @theodo-group/epure <name>.epr.d2`.',
   ].join(' ')
 
 /** The marker + source chunks embedded in an exported PNG. Kept in sync with

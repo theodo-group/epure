@@ -113,7 +113,7 @@ export const PNG_MARKER_KEYS = {
   description: 'Description',
 } as const
 
-const EPURE_SOFTWARE = 'Épure — github:theodo-group/epure'
+const EPURE_SOFTWARE = 'Épure — @theodo-group/epure'
 
 /** Plain-language note embedded in every rendered PNG so a reader handed only
  *  the image (a human, or an agent like Claude Code) knows it is an Épure
@@ -126,9 +126,9 @@ const epureDescription = (hasLayout: boolean): string =>
       (hasLayout
         ? ` diagram topology and "${PNG_SOURCE_KEYS.layout}" is the layout.`
         : ' diagram topology.'),
-    'Extract it with `npx -y github:theodo-group/epure source <this-file.png>`,',
+    'Extract it with `npx -y @theodo-group/epure source <this-file.png>`,',
     'then edit the .epr.d2 / .epr.layout.json pair and open it live with',
-    '`npx -y github:theodo-group/epure <name>.epr.d2`.',
+    '`npx -y @theodo-group/epure <name>.epr.d2`.',
   ].join(' ')
 
 /** The complete set of text chunks embedded in every rendered PNG: a
