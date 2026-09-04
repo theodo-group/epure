@@ -1,5 +1,5 @@
 // Standalone host: a plain Node http server that serves the built SPA (`dist/`)
-// via sirv and carries the bridge WebSocket. This is what `npx epure` runs.
+// via sirv and carries the bridge WebSocket. This is what `npx @theodo-group/epure` runs.
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, realpath } from 'node:fs/promises'

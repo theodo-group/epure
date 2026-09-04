@@ -1,7 +1,8 @@
-// Runs on `npm install` (including `npm i -g github:theodo-group/epure` and
-// `npx github:...`). Builds the SPA + CLI so the `epure` bin works straight
-// from the public repo — no npm publish required. Skips when the artifact is
-// already present (repeat local-dev installs stay fast) and when the build
+// Runs on `npm install` from a git checkout (including `npm i -g
+// github:theodo-group/epure` and `npx github:...`). Builds the SPA + CLI so the
+// `epure` bin works straight from the public repo, without waiting on a release.
+// Published npm tarballs already ship the artifacts (built by `prepack`), so
+// this is a no-op there. Skips when the artifact is already present (repeat local-dev installs stay fast) and when the build
 // toolchain isn't available (e.g. a production `--omit=dev` install).
 
 import { execSync } from 'node:child_process'

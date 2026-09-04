@@ -74,12 +74,17 @@ Every command is `npx @theodo-group/epure <command>`:
 | `<file>` | Open the live editor for a diagram pair. |
 | `new <file>` | Create a new pair (won't overwrite an existing one). |
 | `export <file> -o out.png` | Render a PNG, fit to the diagram — no browser. |
+| `source <file.png>` | Recover the editable pair from any Épure-rendered PNG (`-o <name>` writes it). |
+| `icons <query>` | Search the bundled icon catalog from the terminal. |
 | `validate <file>` | Check the pair for errors (non-zero exit on problems). |
 | `fmt <file>` | Tidy the layout JSON so diffs stay small. |
 | `skill install` | Install the Claude Code skill into `~/.claude/skills` (add `--local` to install into the current repo's `.claude/skills` so it's committed and shared with the team). |
 
 > Typing that a lot? Install once — `npm i -g @theodo-group/epure` — and use
 > the shorter `epure <command>`.
+>
+> Keep the `@theodo-group/` scope: the bare `epure` package on npm is an
+> unrelated, long-abandoned project, so `npx epure` won't run this tool.
 
 ## The files
 
