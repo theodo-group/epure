@@ -37,7 +37,7 @@ import { buildAreaTree } from '@/layout/areaTree'
 import { normalizeForRoute } from '@/layout/normalize'
 import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
-import { readInjectedBridge } from '@/bridge/config'
+import { readBridgeSignal } from '@/bridge/config'
 import { interaction } from '@/bridge/interaction'
 
 import fixtureSource from '../fixtures/system.epr.d2?raw'
@@ -194,7 +194,7 @@ export const App = () => {
   // injected global synchronously (detectBridge's async probe is for the
   // connection, not the bootstrap decision).
   useEffect(() => {
-    if (readInjectedBridge()) return
+    if (readBridgeSignal()) return
     const stored = loadStoredDoc()
     if (stored) {
       loadDocument(stored.source, stored.layout)

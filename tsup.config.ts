@@ -11,6 +11,7 @@ export default defineConfig({
     render: 'lib/render.ts',
     react: 'lib/react.ts',
     icons: 'lib/icons.ts',
+    bridge: 'lib/bridge.ts',
   },
   format: ['esm'],
   platform: 'node',

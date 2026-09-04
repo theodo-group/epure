@@ -14,7 +14,7 @@ import { PROTOCOL_VERSION } from './protocol'
 export interface BridgeConfig {
   /** Per-session token required on the WS hello. */
   token: string
-  /** WebSocket path, e.g. `/__epure/ws`. */
+  /** WebSocket path, e.g. `/__epure/ws`. Empty for the postMessage transport. */
   wsUrl: string
   protocol: number
   /** Diagram stem, e.g. `system`. */
@@ -22,6 +22,10 @@ export interface BridgeConfig {
   /** Absolute realpath of the `.epr.d2` on the server. */
   file: string
   version: string
+  /** Wire transport. Absent means WebSocket (the disk-server hosts). */
+  transport?: 'ws' | 'pm'
+  /** postMessage only: the host page's origin — both sides filter on it. */
+  peerOrigin?: string
 }
 
 interface InjectedBridge {
@@ -54,6 +58,41 @@ export const readInjectedBridge = (): BridgeConfig | null => {
 }
 
 /**
+ * Read a postMessage-bridge request from the URL hash, synchronously:
+ * `#bridge=pm&origin=<host origin>&token=<nonce>[&doc=<stem>]`. Only honored
+ * when a host window actually exists (opener or embedding parent) — the same
+ * static bundle opened directly with a stale hash must fall back to standalone
+ * mode, not wait forever for a hydrate that can't come.
+ */
+export const readHashBridge = (): BridgeConfig | null => {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  if (params.get('bridge') !== 'pm') return null
+  const token = params.get('token') ?? ''
+  const peerOrigin = params.get('origin') ?? ''
+  if (token.length === 0 || !/^https?:\/\//.test(peerOrigin)) return null
+  if (!window.opener && window.parent === window) return null
+  return {
+    token,
+    wsUrl: '',
+    protocol: PROTOCOL_VERSION,
+    doc: params.get('doc') ?? '',
+    file: '',
+    version: '',
+    transport: 'pm',
+    peerOrigin,
+  }
+}
+
+/**
+ * The ONE synchronous bridge signal, shared by App.tsx's bootstrap (skip
+ * localStorage, wait for hydrate) and `detectBridge`. Injected global first —
+ * a disk-server host is authoritative over any leftover hash.
+ */
+export const readBridgeSignal = (): BridgeConfig | null =>
+  readInjectedBridge() ?? readHashBridge()
+
+/**
  * Decide whether this page is running under a live bridge. Resolves the bridge
  * config (with token) or null.
  *
@@ -67,7 +106,7 @@ export const readInjectedBridge = (): BridgeConfig | null => {
  * one signal — this one.
  */
 export const detectBridge = async (): Promise<BridgeConfig | null> =>
-  readInjectedBridge()
+  readBridgeSignal()
 
 /** Build the absolute WebSocket URL from the page origin + the config's path. */
 export const wsEndpoint = (config: BridgeConfig): string => {

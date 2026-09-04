@@ -45,6 +45,10 @@
       "types": "./dist-lib/icons.d.ts",
       "default": "./dist-lib/icons.js"
     },
+    "./bridge": {
+      "types": "./dist-lib/bridge.d.ts",
+      "default": "./dist-lib/bridge.js"
+    },
     "./icons/files/*": "./dist/icons/*",
     "./package.json": "./package.json"
   },

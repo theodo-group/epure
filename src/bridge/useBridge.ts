@@ -17,6 +17,7 @@ import { validateLayoutJson } from '@/file/layoutSchema'
 
 import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeClient'
 import { detectBridge } from './config'
+import { makePmSocketFactory } from './postMessageSocket'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
 import {
@@ -223,7 +224,11 @@ export const useBridge = (): BridgeUiState => {
 
       const client = new BridgeClient({
         config,
-        ...(testSocketFactory ? { socketFactory: testSocketFactory } : {}),
+        ...(testSocketFactory
+          ? { socketFactory: testSocketFactory }
+          : config.transport === 'pm' && config.peerOrigin
+            ? { socketFactory: makePmSocketFactory(config.peerOrigin) }
+            : {}),
         onStatus: (s) => {
           setStatus(s)
           if (s === 'disconnected') {
