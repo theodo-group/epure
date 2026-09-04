@@ -45,6 +45,26 @@ npx @theodo-group/epure ./docs/diagrams/system.epr.d2
 This prints a local URL and serves the editor against that pair, syncing your
 edits both ways. (It creates a starter diagram if the file doesn't exist yet.)
 
+## Use it as a library
+
+The npm package also exposes the editor's internals as importable entry points
+(React 18 and 19 are both supported as peers):
+
+```ts
+// Headless pair → SVG/PNG, no browser, no DOM — the editor's exact look.
+import { renderDiagramSvg, packagedIconsDir } from '@theodo-group/epure/render'
+const svg = await renderDiagramSvg(d2, layoutJson, { iconsDir: packagedIconsDir() })
+
+// The bundled icon catalog (~9.4k icons) and its zero-dependency search.
+import { searchIcons, iconById, ICON_CATALOG } from '@theodo-group/epure/icons'
+
+// The presentational SVG components the renders are drawn with.
+import { Node, Edge, EdgeDefs, Area, AreaLabel } from '@theodo-group/epure/react'
+```
+
+The icon images ship with the package: on disk under `packagedIconsDir()`, or
+per file via `@theodo-group/epure/icons/files/<id>.png`.
+
 ## Commands
 
 Every command is `npx @theodo-group/epure <command>`:

@@ -32,8 +32,25 @@
   "bin": {
     "epure": "dist-server/epure.mjs"
   },
+  "exports": {
+    "./render": {
+      "types": "./dist-lib/render.d.ts",
+      "default": "./dist-lib/render.js"
+    },
+    "./react": {
+      "types": "./dist-lib/react.d.ts",
+      "default": "./dist-lib/react.js"
+    },
+    "./icons": {
+      "types": "./dist-lib/icons.d.ts",
+      "default": "./dist-lib/icons.js"
+    },
+    "./icons/files/*": "./dist/icons/*",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
+    "dist-lib",
     "dist-server",
     "skills"
   ],
@@ -41,7 +58,8 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
     "build:server": "node scripts/build-server.mjs",
-    "build:all": "npm run build && npm run build:server",
+    "build:lib": "tsup",
+    "build:all": "npm run build && npm run build:server && npm run build:lib",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
@@ -67,14 +85,16 @@
     "codemirror": "^6.0.1",
     "elkjs": "^0.10.0",
     "fflate": "^0.8.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.1.7",
     "sirv": "^3.0.2",
     "svg-pan-zoom": "^3.6.2",
     "ws": "^8.21.0",
     "zundo": "^2.3.0",
     "zustand": "^5.0.2"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
   },
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^7.3.0",
@@ -92,7 +112,10 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "simple-icons": "^16.24.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"

@@ -13,6 +13,7 @@ export default [
   {
     ignores: [
       'dist/**',
+      'dist-lib/**',
       'dist-server/**',
       'coverage/**',
       'node_modules/**',

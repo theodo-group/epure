@@ -27,5 +27,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "tests", "server", "bin"]
+  "include": ["src", "tests", "server", "bin", "lib"]
 }
