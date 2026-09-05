@@ -76,7 +76,10 @@ each `apply`, ack with `applied`.
 ```ts
 import { bridgeUrl, unwrap, wrap } from '@theodo-group/epure/bridge'
 
-iframe.src = bridgeUrl('https://theodo-group.github.io/epure/', {
+const app = 'https://theodo-group.github.io/epure/'
+const epureOrigin = new URL(app).origin // https://theodo-group.github.io
+
+iframe.src = bridgeUrl(app, {
   origin: location.origin,    // your page's origin; both sides filter on it
   token: crypto.randomUUID(), // per-session nonce the editor echoes in hello
   doc: 'system',              // diagram stem, shown in the editor's tab bar
