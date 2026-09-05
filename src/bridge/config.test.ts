@@ -1,108 +1,83 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { detectBridge, readBridgeSignal, readHashBridge, readInjectedBridge, wsEndpoint } from './config'
+import { bridge, bridgeUrl, wsEndpoint } from './config'
+import { PROTOCOL_VERSION } from './protocol'
 
-const setGlobal = (value: unknown) => {
-  ;(window as unknown as { __EPURE_BRIDGE__?: unknown }).__EPURE_BRIDGE__ = value
+const INJECTED = {
+  token: 'tok',
+  wsUrl: '/__epure/ws',
+  protocol: PROTOCOL_VERSION,
+  doc: 'sys',
+  file: '/x',
+  version: '1',
 }
 
-const VALID = { token: 'tok', wsUrl: '/__epure/ws', protocol: 1, doc: 'sys', file: '/x', version: '1' }
-
 afterEach(() => {
-  delete (window as unknown as { __EPURE_BRIDGE__?: unknown }).__EPURE_BRIDGE__
-  delete (window as unknown as { opener?: unknown }).opener
+  delete window.__EPURE_BRIDGE__
+  window.opener = null
   window.location.hash = ''
-  vi.unstubAllGlobals()
 })
 
-const PM_HASH = '#bridge=pm&origin=http%3A%2F%2Fhost.test&token=tok&doc=archi'
+/** Boot the page the way a host does: opened by a window, on a bridgeUrl. */
+const embed = () => {
+  window.opener = {}
+  const url = bridgeUrl('https://app.test/', {
+    origin: 'http://host.test',
+    token: 'tok',
+    doc: 'archi',
+  })
+  window.location.hash = new URL(url).hash
+}
 
-describe('readInjectedBridge', () => {
-  it('returns null with no global', () => {
-    expect(readInjectedBridge()).toBeNull()
+describe('bridge', () => {
+  it('returns null on the bare Pages bundle (no global, no hash): standalone', () => {
+    expect(bridge()).toBeNull()
   })
 
-  it('parses a well-formed global', () => {
-    setGlobal(VALID)
-    expect(readInjectedBridge()).toMatchObject({ token: 'tok', doc: 'sys' })
+  it('reads a disk-server host from the injected global, stamped ws', () => {
+    window.__EPURE_BRIDGE__ = INJECTED
+    expect(bridge()).toEqual({ transport: 'ws', ...INJECTED })
   })
 
-  it('rejects a global with no token', () => {
-    setGlobal({ ...VALID, token: '' })
-    expect(readInjectedBridge()).toBeNull()
-  })
-})
-
-describe('detectBridge', () => {
-  it('returns null when there is no injected global (the Pages case)', async () => {
-    vi.stubGlobal('fetch', vi.fn())
-    expect(await detectBridge()).toBeNull()
+  it('rejects an injected global with no token', () => {
+    window.__EPURE_BRIDGE__ = { ...INJECTED, token: '' }
+    expect(bridge()).toBeNull()
   })
 
-  it('returns the config when the injected global is present', async () => {
-    setGlobal(VALID)
-    expect(await detectBridge()).toMatchObject({ token: 'tok' })
-  })
-
-  it('trusts the injected global as authoritative (no endpoint veto)', async () => {
-    // The global is same-origin and server-injected; detection must agree with
-    // App.tsx's synchronous bootstrap, which keys off the same global. A config
-    // endpoint must never be able to flip a present global to null.
-    setGlobal(VALID)
-    expect(await detectBridge()).toMatchObject({ token: 'tok' })
-  })
-})
-
-describe('readHashBridge', () => {
-  it('returns null without the hash', () => {
-    expect(readHashBridge()).toBeNull()
-  })
-
-  it('parses the pm hash when a host window exists', () => {
-    ;(window as unknown as { opener: unknown }).opener = {}
-    window.location.hash = PM_HASH
-    expect(readHashBridge()).toMatchObject({
-      token: 'tok',
-      doc: 'archi',
+  it('reads an embedding host back from its own bridgeUrl', () => {
+    embed()
+    expect(bridge()).toEqual({
       transport: 'pm',
-      peerOrigin: 'http://host.test',
+      token: 'tok',
+      protocol: PROTOCOL_VERSION,
+      doc: 'archi',
+      origin: 'http://host.test',
     })
   })
 
   it('ignores a pm hash with no opener and no embedding parent (stale bookmark)', () => {
-    window.location.hash = PM_HASH
-    expect(readHashBridge()).toBeNull()
+    embed()
+    window.opener = null
+    expect(bridge()).toBeNull()
   })
 
-  it('requires a token and an http(s) origin', () => {
-    ;(window as unknown as { opener: unknown }).opener = {}
+  it('requires a token and an http(s) origin in the hash', () => {
+    window.opener = {}
     window.location.hash = '#bridge=pm&origin=http%3A%2F%2Fhost.test&token='
-    expect(readHashBridge()).toBeNull()
+    expect(bridge()).toBeNull()
     window.location.hash = '#bridge=pm&origin=javascript%3Aalert(1)&token=tok'
-    expect(readHashBridge()).toBeNull()
+    expect(bridge()).toBeNull()
   })
-})
 
-describe('readBridgeSignal', () => {
   it('prefers the injected global over the hash (disk server is authoritative)', () => {
-    setGlobal(VALID)
-    ;(window as unknown as { opener: unknown }).opener = {}
-    window.location.hash = PM_HASH
-    expect(readBridgeSignal()).toMatchObject({ wsUrl: '/__epure/ws' })
-  })
-
-  it('falls back to the hash, then to null (standalone)', async () => {
-    ;(window as unknown as { opener: unknown }).opener = {}
-    window.location.hash = PM_HASH
-    expect(readBridgeSignal()).toMatchObject({ transport: 'pm' })
-    expect(await detectBridge()).toMatchObject({ transport: 'pm' })
-    window.location.hash = ''
-    expect(readBridgeSignal()).toBeNull()
+    window.__EPURE_BRIDGE__ = INJECTED
+    embed()
+    expect(bridge()).toMatchObject({ transport: 'ws' })
   })
 })
 
 describe('wsEndpoint', () => {
   it('builds an absolute ws URL from the page origin', () => {
-    expect(wsEndpoint(VALID)).toMatch(/^wss?:\/\/[^/]+\/__epure\/ws$/)
+    expect(wsEndpoint({ transport: 'ws', ...INJECTED })).toMatch(/^wss?:\/\/[^/]+\/__epure\/ws$/)
   })
 })

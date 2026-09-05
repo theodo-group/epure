@@ -65,6 +65,43 @@ import { Node, Edge, EdgeDefs, Area, AreaLabel } from '@theodo-group/epure/react
 The icon images ship with the package: on disk under `packagedIconsDir()`, or
 per file via `@theodo-group/epure/icons/files/<id>.png`.
 
+## Embed the editor in your page
+
+`@theodo-group/epure/bridge` turns any web page into a bridge host: open the
+hosted editor (GitHub Pages or your own deploy) in an iframe or popup, hand it
+a document, and receive every edit back over `postMessage`. Your page plays
+the server role of the wire protocol: answer `hello` with `hydrate`, record
+each `apply`, ack with `applied`.
+
+```ts
+import { bridgeUrl, unwrap, wrap } from '@theodo-group/epure/bridge'
+
+iframe.src = bridgeUrl('https://theodo-group.github.io/epure/', {
+  origin: location.origin,    // your page's origin; both sides filter on it
+  token: crypto.randomUUID(), // per-session nonce the editor echoes in hello
+  doc: 'system',              // diagram stem, shown in the editor's tab bar
+})
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== epureOrigin || event.source !== iframe.contentWindow) return
+  const msg = unwrap(event.data) // null when it's not bridge traffic
+  if (msg?.type === 'hello') {
+    iframe.contentWindow.postMessage(
+      wrap({ type: 'hydrate', doc: msg.doc, files: [
+        { kind: 'd2', content: d2Text, valid: true },
+        { kind: 'layout', content: layoutText, valid: true }, // null = absent
+      ]}),
+      epureOrigin,
+    )
+  }
+})
+```
+
+The messages and their rules live in `src/bridge/protocol.ts`; every type is
+exported. When to persist the received pair is yours to choose: write on every
+`apply` for a live-disk feel, or keep the latest in memory and commit on close
+for a one-revision experience.
+
 ## Commands
 
 Every command is `npx @theodo-group/epure <command>`:

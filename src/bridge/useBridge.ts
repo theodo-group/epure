@@ -16,8 +16,7 @@ import type { LayoutSidecar } from '@/layout/types'
 import { validateLayoutJson } from '@/file/layoutSchema'
 
 import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeClient'
-import { detectBridge } from './config'
-import { makePmSocketFactory } from './postMessageSocket'
+import { bridge } from './config'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
 import {
@@ -212,23 +211,19 @@ export const useBridge = (): BridgeUiState => {
       setInvalidUnsaved(invalid.includes('d2'))
     }
 
-    void detectBridge().then((config) => {
-      if (disposed || !config) {
-        setStatus('standalone')
-        return
-      }
+    const config = bridge()
+    if (!config) {
+      setStatus('standalone')
+    } else {
       setActive(true)
       setFilename(config.doc)
-      const docId = config.doc || config.file || 'default'
+      // Per-document backup key: the doc stem, then the disk path (ws only).
+      const docId = config.doc || (config.transport === 'ws' ? config.file : '') || 'default'
       docIdRef.current = docId
 
       const client = new BridgeClient({
         config,
-        ...(testSocketFactory
-          ? { socketFactory: testSocketFactory }
-          : config.transport === 'pm' && config.peerOrigin
-            ? { socketFactory: makePmSocketFactory(config.peerOrigin) }
-            : {}),
+        ...(testSocketFactory ? { socketFactory: testSocketFactory } : {}),
         onStatus: (s) => {
           setStatus(s)
           if (s === 'disconnected') {
@@ -341,7 +336,7 @@ export const useBridge = (): BridgeUiState => {
         setUsingLocalCopy(true)
         loadDocument(backup.source, backup.layout)
       }, OFFLINE_FALLBACK_MS)
-    })
+    }
 
     // Pointer + reconcile wiring.
     const onPointerDown = () => interaction.setPointerDown(true)

@@ -7,6 +7,7 @@ import type { BridgeConfig } from './config'
 import type { ServerMsg } from './protocol'
 
 const CONFIG: BridgeConfig = {
+  transport: 'ws',
   token: 'tok',
   wsUrl: '/__epure/ws',
   protocol: 1,

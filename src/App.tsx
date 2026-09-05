@@ -37,7 +37,7 @@ import { buildAreaTree } from '@/layout/areaTree'
 import { normalizeForRoute } from '@/layout/normalize'
 import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
-import { readBridgeSignal } from '@/bridge/config'
+import { bridge as bridgeSignal } from '@/bridge/config'
 import { interaction } from '@/bridge/interaction'
 
 import fixtureSource from '../fixtures/system.epr.d2?raw'
@@ -189,12 +189,11 @@ export const App = () => {
     DEFAULT_DOC_NAME
 
   // Hydrate from localStorage on mount, falling back to the bundled fixture.
-  // In bridge mode the WS hydrate is authoritative — skip localStorage entirely
-  // so a different repo's stale doc can't flash in or win the race. We read the
-  // injected global synchronously (detectBridge's async probe is for the
-  // connection, not the bootstrap decision).
+  // In bridge mode the hydrate is authoritative: skip localStorage entirely so
+  // a different repo's stale doc can't flash in or win the race. Bootstrap and
+  // connection both read the same synchronous `bridge()` signal.
   useEffect(() => {
-    if (readBridgeSignal()) return
+    if (bridgeSignal()) return
     const stored = loadStoredDoc()
     if (stored) {
       loadDocument(stored.source, stored.layout)
