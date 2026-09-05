@@ -1,10 +1,11 @@
-// Framework-agnostic bridge client: owns the WebSocket lifecycle (connect,
+// Framework-agnostic bridge client: owns the socket lifecycle (connect,
 // reconnect/backoff), the hello handshake, inbound dispatch, and outbound
 // `apply` with a per-kind last-applied-hash that suppresses echoes and no-ops.
 //
 // Deliberately DOM-free and socket-injectable so it is unit-testable without a
 // browser. The React glue lives in `useBridge`.
 
+import { channel } from './channel'
 import type { BridgeConfig } from './config'
 import { wsEndpoint } from './config'
 import { contentKey } from './sync'
@@ -17,8 +18,8 @@ import {
 
 export type BridgeStatus = 'connecting' | 'connected' | 'disconnected'
 
-/** Minimal WebSocket surface used here — the browser `WebSocket` satisfies it,
- *  and tests inject a fake. */
+/** Minimal socket surface used here. Both transports adapt to it, and tests
+ *  inject a fake. */
 export interface SocketLike {
   send(data: string): void
   close(): void
@@ -27,7 +28,7 @@ export interface SocketLike {
   onmessage: ((ev: { data: unknown }) => void) | null
   onerror: ((ev?: unknown) => void) | null
 }
-export type SocketFactory = (url: string) => SocketLike
+export type SocketFactory = (config: BridgeConfig) => SocketLike
 
 export interface BridgeClientCallbacks {
   /** First load vs reconnect distinguished by `reconnect`. */
@@ -50,8 +51,28 @@ export interface BridgeClientOptions extends BridgeClientCallbacks {
   backoffMs?: number[]
 }
 
-const defaultFactory: SocketFactory = (url) =>
-  new WebSocket(url) as unknown as SocketLike
+/** The browser WebSocket behind the SocketLike seam (an adapter, not a cast:
+ *  the handler property types differ). */
+const websocket = (url: string): SocketLike => {
+  const ws = new WebSocket(url)
+  const socket: SocketLike = {
+    onopen: null,
+    onclose: null,
+    onmessage: null,
+    onerror: null,
+    send: (data) => ws.send(data),
+    close: () => ws.close(),
+  }
+  ws.onopen = () => socket.onopen?.()
+  ws.onclose = () => socket.onclose?.()
+  ws.onerror = () => socket.onerror?.()
+  ws.onmessage = (ev) => socket.onmessage?.({ data: ev.data })
+  return socket
+}
+
+/** The config's transport picks the wire; callers never see a factory. */
+const defaultFactory: SocketFactory = (config) =>
+  config.transport === 'pm' ? channel(config.origin) : websocket(wsEndpoint(config))
 
 const DEFAULT_BACKOFF = [400, 800, 1600, 3200, 6400]
 
@@ -151,7 +172,7 @@ export class BridgeClient {
     this.opts.onStatus('connecting')
     let socket: SocketLike
     try {
-      socket = this.factory(wsEndpoint(this.opts.config))
+      socket = this.factory(this.opts.config)
     } catch {
       this.scheduleReconnect()
       return

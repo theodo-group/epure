@@ -59,7 +59,7 @@ beforeEach(() => {
   interaction._reset()
   installLocalStorage()
   useDiagramStore.getState().loadDocument('', { gridSize: 40, nodes: {}, edges: {} })
-  ;(window as unknown as { __EPURE_BRIDGE__?: unknown }).__EPURE_BRIDGE__ = {
+  window.__EPURE_BRIDGE__ = {
     token: 'tok', wsUrl: '/__epure/ws', protocol: 1, doc: 'sys', file: '/x', version: '1',
   }
   __setTestSocketFactory(() => {
@@ -67,23 +67,15 @@ beforeEach(() => {
     sockets.push(s)
     return s
   })
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue({
-      ok: true,
-      headers: { get: () => 'application/json' },
-      json: async () => ({ bridge: true }),
-    }),
-  )
 })
 
 afterEach(() => {
   __setTestSocketFactory(undefined)
   vi.unstubAllGlobals()
-  delete (window as unknown as { __EPURE_BRIDGE__?: unknown }).__EPURE_BRIDGE__
+  delete window.__EPURE_BRIDGE__
 })
 
-// Let detectBridge's async chain resolve and the client connect.
+// Let the client connect (detection is synchronous; the socket opens next tick).
 const connect = async () => {
   await act(async () => {
     await Promise.resolve()

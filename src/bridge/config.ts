@@ -1,47 +1,60 @@
 // Runtime bridge detection. The SAME static bundle ships to GitHub Pages and to
-// the local `epure` server — so whether a bridge is present must be decided at
-// runtime, never by a build flag.
+// the local `epure` server, so whether a bridge is present must be decided at
+// runtime, never by a build flag. `bridge()` is the ONE synchronous signal:
+// App.tsx's bootstrap (skip localStorage, wait for hydrate) and useBridge's
+// connection decision both key off it, so they can never disagree.
 //
-// The signal is the `window.__EPURE_BRIDGE__` global the bridge host injects
-// into the served index.html (carrying the per-session token). GitHub Pages
-// serves the un-injected index.html, so the global is simply absent there →
-// `detectBridge()` resolves null and the app runs in its normal localStorage
-// mode. We additionally confirm against `GET /__epure/config` so a stale/forged
-// global can't make the app think it's bridged when the endpoint disagrees.
+// Two kinds of host can own the page, each with its own signal:
+//   - a disk server serves an index.html with `window.__EPURE_BRIDGE__`
+//     injected (same-origin, carries the session token): the `ws` transport;
+//   - a web page embeds the app (iframe or popup) at `bridgeUrl(...)`: the
+//     `pm` transport, spoken over postMessage (see channel.ts).
+// GitHub Pages serves the un-injected file with no hash: no signal, standalone.
 
 import { PROTOCOL_VERSION } from './protocol'
 
-export interface BridgeConfig {
-  /** Per-session token required on the WS hello. */
+declare global {
+  interface Window {
+    /** Injected by a disk-server host into the served index.html (inject.ts).
+     *  Field values are validated here, hence `unknown`. */
+    __EPURE_BRIDGE__?: Partial<
+      Record<'token' | 'wsUrl' | 'protocol' | 'doc' | 'file' | 'version', unknown>
+    >
+  }
+}
+
+/** What the session shares across transports, plus the transport's own fields. */
+export type BridgeConfig = {
+  /** Per-session token required on the hello. */
   token: string
-  /** WebSocket path, e.g. `/__epure/ws`. Empty for the postMessage transport. */
-  wsUrl: string
   protocol: number
   /** Diagram stem, e.g. `system`. */
   doc: string
-  /** Absolute realpath of the `.epr.d2` on the server. */
-  file: string
-  version: string
-  /** Wire transport. Absent means WebSocket (the disk-server hosts). */
-  transport?: 'ws' | 'pm'
-  /** postMessage only: the host page's origin — both sides filter on it. */
-  peerOrigin?: string
-}
+} & (
+  | {
+      transport: 'ws'
+      /** WebSocket path, e.g. `/__epure/ws`. */
+      wsUrl: string
+      /** Absolute realpath of the `.epr.d2` on the server. */
+      file: string
+      version: string
+    }
+  | {
+      transport: 'pm'
+      /** The host page's origin. Both sides filter messages on it. */
+      origin: string
+    }
+)
 
-interface InjectedBridge {
-  token?: unknown
-  wsUrl?: unknown
-  protocol?: unknown
-  doc?: unknown
-  file?: unknown
-  version?: unknown
-}
-
-const asConfig = (raw: InjectedBridge | undefined): BridgeConfig | null => {
+/** The disk-server signal: the injected global, validated field by field. */
+const injected = (): BridgeConfig | null => {
+  if (typeof window === 'undefined') return null
+  const raw = window.__EPURE_BRIDGE__
   if (!raw || typeof raw !== 'object') return null
   if (typeof raw.token !== 'string' || raw.token.length === 0) return null
   if (typeof raw.wsUrl !== 'string') return null
   return {
+    transport: 'ws',
     token: raw.token,
     wsUrl: raw.wsUrl,
     protocol: typeof raw.protocol === 'number' ? raw.protocol : PROTOCOL_VERSION,
@@ -51,65 +64,51 @@ const asConfig = (raw: InjectedBridge | undefined): BridgeConfig | null => {
   }
 }
 
-/** Read the host-injected bridge global synchronously (no I/O). */
-export const readInjectedBridge = (): BridgeConfig | null => {
-  if (typeof window === 'undefined') return null
-  return asConfig((window as { __EPURE_BRIDGE__?: InjectedBridge }).__EPURE_BRIDGE__)
-}
-
 /**
- * Read a postMessage-bridge request from the URL hash, synchronously:
- * `#bridge=pm&origin=<host origin>&token=<nonce>[&doc=<stem>]`. Only honored
- * when a host window actually exists (opener or embedding parent) — the same
- * static bundle opened directly with a stale hash must fall back to standalone
- * mode, not wait forever for a hydrate that can't come.
+ * The embedding-page signal: `#bridge=pm&origin=...&token=...[&doc=...]`. Only
+ * honored when a host window actually exists (opener or embedding parent). The
+ * same static bundle opened directly with a stale hash must fall back to
+ * standalone mode, not wait forever for a hydrate that can't come.
  */
-export const readHashBridge = (): BridgeConfig | null => {
+const hashed = (): BridgeConfig | null => {
   if (typeof window === 'undefined') return null
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
   if (params.get('bridge') !== 'pm') return null
   const token = params.get('token') ?? ''
-  const peerOrigin = params.get('origin') ?? ''
-  if (token.length === 0 || !/^https?:\/\//.test(peerOrigin)) return null
+  const origin = params.get('origin') ?? ''
+  if (token.length === 0 || !/^https?:\/\//.test(origin)) return null
   if (!window.opener && window.parent === window) return null
   return {
+    transport: 'pm',
     token,
-    wsUrl: '',
     protocol: PROTOCOL_VERSION,
     doc: params.get('doc') ?? '',
-    file: '',
-    version: '',
-    transport: 'pm',
-    peerOrigin,
+    origin,
   }
 }
 
 /**
- * The ONE synchronous bridge signal, shared by App.tsx's bootstrap (skip
- * localStorage, wait for hydrate) and `detectBridge`. Injected global first —
- * a disk-server host is authoritative over any leftover hash.
+ * The bridge this page runs under, or null (standalone). A disk server's
+ * injected global is authoritative over any leftover pm hash: it is same-origin
+ * and could only have been placed there by the host serving this very HTML.
  */
-export const readBridgeSignal = (): BridgeConfig | null =>
-  readInjectedBridge() ?? readHashBridge()
+export const bridge = (): BridgeConfig | null => injected() ?? hashed()
 
 /**
- * Decide whether this page is running under a live bridge. Resolves the bridge
- * config (with token) or null.
- *
- * The injected global is the *authoritative* runtime signal: it is same-origin
- * and could only have been placed there by the bridge host serving this HTML
- * (GitHub Pages serves the un-injected file → no global → null). It carries the
- * token, which a bare `/__epure/config` probe cannot. We deliberately do NOT
- * veto a present global on a config-endpoint mismatch: doing so would let the
- * async probe disagree with App.tsx's *synchronous* bootstrap decision (which
- * keys off the same global), blanking the app. Detection and bootstrap must use
- * one signal — this one.
+ * The URL a host page points its iframe (or popup) at to embed the editor
+ * bridged: `bridgeUrl(app, { origin: location.origin, token, doc })`. Parsed
+ * back by `bridge()` on boot, so the hash format lives in this file only.
  */
-export const detectBridge = async (): Promise<BridgeConfig | null> =>
-  readBridgeSignal()
+export const bridgeUrl = (
+  app: string,
+  session: { origin: string; token: string; doc: string },
+): string => {
+  const enc = encodeURIComponent
+  return `${app}#bridge=pm&origin=${enc(session.origin)}&token=${enc(session.token)}&doc=${enc(session.doc)}`
+}
 
 /** Build the absolute WebSocket URL from the page origin + the config's path. */
-export const wsEndpoint = (config: BridgeConfig): string => {
+export const wsEndpoint = (config: Extract<BridgeConfig, { transport: 'ws' }>): string => {
   if (typeof window === 'undefined') return config.wsUrl
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${proto}//${window.location.host}${config.wsUrl}`

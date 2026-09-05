@@ -74,3 +74,6 @@ export interface RejectedMsg {
 }
 
 export type ServerMsg = HydrateMsg | FileChangedMsg | AppliedMsg | RejectedMsg
+
+/** Any frame either side may speak — what `unwrap` hands back. */
+export type BridgeMsg = ClientMsg | ServerMsg

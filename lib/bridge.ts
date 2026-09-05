@@ -1,10 +1,15 @@
-// `@theodo-group/epure/bridge` — the host-side surface of the live bridge: the
-// wire protocol (plain JSON frames, see src/bridge/protocol.ts) plus the
-// postMessage envelope helpers. A page that embeds the editor in an iframe or
-// popup (`#bridge=pm&origin=<its origin>&token=<nonce>`) implements the server
-// role with these: answer `hello` with `hydrate`, receive `apply`, ack with
-// `applied`. Types, constants and tiny pure functions only — no DOM touched at
-// import time, safe in Node and the browser alike.
+// `@theodo-group/epure/bridge`: the host-side surface of the live bridge.
+//
+// A page that embeds the editor (iframe or popup) plays the server role of the
+// wire protocol (src/bridge/protocol.ts) over `window.postMessage`:
+//
+//   iframe.src = bridgeUrl(app, { origin: location.origin, token, doc })
+//   const msg = unwrap(event.data)        // null when not bridge traffic
+//   frame.postMessage(wrap(reply), appOrigin)
+//
+// Answer `hello` with `hydrate`, receive `apply`, ack with `applied`. Types,
+// constants and tiny pure functions only; no DOM touched at import time, safe
+// in Node and the browser alike.
 
 export {
   PROTOCOL_VERSION,
@@ -19,5 +24,7 @@ export {
   type AppliedMsg,
   type RejectedMsg,
   type ServerMsg,
+  type BridgeMsg,
 } from '../src/bridge/protocol'
-export { PM_ENVELOPE_KEY, readPmFrame } from '../src/bridge/postMessageSocket'
+export { wrap, unwrap } from '../src/bridge/channel'
+export { bridgeUrl } from '../src/bridge/config'
