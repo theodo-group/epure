@@ -3,7 +3,7 @@ import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 import type { ShapeName } from '@/parser/ast'
 import type { Side } from '@/layout/types'
 import type { FillColor, LineStyle, PaletteColor, Size } from '@/style/palette'
-import { iconUrlById } from '@/icons'
+import { url } from '@/icons'
 import {
   dashArrayFor,
   resolveFill,
@@ -124,7 +124,7 @@ export const Node: FC<NodeProps> = ({
   // An icon, when present, renders either as a corner badge or centered at
   // the top, depending on `iconPosition`. The person figure already reads as
   // an icon, so skip icons there.
-  const iconUrl = icon && shape !== 'person' ? iconUrlById(icon) : undefined
+  const iconUrl = icon && shape !== 'person' ? url(icon) : undefined
   const effectiveIconPos = iconPosition ?? 'corner'
 
   // Corner badge: peeks past the bottom-right corner by 1/6 of its size, so

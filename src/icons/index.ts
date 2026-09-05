@@ -1,32 +1,32 @@
 // Public surface for the bundled icon catalog. The heavy metadata array lives
 // in catalog.generated.ts (built by scripts/build-icon-catalog.mjs); the icon
 // images are static files under public/icons/ served at runtime and inlined as
-// data URIs only at export time (src/export/inlineImages.ts).
+// data URIs only at export time.
 
 import { ICON_CATALOG, type IconMeta } from './catalog.generated'
 
 export type { IconMeta }
-export { ICON_CATALOG }
+/** Every bundled icon's metadata (~9.4k entries). */
+export { ICON_CATALOG as catalog }
 
 // Vite serves public/ at the app base path; honour a non-root base (e.g. when
 // deployed under a GitHub Pages subpath).
 const BASE = import.meta.env?.BASE_URL || '/'
 
-/** Static URL for an icon file path (e.g. "aws/compute/ec2.png"). */
-export const iconUrl = (file: string): string =>
-  `${BASE.replace(/\/$/, '')}/icons/${file}`
-
 const byId = new Map(ICON_CATALOG.map((m) => [m.id, m]))
 
-export const iconById = (id: string): IconMeta | undefined => byId.get(id)
+/** The icon's metadata, or undefined for an unknown id. */
+export const icon = (id: string): IconMeta | undefined => byId.get(id)
 
-/** Static URL for an icon id, or undefined if the id is unknown. */
-export const iconUrlById = (id: string): string | undefined => {
-  const m = byId.get(id)
-  return m ? iconUrl(m.file) : undefined
+/** Static URL for an icon, by id (undefined when unknown) or by metadata. */
+export function url(of: IconMeta): string
+export function url(of: string): string | undefined
+export function url(of: string | IconMeta): string | undefined {
+  const meta = typeof of === 'string' ? byId.get(of) : of
+  return meta ? `${BASE.replace(/\/$/, '')}/icons/${meta.file}` : undefined
 }
 
-export interface ProviderInfo {
+export interface Provider {
   key: string
   label: string
   count: number
@@ -56,20 +56,22 @@ const PROVIDER_LABELS: Record<string, string> = {
   lobe: 'AI / LLM',
 }
 
-export const providerLabel = (key: string): string =>
-  PROVIDER_LABELS[key] ?? key
-
-// Providers ordered by catalog richness (most icons first), each with a count.
-export const PROVIDERS: ProviderInfo[] = (() => {
+/** Providers ordered by catalog richness (most icons first). */
+export const providers: Provider[] = (() => {
   const counts = new Map<string, number>()
   for (const m of ICON_CATALOG) counts.set(m.provider, (counts.get(m.provider) ?? 0) + 1)
   return [...counts.entries()]
-    .map(([key, count]) => ({ key, label: providerLabel(key), count }))
+    .map(([key, count]) => ({ key, label: PROVIDER_LABELS[key] ?? key, count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
 })()
 
-const haystack = (m: IconMeta) =>
-  `${m.id} ${m.name} ${m.provider} ${m.category}`.toLowerCase()
+const byProvider = new Map(providers.map((p) => [p.key, p]))
+
+/** A provider by key; unknown keys resolve to a zero-count self-labeled one. */
+export const provider = (key: string): Provider =>
+  byProvider.get(key) ?? { key, label: key, count: 0 }
+
+const haystack = (m: IconMeta) => `${m.id} ${m.name} ${m.provider} ${m.category}`.toLowerCase()
 
 const HAYSTACKS = new Map(ICON_CATALOG.map((m) => [m.id, haystack(m)]))
 
@@ -82,10 +84,7 @@ export interface SearchOptions {
  * Filter the catalog by a free-text query (matched against id/name/provider/
  * category, all terms must hit) and an optional provider, capped to `limit`.
  */
-export const searchIcons = (
-  query: string,
-  { provider, limit = 240 }: SearchOptions = {},
-): IconMeta[] => {
+export const search = (query: string, { provider, limit = 240 }: SearchOptions = {}): IconMeta[] => {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const out: IconMeta[] = []
   for (const m of ICON_CATALOG) {

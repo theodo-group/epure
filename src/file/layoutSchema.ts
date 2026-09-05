@@ -8,7 +8,7 @@
 
 import type { ParseError, SourceRange, SourcePos } from '@/parser/ast'
 import type { LayoutSidecar } from '@/layout/types'
-import { iconById } from '@/icons'
+import { icon } from '@/icons'
 
 type JsonNode =
   | { kind: 'object'; range: SourceRange; entries: ObjectEntry[] }
@@ -369,7 +369,7 @@ const validateNode = (node: JsonNode, key: string, ctx: Ctx): void => {
       case 'icon':
         if (entry.value.kind !== 'string') {
           push(ctx, 'icon must be a string', entry.value.range)
-        } else if (!iconById(entry.value.value)) {
+        } else if (!icon(entry.value.value)) {
           push(ctx, `Unknown icon "${entry.value.value}"`, entry.value.range)
         }
         break
