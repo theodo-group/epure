@@ -13,7 +13,7 @@ import { watch, type FSWatcher } from 'chokidar'
 import { canonicalizeLayout } from '../../src/file/canonicalLayout'
 import { validateLayoutJson } from '../../src/file/layoutSchema'
 import { setLibavoidWasmPath } from '../../src/layout/elk'
-import { renderDiagramPng } from '../render'
+import { png as renderPng } from '../render'
 
 import { readFrame, verdictFor } from './frames'
 import type { ResolvedPair } from './pair'
@@ -282,9 +282,11 @@ export class BridgeCore {
       readFile(this.pair.paths.layout, 'utf8').catch(() => null),
     ])
     if (d2 === null) return // no topology yet — nothing to draw
-    const result = await renderDiagramPng(d2, layoutText, {
+    const result = await renderPng(d2, layoutText, {
       scale: png.scale ?? 2,
-      ...(png.iconsDir ? { iconsDir: png.iconsDir } : {}),
+      // Preserve the configured behavior: no iconsDir means no inlining (the
+      // hrefs stay as-is), not the packaged default.
+      icons: png.iconsDir ?? false,
     })
     if (!Buffer.isBuffer(result)) return // invalid d2 → leave the last good PNG
     const dest = join(this.pair.dir, `${this.pair.stem}.png`)

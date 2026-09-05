@@ -7,13 +7,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 
-import {
-  PROVIDERS,
-  iconById,
-  iconUrl,
-  iconUrlById,
-  searchIcons,
-} from '@/icons'
+import { icon, providers, search, url } from '@/icons'
 
 interface IconControlProps {
   /** Current icon id, or undefined (none / mixed selection). */
@@ -38,12 +32,12 @@ const Popover = ({
 }) => {
   const [query, setQuery] = useState('')
   const [provider, setProvider] = useState<string>(
-    value ? (iconById(value)?.provider ?? '') : '',
+    value ? (icon(value)?.provider ?? '') : '',
   )
   const ref = useRef<HTMLDivElement>(null)
 
   const results = useMemo(
-    () => searchIcons(query, { provider: provider || undefined, limit: GRID_LIMIT }),
+    () => search(query, { provider: provider || undefined, limit: GRID_LIMIT }),
     [query, provider],
   )
 
@@ -93,7 +87,7 @@ const Popover = ({
           onChange={(e) => setProvider(e.target.value)}
         >
           <option value="">All</option>
-          {PROVIDERS.map((p) => (
+          {providers.map((p) => (
             <option key={p.key} value={p.key}>
               {p.label} ({p.count})
             </option>
@@ -115,7 +109,7 @@ const Popover = ({
                 onClose()
               }}
             >
-              <img src={iconUrl(m.file)} alt={m.name} loading="lazy" />
+              <img src={url(m)} alt={m.name} loading="lazy" />
             </button>
           ))
         )}
@@ -156,8 +150,8 @@ export const IconControl = ({ value, mixed, onChange }: IconControlProps) => {
     }
   }, [open])
 
-  const meta = value ? iconById(value) : undefined
-  const url = value ? iconUrlById(value) : undefined
+  const meta = value ? icon(value) : undefined
+  const href = value ? url(value) : undefined
 
   return (
     <div className="ep-icon-control">
@@ -167,8 +161,8 @@ export const IconControl = ({ value, mixed, onChange }: IconControlProps) => {
         className="ep-icon-trigger"
         onClick={() => (open ? setOpen(false) : openPopover())}
       >
-        {url ? (
-          <img className="ep-icon-thumb" src={url} alt="" />
+        {href ? (
+          <img className="ep-icon-thumb" src={href} alt="" />
         ) : (
           <span className="ep-icon-thumb ep-icon-thumb-empty" aria-hidden />
         )}

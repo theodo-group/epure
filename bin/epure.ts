@@ -27,11 +27,11 @@ import { validateLayoutJson } from '../src/file/layoutSchema'
 import { setLibavoidWasmPath } from '../src/layout/elk'
 import type { LayoutSidecar } from '../src/layout/types'
 
-import { ICON_CATALOG, searchIcons, PROVIDERS } from '../src/icons'
+import { catalog, providers, search } from '../src/icons'
 import { resolvePair, type ResolvedPair, EXT } from '../server/core/pair'
 import { portForPath } from '../server/core/port'
 import { validatePair, type ValidationIssue } from '../server/core/validate'
-import { renderDiagramPng, readPngText, PNG_SOURCE_KEYS } from '../server/render'
+import { png, source } from '../server/render'
 import { startStandalone } from '../server/standalone'
 
 // Injected at build time via esbuild --define; falls back for ts-direct runs.
@@ -290,9 +290,9 @@ const cmdExport = async (args: string[]): Promise<number> => {
   }
   process.on('unhandledRejection', onUnhandled)
 
-  const result = await renderDiagramPng(d2, layoutText, {
+  const result = await png(d2, layoutText, {
     scale,
-    iconsDir: join(DIST_DIR, 'icons'),
+    icons: join(DIST_DIR, 'icons'),
   })
   if (!Buffer.isBuffer(result)) {
     log(`cannot render: ${result.error}`)
@@ -324,33 +324,32 @@ const cmdSource = async (args: string[]): Promise<number> => {
     return 1
   }
 
-  const png = await readFile(file).catch(() => null)
-  if (png === null) {
+  const bytes = await readFile(file).catch(() => null)
+  if (bytes === null) {
     log(`no file at ${file}`)
     return 1
   }
-  const meta = readPngText(png)
-  const d2 = meta[PNG_SOURCE_KEYS.d2]
-  if (d2 === undefined) {
+  const recovered = source(bytes)
+  if (recovered === null) {
     log(`${file}: no embedded Épure source (was it rendered by Épure?)`)
     return 1
   }
-  const layout = meta[PNG_SOURCE_KEYS.layout]
+  const { d2, layout } = recovered
 
   // `-o <name>`: reconstruct the editable pair on disk so it can be opened live.
   if (outStem) {
     const pair = resolvePair(outStem)
     await writeFile(pair.paths.d2, d2)
-    if (layout !== undefined) await writeFile(pair.paths.layout, layout)
+    if (layout !== null) await writeFile(pair.paths.layout, layout)
     // Machine-readable: the .epr.d2 path, ready to hand to `epure <file>`.
     process.stdout.write(pair.paths.d2 + '\n')
-    log(`recovered ${pair.stem} → ${pair.paths.d2}${layout !== undefined ? ` (+ layout)` : ''}`)
+    log(`recovered ${pair.stem} → ${pair.paths.d2}${layout !== null ? ` (+ layout)` : ''}`)
     return 0
   }
 
   // Otherwise print the d2 topology to stdout; note the layout's availability.
   process.stdout.write(d2.endsWith('\n') ? d2 : d2 + '\n')
-  if (layout !== undefined) {
+  if (layout !== null) {
     log('(layout also embedded — pass `-o <name>` to write the full .epr.* pair)')
   }
   return 0
@@ -405,17 +404,17 @@ const cmdIcons = (args: string[], json: boolean): number => {
 
   if (!query && !provider) {
     if (json) {
-      process.stdout.write(JSON.stringify(PROVIDERS) + '\n')
+      process.stdout.write(JSON.stringify(providers) + '\n')
     } else {
-      process.stdout.write(`${ICON_CATALOG.length} icons across ${PROVIDERS.length} providers:\n\n`)
-      for (const p of PROVIDERS)
+      process.stdout.write(`${catalog.length} icons across ${providers.length} providers:\n\n`)
+      for (const p of providers)
         process.stdout.write(`  ${p.key.padEnd(16)} ${p.label.padEnd(18)} ${p.count} icons\n`)
       process.stdout.write(`\nUsage: epure icons <query> [--provider <key>] [--limit <n>]\n`)
     }
     return 0
   }
 
-  const results = searchIcons(query, { provider, limit })
+  const results = search(query, { provider, limit })
   if (json) {
     process.stdout.write(JSON.stringify(results) + '\n')
   } else {

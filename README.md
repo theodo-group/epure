@@ -51,19 +51,19 @@ The npm package also exposes the editor's internals as importable entry points
 (React 18 and 19 are both supported as peers):
 
 ```ts
-// Headless pair → SVG/PNG, no browser, no DOM — the editor's exact look.
-import { renderDiagramSvg, packagedIconsDir } from '@theodo-group/epure/render'
-const svg = await renderDiagramSvg(d2, layoutJson, { iconsDir: packagedIconsDir() })
+// Headless pair to SVG/PNG, the editor's exact look; no browser, no DOM.
+import { svg, png, model, source } from '@theodo-group/epure/render'
+const image = await svg(d2, layoutJson)      // icons inlined by default
+const pair = source(await readFile('x.png')) // { d2, layout } from any Épure PNG
 
 // The bundled icon catalog (~9.4k icons) and its zero-dependency search.
-import { searchIcons, iconById, ICON_CATALOG } from '@theodo-group/epure/icons'
+import { search, icon, url } from '@theodo-group/epure/icons'
 
-// The presentational SVG components the renders are drawn with.
-import { Node, Edge, EdgeDefs, Area, AreaLabel } from '@theodo-group/epure/react'
+// The diagram as a React component (SSR-clean), plus the parts it is made of.
+import { Diagram } from '@theodo-group/epure/react'
+const m = await model(d2, layoutJson)
+return <Diagram model={m} />
 ```
-
-The icon images ship with the package: on disk under `packagedIconsDir()`, or
-per file via `@theodo-group/epure/icons/files/<id>.png`.
 
 ## Embed the editor in your page
 

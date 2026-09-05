@@ -7,28 +7,21 @@ import { validateLayoutJson } from '../../src/file/layoutSchema'
 import { route } from '../../src/layout/elk'
 import { normalizeForRoute } from '../../src/layout/normalize'
 import { makeEdgeId } from '../../src/layout/elk'
-import type { LayoutSidecar, RoutedDiagram } from '../../src/layout/types'
+import type { LayoutSidecar } from '../../src/layout/types'
 import type { EdgeMeta, NodeMeta } from '../../src/renderer/Canvas'
-
-export interface RenderModel {
-  routed: RoutedDiagram
-  /** Topology metadata keyed by node id (shape + label come from the `.d2`). */
-  nodes: Record<string, NodeMeta>
-  /** Edge metadata keyed by routed edge id (`src->tgt#i`). */
-  edges: Record<string, EdgeMeta>
-}
+import type { DiagramModel } from '../../src/renderer/Diagram'
 
 const fallbackLayout = (): LayoutSidecar => ({ gridSize: 40, nodes: {}, edges: {} })
 
 /**
- * Parse + route a pair into a render model. Returns `{ error }` when the `.d2`
- * doesn't parse (nothing meaningful to draw). An absent/invalid layout is
- * tolerated — Phase-0 normalization auto-places any unplaced node.
+ * Parse + route a pair into a drawable DiagramModel. Returns `{ error }` when
+ * the `.d2` doesn't parse (nothing meaningful to draw). An absent or invalid
+ * layout is tolerated; normalization auto-places any unplaced node.
  */
-export const buildRenderModel = async (
+export const model = async (
   d2: string,
   layoutText: string | null,
-): Promise<RenderModel | { error: string }> => {
+): Promise<DiagramModel | { error: string }> => {
   const parsed = parse(d2)
   if (!parsed.ok) {
     const first = parsed.errors[0]

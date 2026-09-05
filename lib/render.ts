@@ -1,6 +1,10 @@
-// `@theodo-group/epure/render` — headless (DOM-free) diagram rendering for
-// Node. Re-exports the same render pipeline the CLI's `epure export` uses:
-// pair text in → fit-to-content SVG string (or PNG bytes) out.
+// `@theodo-group/epure/render`: headless (DOM-free) diagram rendering for
+// Node, the editor's exact look.
+//
+//   const image = await svg(d2, layoutJson)   // icons inlined by default
+//   const bytes = await png(d2, layoutJson)   // carries its own source
+//   const pair  = source(bytes)               // { d2, layout } back out
+//   const m     = await model(d2, layoutJson) // parse + route, no drawing
 //
 // On import, the orthogonal router is pointed at the libavoid wasm shipped
 // with the package (dist-lib/libavoid.wasm) so consumers get real routing
@@ -19,15 +23,14 @@ const WASM_CANDIDATES = [join(HERE, 'libavoid.wasm'), join(HERE, '..', 'public',
 const wasm = WASM_CANDIDATES.find(existsSync)
 if (wasm) setLibavoidWasmPath(wasm)
 
-/**
- * Absolute path to the icon images shipped with the package, for use as
- * `RenderOptions.iconsDir` (icons are then base64-inlined into the SVG).
- */
-export const packagedIconsDir = (): string => {
-  // Published: dist/icons (the SPA build ships the catalog). From source: public/.
-  const candidates = [join(HERE, '..', 'dist', 'icons'), join(HERE, '..', 'public', 'icons')]
-  return candidates.find(existsSync) ?? candidates[0]!
-}
-
 export { setLibavoidWasmPath }
-export * from '../server/render'
+export {
+  svg,
+  png,
+  model,
+  source,
+  packagedIconsDir,
+  type RenderOptions,
+  type DiagramModel,
+  type DiagramOptions,
+} from '../server/render'

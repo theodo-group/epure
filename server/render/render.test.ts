@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { buildRenderModel } from './model'
-import { renderDiagramPng } from './index'
+import { model } from './model'
+import { png, source, svg } from './index'
 import {
   embedPngText,
   readPngText,
@@ -29,18 +29,18 @@ const viewBoxOf = (svg: string) => {
 
 describe('headless diagram render', () => {
   it('builds a routed model with the fixture topology', async () => {
-    const model = await buildRenderModel(D2, LAYOUT)
-    if ('error' in model) throw new Error(model.error)
-    expect(model.routed.nodes.map((n) => n.id)).toContain('api')
-    expect(model.routed.edges.length).toBeGreaterThan(0)
-    expect(model.routed.areas.map((a) => a.id)).toContain('Services')
-    expect(model.nodes.user).toMatchObject({ shape: 'person' })
+    const m = await model(D2, LAYOUT)
+    if ('error' in m) throw new Error(m.error)
+    expect(m.routed.nodes.map((n) => n.id)).toContain('api')
+    expect(m.routed.edges.length).toBeGreaterThan(0)
+    expect(m.routed.areas.map((a) => a.id)).toContain('Services')
+    expect(m.nodes.user).toMatchObject({ shape: 'person' })
   })
 
   it('renders an SVG fit to content (no fixed canvas size)', async () => {
-    const model = await buildRenderModel(D2, LAYOUT)
-    if ('error' in model) throw new Error(model.error)
-    const svg = renderSvgString(model, { padding: 24 })
+    const m = await model(D2, LAYOUT)
+    if ('error' in m) throw new Error(m.error)
+    const svg = renderSvgString(m, { padding: 24 })
     expect(svg.startsWith('<svg')).toBe(true)
     // width/height equal the viewBox extent → proportions preserved, fitted.
     const vb = viewBoxOf(svg)
@@ -56,17 +56,17 @@ describe('headless diagram render', () => {
   })
 
   it('inlines icon files as data URIs', async () => {
-    const model = await buildRenderModel(D2, LAYOUT)
-    if ('error' in model) throw new Error(model.error)
-    const svg = inlineIcons(renderSvgString(model), ICONS)
+    const m = await model(D2, LAYOUT)
+    if ('error' in m) throw new Error(m.error)
+    const svg = inlineIcons(renderSvgString(m), ICONS)
     expect(svg).not.toMatch(/href="\/icons\//) // all rewritten
     expect(svg).toContain('data:image/png;base64,')
   })
 
   it('rasterizes to a real PNG', async () => {
-    const model = await buildRenderModel(D2, LAYOUT)
-    if ('error' in model) throw new Error(model.error)
-    const png = svgToPng(inlineIcons(renderSvgString(model), ICONS), { scale: 1 })
+    const m = await model(D2, LAYOUT)
+    if ('error' in m) throw new Error(m.error)
+    const png = svgToPng(inlineIcons(renderSvgString(m), ICONS), { scale: 1 })
     expect(Buffer.isBuffer(png)).toBe(true)
     // PNG magic number.
     expect(png.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
@@ -74,23 +74,23 @@ describe('headless diagram render', () => {
   })
 
   it('reports an error for an unparseable diagram instead of throwing', async () => {
-    const model = await buildRenderModel('a -> ', null)
-    expect('error' in model).toBe(true)
+    const m = await model('a -> ', null)
+    expect('error' in m).toBe(true)
   })
 
   it('renders a .d2-only diagram (auto-placed, no layout file)', async () => {
-    const model = await buildRenderModel('a\nb\na -> b\n', null)
-    if ('error' in model) throw new Error(model.error)
-    const png = svgToPng(renderSvgString(model), { scale: 1 })
+    const m = await model('a\nb\na -> b\n', null)
+    if ('error' in m) throw new Error(m.error)
+    const png = svgToPng(renderSvgString(m), { scale: 1 })
     expect(png.length).toBeGreaterThan(500)
   })
 
   it('embeds the diagram source in the rendered PNG (round-trips, incl. layout)', async () => {
-    const png = await renderDiagramPng(D2, LAYOUT, { iconsDir: ICONS, scale: 1 })
-    if (!Buffer.isBuffer(png)) throw new Error(png.error)
+    const bytes = await png(D2, LAYOUT, { icons: ICONS, scale: 1 })
+    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
     // Still a valid PNG after splicing metadata chunks.
-    expect(png.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-    const meta = readPngText(png)
+    expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    const meta = readPngText(bytes)
     expect(meta[PNG_SOURCE_KEYS.d2]).toBe(D2)
     expect(meta[PNG_SOURCE_KEYS.layout]).toBe(LAYOUT)
     // Self-describing marker: a reader handed only the image can tell it's an
@@ -101,11 +101,27 @@ describe('headless diagram render', () => {
   })
 
   it('omits the layout key when a diagram has no layout file', async () => {
-    const png = await renderDiagramPng('a\nb\na -> b\n', null, { scale: 1 })
-    if (!Buffer.isBuffer(png)) throw new Error(png.error)
-    const meta = readPngText(png)
+    const bytes = await png('a\nb\na -> b\n', null, { scale: 1, icons: false })
+    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+    const meta = readPngText(bytes)
     expect(meta[PNG_SOURCE_KEYS.d2]).toBe('a\nb\na -> b\n')
     expect(meta[PNG_SOURCE_KEYS.layout]).toBeUndefined()
+  })
+})
+
+describe('the library surface', () => {
+  it('svg() inlines the packaged icons by default', async () => {
+    const out = await svg(D2, LAYOUT)
+    if (typeof out !== 'string') throw new Error(out.error)
+    expect(out).not.toMatch(/href="\/icons\//)
+    expect(out).toContain('data:image/png;base64,')
+  })
+
+  it('source() recovers the pair from a rendered PNG, null otherwise', async () => {
+    const bytes = await png(D2, LAYOUT, { scale: 1, icons: false })
+    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+    expect(source(bytes)).toEqual({ d2: D2, layout: LAYOUT })
+    expect(source(Buffer.from('not a png'))).toBeNull()
   })
 })
 
