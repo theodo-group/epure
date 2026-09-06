@@ -21,11 +21,12 @@ import type {
 } from './types'
 
 // Where libavoid loads its wasm from. In the browser it's served at the app
-// root (`/libavoid.wasm`); the headless Node export (`epure export`) overrides
-// this with an absolute filesystem path so real routing runs server-side
-// instead of the degraded fallback. Without a real wasm, route() still works
-// via the stub-route fallback below.
-let wasmLocator = '/libavoid.wasm'
+// base path — honour a non-root base (e.g. deployed under a GitHub Pages
+// subpath), same idiom as src/icons. The headless Node export (`epure export`)
+// overrides this with an absolute filesystem path so real routing runs
+// server-side instead of the degraded fallback. Without a real wasm, route()
+// still works via the stub-route fallback below.
+let wasmLocator = `${import.meta.env?.BASE_URL || '/'}libavoid.wasm`
 export const setLibavoidWasmPath = (path: string): void => {
   wasmLocator = path
 }
