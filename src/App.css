@@ -139,6 +139,21 @@ body {
   background: #f5f5f4;
 }
 
+/* Code-pane toggle: icon + a small shortcut hint, so it is wider than 28px. */
+.ep-btn-code {
+  width: auto;
+  padding: 0 8px 0 7px;
+  gap: 5px;
+}
+
+.ep-btn-hint {
+  font-family: var(--ep-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ep-text-subtle);
+  line-height: 1;
+}
+
 .ep-btn-ghost.active {
   background: var(--ep-accent-bg);
   border-color: var(--ep-accent-border);
