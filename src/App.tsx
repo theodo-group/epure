@@ -50,6 +50,25 @@ const DEFAULT_DOC_NAME = 'system'
 // Content-space margin around the diagram in the fitted PNG/HTML export.
 const EXPORT_PADDING = 48
 const PERSIST_DEBOUNCE_MS = 250
+// Whether the code pane (left editor) is shown; a UI preference, not part of
+// the document, so it lives in its own localStorage key.
+const EDITOR_VISIBLE_KEY = 'epure:ui:editor-visible:v1'
+
+const loadEditorVisible = (): boolean => {
+  try {
+    return localStorage.getItem(EDITOR_VISIBLE_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
+const saveEditorVisible = (visible: boolean) => {
+  try {
+    localStorage.setItem(EDITOR_VISIBLE_KEY, visible ? '1' : '0')
+  } catch {
+    // Storage unavailable (private mode, quota): the preference just won't stick.
+  }
+}
 
 const fallbackLayout = (): LayoutSidecar => ({
   gridSize: 40,
@@ -172,6 +191,26 @@ export const App = () => {
   } | null>(null)
 
   const editorRef = useRef<CodeMirrorPaneHandle | null>(null)
+
+  // Code pane visibility (⌘B / Ctrl+B, or the header toggle). Hiding it gives
+  // the canvas the full width — handy when the diagram is driven by an agent
+  // and the user only wants to watch/adjust the drawing.
+  const [editorVisible, setEditorVisible] = useState<boolean>(loadEditorVisible)
+  const toggleEditor = useCallback(() => {
+    setEditorVisible((v) => {
+      saveEditorVisible(!v)
+      return !v
+    })
+  }, [])
+  // Refit the view once the canvas has taken (or given back) the editor's
+  // width; skip the initial mount, where the canvas fits itself.
+  const lastEditorVisible = useRef(editorVisible)
+  useEffect(() => {
+    if (lastEditorVisible.current === editorVisible) return
+    lastEditorVisible.current = editorVisible
+    const raf = requestAnimationFrame(() => setFitVersion((v) => v + 1))
+    return () => cancelAnimationFrame(raf)
+  }, [editorVisible])
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   // The live bridge (when present) hydrates the store from disk over WebSocket;
@@ -387,11 +426,17 @@ export const App = () => {
       if (key === 'o') {
         ev.preventDefault()
         await handleOpen()
+        return
+      }
+
+      if (key === 'b') {
+        ev.preventDefault()
+        toggleEditor()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleOpen, onExportPng])
+  }, [handleOpen, onExportPng, toggleEditor])
 
   // Commit an inline label edit from the canvas: rewrite the node's label in
   // the .d2 source in place (or insert one after the id when the node has none).
@@ -509,191 +554,205 @@ export const App = () => {
 
   const renderDiagram = routed ?? placeholderDiagram
 
+  // The drawing surface. Rendered inside the split when the code pane is
+  // shown, or alone (full width) when it is hidden.
+  const canvasPane = (
+    <div className="pane pane-canvas">
+      <Canvas
+        ref={svgRef}
+        diagram={renderDiagram}
+        showGrid={showGrid}
+        onToggleGrid={toggleGrid}
+        textScale={textScale}
+        onSetTextScale={setTextScale}
+        fontFamily={FONT_STACKS[fontFamily]}
+        fontOptions={fontOptions}
+        selectedFontId={fontFamily}
+        onSetFontFamily={(id) => setFontFamily(id as FontFamilyId)}
+        selectedNodeIds={selectedNodeIds}
+        selectedAreaIds={selectedAreaIds}
+        selectedEdgeIds={selectedEdgeIds}
+        onSelectArea={(id, additive) => selectArea(id, additive)}
+        onSelectEdge={(id, additive) => selectEdge(id, additive)}
+        onSelectNode={(id, additive) => {
+          if (!id) {
+            if (!additive) selectNode(undefined)
+            return
+          }
+          if (additive) {
+            selectNode(id, true)
+          } else if (!selectedNodeIds.includes(id)) {
+            selectNode(id, false)
+          } else if (selectedAreaIds.length > 0 || selectedEdgeIds.length > 0) {
+            // Already-selected node: keep the (possibly multi-) node
+            // selection for dragging, but drop stale cross-kind selection.
+            setSelection(selectedNodeIds, [], [])
+          }
+        }}
+        onMoveNode={(id, cx, cy) => {
+          const sel = useDiagramStore.getState().selectedNodeIds
+          if (sel.length <= 1 || !sel.includes(id)) {
+            multiDragRef.current = null
+            moveNode(id, cx, cy)
+            return
+          }
+          const grid = useDiagramStore.getState().layout.gridSize
+          const nodes = useDiagramStore.getState().layout.nodes
+          let drag = multiDragRef.current
+          if (!drag || drag.leaderId !== id) {
+            const leader = nodes[id]
+            if (!leader) return
+            const members: Record<string, { cx: number; cy: number }> = {}
+            for (const sid of sel) {
+              const n = nodes[sid]
+              if (n) members[sid] = { cx: n.cx, cy: n.cy }
+            }
+            drag = {
+              leaderId: id,
+              leaderStart: { cx: leader.cx, cy: leader.cy },
+              members,
+            }
+            multiDragRef.current = drag
+          }
+          const newLeaderCx = Math.round(cx / grid)
+          const newLeaderCy = Math.round(cy / grid)
+          const dgx = newLeaderCx - drag.leaderStart.cx
+          const dgy = newLeaderCy - drag.leaderStart.cy
+          const moves: Record<string, { cx: number; cy: number }> = {}
+          for (const [sid, start] of Object.entries(drag.members)) {
+            moves[sid] = { cx: start.cx + dgx, cy: start.cy + dgy }
+          }
+          moveNodes(moves)
+        }}
+        onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
+        onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
+        onCommitNodeLabel={handleCommitNodeLabel}
+        onCreateNode={handleCreateNode}
+        onConnectSelection={handleConnectSelection}
+        onDeleteSelection={handleDeleteSelection}
+        onMarqueeSelect={(nodeIds, areaIds, additive) => {
+          if (additive) {
+            const st = useDiagramStore.getState()
+            setSelection(
+              [...st.selectedNodeIds, ...nodeIds],
+              [...st.selectedAreaIds, ...areaIds],
+              st.selectedEdgeIds,
+            )
+          } else {
+            setSelection(nodeIds, areaIds)
+          }
+        }}
+        onAreaDragStart={(areaId) => {
+          if (!parseResult.ok) return
+          const { diagram } = parseResult
+          if (!diagram.areas.some((a) => a.id === areaId)) return
+          // Seed from the normalized layout, not the raw sidecar, so a
+          // freshly-typed group whose members are still auto-placed (no
+          // sidecar entry yet) drags too — normalizeForRoute gives every
+          // member the exact grid position + size it's drawn at.
+          // Membership is resolved TRANSITIVELY: dragging a container
+          // carries the nodes of its nested member areas, whose derived
+          // boxes then follow along.
+          const { layout } = useDiagramStore.getState()
+          const norm = normalizeForRoute(diagram, layout)
+          const memberIds =
+            buildAreaTree(diagram.areas).leafNodesOf.get(areaId) ?? new Set<string>()
+          const starts: Record<
+            string,
+            { cx: number; cy: number; w: number; h: number }
+          > = {}
+          for (const memberId of memberIds) {
+            const n = norm.nodes[memberId]
+            if (n) starts[memberId] = { cx: n.cx, cy: n.cy, w: n.w, h: n.h }
+          }
+          areaDragStartRef.current = starts
+        }}
+        onAreaDragMove={(_areaId, dx, dy) => {
+          const { gridSize } = useDiagramStore.getState().layout
+          const dgx = Math.round(dx / gridSize)
+          const dgy = Math.round(dy / gridSize)
+          const moves: Record<
+            string,
+            { cx: number; cy: number; w: number; h: number }
+          > = {}
+          for (const [id, start] of Object.entries(areaDragStartRef.current)) {
+            moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy, w: start.w, h: start.h }
+          }
+          moveNodes(moves)
+        }}
+        fitVersion={fitVersion}
+        onFitView={() => setFitVersion((v) => v + 1)}
+        nodes={nodesMeta}
+        edges={edgesMeta}
+      />
+      <StylePanel />
+    </div>
+  )
+
   return (
     <div className="app-root">
       <Header
         onOpen={handleOpen}
         onExportPng={onExportPng}
         onExportHtml={onExportHtml}
+        editorVisible={editorVisible}
+        onToggleEditor={toggleEditor}
       />
       <div className="app-body">
-        <PanelGroup direction="horizontal" autoSaveId="epure:panels">
-          <Panel defaultSize={36} minSize={20} className="pane pane-editor">
-            <EditorTabBar
-              tabs={[
-                { id: 'd2', label: `${docName}.d2` },
-                { id: 'layout', label: `${docName}.layout.json` },
-              ]}
-              activeTabId={activeTab}
-              onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
-              onSearch={() => editorRef.current?.openSearch()}
-            />
-            <div className="ep-cm-wrap">
-              {activeTab === 'd2' ? (
-                <CodeMirrorPane
-                  key="d2"
-                  ref={editorRef}
-                  value={source}
-                  onChange={(text) => {
-                    // Mark local activity so the bridge defers inbound applies
-                    // while the user is typing (the d2 buffer is bound directly
-                    // to the store, so a remote write would replace it live).
-                    interaction.noteActivity()
-                    setSource(text)
-                  }}
-                  errors={parseResult.ok ? [] : parseResult.errors}
-                />
-              ) : (
-                <CodeMirrorPane
-                  key="layout"
-                  ref={editorRef}
-                  value={layoutText}
-                  onChange={(text) => {
-                    // Mark activity on EVERY keystroke — invalid JSON never
-                    // reaches the store, so without this the bridge wouldn't see
-                    // the user as busy and a remote layout write could clobber
-                    // the in-progress (invalid) buffer.
-                    interaction.noteActivity()
-                    editLayout(text)
-                  }}
-                  errors={layoutErrors}
-                  language={jsonLang()}
-                />
-              )}
-            </div>
-          </Panel>
-          <PanelResizeHandle className="resize-handle" />
-          <Panel defaultSize={64} minSize={30} className="pane pane-canvas">
-            <Canvas
-              ref={svgRef}
-              diagram={renderDiagram}
-              showGrid={showGrid}
-              onToggleGrid={toggleGrid}
-              textScale={textScale}
-              onSetTextScale={setTextScale}
-              fontFamily={FONT_STACKS[fontFamily]}
-              fontOptions={fontOptions}
-              selectedFontId={fontFamily}
-              onSetFontFamily={(id) => setFontFamily(id as FontFamilyId)}
-              selectedNodeIds={selectedNodeIds}
-              selectedAreaIds={selectedAreaIds}
-              selectedEdgeIds={selectedEdgeIds}
-              onSelectArea={(id, additive) => selectArea(id, additive)}
-              onSelectEdge={(id, additive) => selectEdge(id, additive)}
-              onSelectNode={(id, additive) => {
-                if (!id) {
-                  if (!additive) selectNode(undefined)
-                  return
-                }
-                if (additive) {
-                  selectNode(id, true)
-                } else if (!selectedNodeIds.includes(id)) {
-                  selectNode(id, false)
-                } else if (selectedAreaIds.length > 0 || selectedEdgeIds.length > 0) {
-                  // Already-selected node: keep the (possibly multi-) node
-                  // selection for dragging, but drop stale cross-kind selection.
-                  setSelection(selectedNodeIds, [], [])
-                }
-              }}
-              onMoveNode={(id, cx, cy) => {
-                const sel = useDiagramStore.getState().selectedNodeIds
-                if (sel.length <= 1 || !sel.includes(id)) {
-                  multiDragRef.current = null
-                  moveNode(id, cx, cy)
-                  return
-                }
-                const grid = useDiagramStore.getState().layout.gridSize
-                const nodes = useDiagramStore.getState().layout.nodes
-                let drag = multiDragRef.current
-                if (!drag || drag.leaderId !== id) {
-                  const leader = nodes[id]
-                  if (!leader) return
-                  const members: Record<string, { cx: number; cy: number }> = {}
-                  for (const sid of sel) {
-                    const n = nodes[sid]
-                    if (n) members[sid] = { cx: n.cx, cy: n.cy }
-                  }
-                  drag = {
-                    leaderId: id,
-                    leaderStart: { cx: leader.cx, cy: leader.cy },
-                    members,
-                  }
-                  multiDragRef.current = drag
-                }
-                const newLeaderCx = Math.round(cx / grid)
-                const newLeaderCy = Math.round(cy / grid)
-                const dgx = newLeaderCx - drag.leaderStart.cx
-                const dgy = newLeaderCy - drag.leaderStart.cy
-                const moves: Record<string, { cx: number; cy: number }> = {}
-                for (const [sid, start] of Object.entries(drag.members)) {
-                  moves[sid] = { cx: start.cx + dgx, cy: start.cy + dgy }
-                }
-                moveNodes(moves)
-              }}
-              onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
-              onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
-              onCommitNodeLabel={handleCommitNodeLabel}
-              onCreateNode={handleCreateNode}
-              onConnectSelection={handleConnectSelection}
-              onDeleteSelection={handleDeleteSelection}
-              onMarqueeSelect={(nodeIds, areaIds, additive) => {
-                if (additive) {
-                  const st = useDiagramStore.getState()
-                  setSelection(
-                    [...st.selectedNodeIds, ...nodeIds],
-                    [...st.selectedAreaIds, ...areaIds],
-                    st.selectedEdgeIds,
-                  )
-                } else {
-                  setSelection(nodeIds, areaIds)
-                }
-              }}
-              onAreaDragStart={(areaId) => {
-                if (!parseResult.ok) return
-                const { diagram } = parseResult
-                if (!diagram.areas.some((a) => a.id === areaId)) return
-                // Seed from the normalized layout, not the raw sidecar, so a
-                // freshly-typed group whose members are still auto-placed (no
-                // sidecar entry yet) drags too — normalizeForRoute gives every
-                // member the exact grid position + size it's drawn at.
-                // Membership is resolved TRANSITIVELY: dragging a container
-                // carries the nodes of its nested member areas, whose derived
-                // boxes then follow along.
-                const { layout } = useDiagramStore.getState()
-                const norm = normalizeForRoute(diagram, layout)
-                const memberIds =
-                  buildAreaTree(diagram.areas).leafNodesOf.get(areaId) ?? new Set<string>()
-                const starts: Record<
-                  string,
-                  { cx: number; cy: number; w: number; h: number }
-                > = {}
-                for (const memberId of memberIds) {
-                  const n = norm.nodes[memberId]
-                  if (n) starts[memberId] = { cx: n.cx, cy: n.cy, w: n.w, h: n.h }
-                }
-                areaDragStartRef.current = starts
-              }}
-              onAreaDragMove={(_areaId, dx, dy) => {
-                const { gridSize } = useDiagramStore.getState().layout
-                const dgx = Math.round(dx / gridSize)
-                const dgy = Math.round(dy / gridSize)
-                const moves: Record<
-                  string,
-                  { cx: number; cy: number; w: number; h: number }
-                > = {}
-                for (const [id, start] of Object.entries(areaDragStartRef.current)) {
-                  moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy, w: start.w, h: start.h }
-                }
-                moveNodes(moves)
-              }}
-              fitVersion={fitVersion}
-              onFitView={() => setFitVersion((v) => v + 1)}
-              nodes={nodesMeta}
-              edges={edgesMeta}
-            />
-            <StylePanel />
-          </Panel>
-        </PanelGroup>
+        {editorVisible ? (
+          <PanelGroup direction="horizontal" autoSaveId="epure:panels">
+            <Panel defaultSize={36} minSize={20} className="pane pane-editor">
+              <EditorTabBar
+                tabs={[
+                  { id: 'd2', label: `${docName}.d2` },
+                  { id: 'layout', label: `${docName}.layout.json` },
+                ]}
+                activeTabId={activeTab}
+                onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
+                onSearch={() => editorRef.current?.openSearch()}
+              />
+              <div className="ep-cm-wrap">
+                {activeTab === 'd2' ? (
+                  <CodeMirrorPane
+                    key="d2"
+                    ref={editorRef}
+                    value={source}
+                    onChange={(text) => {
+                      // Mark local activity so the bridge defers inbound applies
+                      // while the user is typing (the d2 buffer is bound directly
+                      // to the store, so a remote write would replace it live).
+                      interaction.noteActivity()
+                      setSource(text)
+                    }}
+                    errors={parseResult.ok ? [] : parseResult.errors}
+                  />
+                ) : (
+                  <CodeMirrorPane
+                    key="layout"
+                    ref={editorRef}
+                    value={layoutText}
+                    onChange={(text) => {
+                      // Mark activity on EVERY keystroke — invalid JSON never
+                      // reaches the store, so without this the bridge wouldn't see
+                      // the user as busy and a remote layout write could clobber
+                      // the in-progress (invalid) buffer.
+                      interaction.noteActivity()
+                      editLayout(text)
+                    }}
+                    errors={layoutErrors}
+                    language={jsonLang()}
+                  />
+                )}
+              </div>
+            </Panel>
+            <PanelResizeHandle className="resize-handle" />
+            <Panel defaultSize={64} minSize={30} className="pane">
+              {canvasPane}
+            </Panel>
+          </PanelGroup>
+        ) : (
+          canvasPane
+        )}
       </div>
       <Footer bridge={bridge} />
       {bridge.clash ? (
