@@ -10,6 +10,9 @@ interface HeaderProps {
   onOpen: () => Promise<void> | void
   onExportPng: () => Promise<void> | void
   onExportHtml: () => Promise<void> | void
+  /** Whether the code pane is shown; drives the toggle's pressed state. */
+  editorVisible?: boolean
+  onToggleEditor?: () => void
 }
 
 const SCALES: ExportScale[] = [1, 2, 4]
@@ -26,7 +29,13 @@ const ChevronDown = () => (
   </svg>
 )
 
-export const Header = ({ onOpen, onExportPng, onExportHtml }: HeaderProps) => {
+export const Header = ({
+  onOpen,
+  onExportPng,
+  onExportHtml,
+  editorVisible = true,
+  onToggleEditor,
+}: HeaderProps) => {
   const exportScale = useDiagramStore((s) => s.exportScale)
   const setExportScale = useDiagramStore((s) => s.setExportScale)
 
@@ -75,6 +84,26 @@ export const Header = ({ onOpen, onExportPng, onExportHtml }: HeaderProps) => {
       <div className="ep-logo" aria-label="Épure">
         d2
       </div>
+
+      {onToggleEditor ? (
+        <button
+          className={`ep-btn ep-btn-ghost ep-btn-icon${editorVisible ? ' active' : ''}`}
+          onClick={onToggleEditor}
+          aria-pressed={editorVisible}
+          title={editorVisible ? 'Hide code (⌘B)' : 'Show code (⌘B)'}
+          type="button"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M5 4.5 L1.5 8 L5 11.5 M11 4.5 L14.5 8 L11 11.5 M9.5 3 L6.5 13"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ) : null}
 
       <div className="ep-spacer" />
 
