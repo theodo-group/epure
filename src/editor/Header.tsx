@@ -81,9 +81,12 @@ export const Header = ({
 
   return (
     <header className="ep-header">
-      <div className="ep-logo" aria-label="Épure">
-        d2
-      </div>
+      {/* The "d2" mark echoes the code pane; it goes away with it. */}
+      {editorVisible ? (
+        <div className="ep-logo" aria-label="Épure">
+          d2
+        </div>
+      ) : null}
 
       {onToggleEditor ? (
         <button
