@@ -139,19 +139,14 @@ body {
   background: #f5f5f4;
 }
 
-/* Code-pane toggle: icon + a small shortcut hint, so it is wider than 28px. */
-.ep-btn-code {
-  width: auto;
-  padding: 0 8px 0 7px;
-  gap: 5px;
-}
-
-.ep-btn-hint {
+/* Shortcut hint sitting next to a header button (e.g. ⌘B by the code toggle). */
+.ep-kbd-hint {
   font-family: var(--ep-mono);
   font-size: 10px;
-  font-weight: 400;
   color: var(--ep-text-subtle);
+  margin-left: -6px;
   line-height: 1;
+  user-select: none;
 }
 
 .ep-btn-ghost.active {

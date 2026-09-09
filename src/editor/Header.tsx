@@ -87,7 +87,7 @@ export const Header = ({
 
       {onToggleEditor ? (
         <button
-          className={`ep-btn ep-btn-ghost ep-btn-icon ep-btn-code${editorVisible ? ' active' : ''}`}
+          className={`ep-btn ep-btn-ghost ep-btn-icon${editorVisible ? ' active' : ''}`}
           onClick={onToggleEditor}
           aria-pressed={editorVisible}
           title={editorVisible ? 'Hide code (⌘B)' : 'Show code (⌘B)'}
@@ -102,10 +102,12 @@ export const Header = ({
               strokeLinejoin="round"
             />
           </svg>
-          <span className="ep-btn-hint" aria-hidden>
-            ⌘B
-          </span>
         </button>
+      ) : null}
+      {onToggleEditor ? (
+        <span className="ep-kbd-hint" aria-hidden>
+          ⌘B
+        </span>
       ) : null}
 
       <div className="ep-spacer" />
