@@ -1,4 +1,4 @@
-import { useCallback, useRef, type CSSProperties, type FC, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, type CSSProperties, type FC, type MouseEvent } from 'react'
 
 import { areaTitleRect } from '@/layout/areaTitle'
 import type { AreaLayout } from '@/layout/types'
@@ -193,17 +193,46 @@ interface AreaLabelInputProps {
   onCancel: () => void
 }
 
-// One-line inline editor overlaid on a title chip. Enter or blur commits,
-// Escape cancels.
+// One-line inline editor overlaid on a title chip. Enter, blur or a mousedown
+// outside commits, Escape cancels.
 export const AreaLabelInput: FC<AreaLabelInputProps> = ({
   initialLabel,
   style,
   onCommit,
   onCancel,
 }) => {
+  const inputRef = useRef<HTMLInputElement>(null)
   const cancelled = useRef(false)
+  // Enter/Escape blur, and an outside mousedown may precede that blur: settle once.
+  const done = useRef(false)
+
+  const finish = useCallback(() => {
+    if (done.current) return
+    done.current = true
+    const value = inputRef.current?.value ?? initialLabel
+    // Untouched input: no write, so open + dismiss never rewrites the .d2. A text
+    // input strips LF/CR, so compare with what it showed, not the raw label.
+    if (cancelled.current || value === initialLabel.replace(/[\r\n]/g, '')) onCancel()
+    else onCommit(value.trim())
+  }, [initialLabel, onCommit, onCancel])
+
+  // Same as NodeLabelEditor: the canvas background's mousedown calls
+  // preventDefault, so the input never blurs on a click-away. A capture-phase
+  // document listener commits instead.
+  useEffect(() => {
+    const onDocMouseDown = (event: globalThis.MouseEvent) => {
+      const input = inputRef.current
+      if (input && event.target instanceof globalThis.Node && !input.contains(event.target)) {
+        finish()
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown, true)
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true)
+  }, [finish])
+
   return (
     <input
+      ref={inputRef}
       className="ep-area-label-input"
       aria-label="Group title"
       // biome-ignore lint/a11y/noAutofocus: the editor opens to type the title right away.
@@ -219,12 +248,7 @@ export const AreaLabelInput: FC<AreaLabelInputProps> = ({
           e.currentTarget.blur()
         }
       }}
-      onBlur={(e) => {
-        const value = e.currentTarget.value
-        // Untouched input: no write, so open + dismiss never rewrites the .d2.
-        if (cancelled.current || value === initialLabel) onCancel()
-        else onCommit(value.trim())
-      }}
+      onBlur={finish}
     />
   )
 }
