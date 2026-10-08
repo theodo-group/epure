@@ -1,26 +1,37 @@
-import { useCallback, useRef, type FC, type MouseEvent } from 'react'
+import { useCallback, useRef, type CSSProperties, type FC, type MouseEvent } from 'react'
 
+import { areaTitleRect } from '@/layout/areaTitle'
 import type { AreaLayout } from '@/layout/types'
 import { dashArrayFor, resolveFill, solidOf } from '@/style/palette'
 
 import { beginDrag, endDrag } from './dragState'
 
-interface AreaProps {
-  area: AreaLayout
-  selected?: boolean
+interface AreaPointerProps {
   onSelect?: (areaId: string, additive: boolean) => void
   onDragStart?: (areaId: string) => void
   onDragMove?: (areaId: string, dxPixels: number, dyPixels: number) => void
+  /** Double-click opens the inline title editor (adds a title when none). */
+  onStartEdit?: (areaId: string) => void
 }
 
-export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onDragMove }) => {
+interface AreaProps extends AreaPointerProps {
+  area: AreaLayout
+  selected?: boolean
+}
+
+// Select + drag on mousedown. Shared by the frame and its title chip so the
+// chip stays a grab handle for the group.
+const useAreaMouseDown = (
+  areaId: string,
+  { onSelect, onDragStart, onDragMove }: AreaPointerProps,
+) => {
   const draggingRef = useRef(false)
   const startRef = useRef({ mx: 0, my: 0 })
 
   const handleMouseDown = useCallback(
     (event: MouseEvent<SVGGElement>) => {
       event.stopPropagation()
-      onSelect?.(area.id, event.shiftKey)
+      onSelect?.(areaId, event.shiftKey)
       if (!onDragMove) return
 
       const svg = (event.target as SVGElement).ownerSVGElement
@@ -36,7 +47,7 @@ export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onD
       const sp = pt.matrixTransform(inverse)
       startRef.current = { mx: sp.x, my: sp.y }
 
-      onDragStart?.(area.id)
+      onDragStart?.(areaId)
 
       const onMove = (e: globalThis.MouseEvent) => {
         if (!draggingRef.current) return
@@ -46,7 +57,7 @@ export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onD
         const inv = svg.getScreenCTM()?.inverse()
         if (!inv) return
         const cur = mp.matrixTransform(inv)
-        onDragMove(area.id, cur.x - startRef.current.mx, cur.y - startRef.current.my)
+        onDragMove(areaId, cur.x - startRef.current.mx, cur.y - startRef.current.my)
       }
 
       const onUp = () => {
@@ -59,13 +70,26 @@ export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onD
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [area.id, onSelect, onDragStart, onDragMove],
+    [areaId, onSelect, onDragStart, onDragMove],
   )
+  return handleMouseDown
+}
 
+export const Area: FC<AreaProps> = ({ area, selected, ...pointer }) => {
+  const handleMouseDown = useAreaMouseDown(area.id, pointer)
+  const { onDragMove, onStartEdit } = pointer
   return (
     <g
       data-area-id={area.id}
       onMouseDown={handleMouseDown}
+      onDoubleClick={
+        onStartEdit
+          ? (e) => {
+              e.stopPropagation()
+              onStartEdit(area.id)
+            }
+          : undefined
+      }
       style={{ cursor: onDragMove ? 'grab' : 'default' }}
     >
       <rect
@@ -99,14 +123,9 @@ export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onD
   )
 }
 
-// Approximate character width at the label's font size; keeps the chip wide
-// enough for the rendered text without measuring the DOM.
-const LABEL_CHAR_PX = 7
-const LABEL_PAD_X = 10
-const LABEL_HEIGHT = 22
 const LABEL_FONT = 12
 
-interface AreaLabelProps {
+interface AreaLabelProps extends AreaPointerProps {
   area: AreaLayout
   textScale?: number
   fontFamily?: string
@@ -118,31 +137,41 @@ export const AreaLabel: FC<AreaLabelProps> = ({
   area,
   textScale = 1,
   fontFamily = 'Inter, system-ui, sans-serif',
+  ...pointer
 }) => {
+  const handleMouseDown = useAreaMouseDown(area.id, pointer)
+  const { onStartEdit } = pointer
   if (!area.label) return null
   const accent = area.borderColor ? solidOf(area.borderColor) : '#5b6478'
-  const chipH = LABEL_HEIGHT * textScale
-  const charW = LABEL_CHAR_PX * textScale
-  const padX = LABEL_PAD_X * textScale
-  const chipW = Math.max(40 * textScale, area.label.length * charW + padX * 2)
-  const chipX = area.x + 14
-  const chipY = area.y - chipH / 2
+  const chip = areaTitleRect(area, area.label, area.labelAlign, textScale)
   return (
-    <g pointerEvents="none">
+    <g
+      // Interactive only in the editor: the headless export passes no handlers.
+      pointerEvents={onStartEdit ? 'all' : 'none'}
+      onMouseDown={onStartEdit ? handleMouseDown : undefined}
+      onDoubleClick={
+        onStartEdit
+          ? (e) => {
+              e.stopPropagation()
+              onStartEdit(area.id)
+            }
+          : undefined
+      }
+    >
       <rect
-        x={chipX}
-        y={chipY}
-        width={chipW}
-        height={chipH}
-        rx={chipH / 2}
-        ry={chipH / 2}
+        x={chip.x}
+        y={chip.y}
+        width={chip.w}
+        height={chip.h}
+        rx={chip.h / 2}
+        ry={chip.h / 2}
         fill="#ffffff"
         stroke={accent}
         strokeWidth={1}
       />
       <text
-        x={chipX + chipW / 2}
-        y={chipY + chipH / 2 + 0.5}
+        x={chip.x + chip.w / 2}
+        y={chip.y + chip.h / 2 + 0.5}
         textAnchor="middle"
         dominantBaseline="middle"
         fontFamily={fontFamily}
@@ -153,5 +182,49 @@ export const AreaLabel: FC<AreaLabelProps> = ({
         {area.label}
       </text>
     </g>
+  )
+}
+
+interface AreaLabelInputProps {
+  initialLabel: string
+  style: CSSProperties
+  /** Plain-text title; an empty string clears the label. */
+  onCommit: (label: string) => void
+  onCancel: () => void
+}
+
+// One-line inline editor overlaid on a title chip. Enter or blur commits,
+// Escape cancels.
+export const AreaLabelInput: FC<AreaLabelInputProps> = ({
+  initialLabel,
+  style,
+  onCommit,
+  onCancel,
+}) => {
+  const cancelled = useRef(false)
+  return (
+    <input
+      className="ep-area-label-input"
+      aria-label="Group title"
+      // biome-ignore lint/a11y/noAutofocus: the editor opens to type the title right away.
+      autoFocus
+      defaultValue={initialLabel}
+      style={style}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          cancelled.current = true
+          e.currentTarget.blur()
+        }
+      }}
+      onBlur={(e) => {
+        const value = e.currentTarget.value
+        // Untouched input: no write, so open + dismiss never rewrites the .d2.
+        if (cancelled.current || value === initialLabel) onCancel()
+        else onCommit(value.trim())
+      }}
+    />
   )
 }

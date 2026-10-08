@@ -55,7 +55,7 @@ const EDGE_FIELD_ORDER = [
   'labelDy',
 ] as const
 
-const AREA_FIELD_ORDER = ['borderColor', 'borderStyle', 'fillColor'] as const
+const AREA_FIELD_ORDER = ['borderColor', 'borderStyle', 'fillColor', 'labelAlign'] as const
 
 const isPresent = (v: unknown): boolean => v !== undefined && v !== null
 

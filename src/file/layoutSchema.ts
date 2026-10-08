@@ -317,7 +317,8 @@ const EDGE_FIELDS = new Set([
   'labelDx',
   'labelDy',
 ])
-const AREA_FIELDS = new Set(['borderColor', 'borderStyle', 'fillColor'])
+const AREA_FIELDS = new Set(['borderColor', 'borderStyle', 'fillColor', 'labelAlign'])
+export const LABEL_ALIGNS = new Set(['left', 'center', 'right'])
 const ROOT_FIELDS = new Set(['gridSize', 'textScale', 'nodes', 'edges', 'areas'])
 // Bounds of the global text zoom (the canvas's A−/A+ control clamps to these).
 export const TEXT_SCALE_MIN = 0.6
@@ -493,6 +494,9 @@ const validateArea = (node: JsonNode, key: string, ctx: Ctx): void => {
         break
       case 'fillColor':
         validateEnum(entry.value, FILL_COLORS, 'fillColor', ctx)
+        break
+      case 'labelAlign':
+        validateEnum(entry.value, LABEL_ALIGNS, 'labelAlign', ctx)
         break
       default:
         if (!AREA_FIELDS.has(entry.key)) {

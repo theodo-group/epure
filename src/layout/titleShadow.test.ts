@@ -119,7 +119,8 @@ const throughChip = (routed: RoutedDiagram, areaId: string, chip: Rect): string[
 const routeOf = async (d2: string, nodes: LayoutSidecar['nodes'], edges = {}) => {
   const parsed = parse(d2)
   if (!parsed.ok) throw new Error(JSON.stringify(parsed.errors))
-  const layout: LayoutSidecar = { gridSize: 40, nodes, edges }
+  // Left-aligned title, so the chip rects below sit at a fixed inset.
+  const layout: LayoutSidecar = { gridSize: 40, nodes, edges, areas: { A: { labelAlign: 'left' } } }
   return route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
 }
 
