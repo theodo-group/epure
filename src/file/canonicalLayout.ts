@@ -40,7 +40,7 @@ const EDGE_FIELD_ORDER = [
 ] as const
 
 const AREA_FIELD_ORDER = [
-  'borderColor', 'borderStyle', 'fillColor',
+  'borderColor', 'borderStyle', 'fillColor', 'labelAlign',
 ] as const
 
 const isPresent = (v: unknown): boolean => v !== undefined && v !== null

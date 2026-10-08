@@ -198,7 +198,7 @@ export class D2Visitor extends BaseVisitor {
           range,
         })
       }
-      return this.buildArea(id, label, block, range)
+      return this.buildArea(id, label, block, range, idRange, labelRange)
     }
 
     return this.buildNode(id, label, block, range, idRange, labelRange)
@@ -246,6 +246,8 @@ export class D2Visitor extends BaseVisitor {
     label: string | undefined,
     block: BlockResult,
     range: SourceRange,
+    idRange: SourceRange,
+    labelRange: SourceRange | undefined,
   ): AreaDecl {
     const members: string[] = []
     const memberRanges: SourceRange[] = []
@@ -262,7 +264,16 @@ export class D2Visitor extends BaseVisitor {
       members.push(memberId)
       memberRanges.push(item.range)
     }
-    return { kind: 'area', id, label, members, memberRanges, range }
+    return {
+      kind: 'area',
+      id,
+      label,
+      idRange,
+      ...(labelRange ? { labelRange } : {}),
+      members,
+      memberRanges,
+      range,
+    }
   }
 
   // -- edge ---------------------------------------------------------------

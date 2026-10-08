@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parse } from './index'
 import type { NodeDecl } from './ast'
+import { setAreaLabel } from '@/editor/labelMarkup'
 
 const onlyNode = (src: string): NodeDecl => {
   const r = parse(src)
@@ -51,5 +52,39 @@ describe('NodeDecl id/label source ranges', () => {
     const node = onlyNode('bare')
     expect(node.labelRange).toBeUndefined()
     expect(node.idRange.end.offset).toBe(4)
+  })
+})
+
+describe('AreaDecl title ranges and setAreaLabel round-trip', () => {
+  const onlyArea = (src: string) => {
+    const r = parse(src)
+    if (!r.ok) throw new Error(`parse failed: ${JSON.stringify(r.errors)}`)
+    return r.diagram.areas[0]!
+  }
+  const rewrite = (src: string, label: string) =>
+    setAreaLabel(src, onlyArea(src), label)
+
+  it('spans quoted and unquoted area labels', () => {
+    const quoted = 'a\nGrp: "1 · Étape" {\n  a\n}\n'
+    expect(slice(quoted, onlyArea(quoted).labelRange!)).toBe('"1 · Étape"')
+    const bare = 'a\nGrp: Back End {\n  a\n}\n'
+    expect(slice(bare, onlyArea(bare).labelRange!)).toBe('Back End')
+    expect(slice(bare, onlyArea(bare).idRange)).toBe('Grp')
+  })
+
+  it('replaces, adds and removes a title, and re-parses to it', () => {
+    const src = 'a\nGrp: Old {\n  a\n}\n'
+    const replaced = rewrite(src, 'Say "hi" \\ ok')!
+    expect(onlyArea(replaced).label).toBe('Say "hi" \\ ok')
+    const removed = rewrite(src, '')!
+    expect(removed).toBe('a\nGrp {\n  a\n}\n')
+    expect(onlyArea(removed).label).toBeUndefined()
+    const added = rewrite(removed, 'New')!
+    expect(added).toBe('a\nGrp: "New" {\n  a\n}\n')
+  })
+
+  it('writes nothing for an unchanged title', () => {
+    expect(rewrite('a\nGrp: Same {\n  a\n}\n', 'Same')).toBeNull()
+    expect(rewrite('a\nGrp {\n  a\n}\n', '')).toBeNull()
   })
 })

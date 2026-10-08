@@ -40,10 +40,13 @@ export interface EdgeStyleSpec {
   labelDy?: number
 }
 
+export type AreaLabelAlign = 'left' | 'center' | 'right'
+
 export interface AreaStyleSpec {
   borderColor?: PaletteColor
   borderStyle?: LineStyle
   fillColor?: FillColor
+  labelAlign?: AreaLabelAlign
 }
 
 export interface NodeLayout extends NodeStyle {

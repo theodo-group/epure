@@ -26,7 +26,7 @@ import {
   type StoredDoc,
 } from '@/file/localStore'
 import { locateLayoutKeyRanges } from '@/file/layoutSchema'
-import { editorHtmlToLabel, labelToEditorHtml, quoteD2 } from '@/editor/labelMarkup'
+import { editorHtmlToLabel, labelToEditorHtml, quoteD2, setAreaLabel } from '@/editor/labelMarkup'
 import { exportPng, type ExportFrame } from '@/export/png'
 import { embedSourceInPngBlob } from '@/export/pngText'
 import { exportStandaloneHtml } from '@/export/standalone-html'
@@ -474,6 +474,21 @@ export const App = () => {
     [setSource],
   )
 
+  // Commit an inline group-title edit through setSource, like
+  // handleCommitNodeLabel. See setAreaLabel for the rewrite rules.
+  const handleCommitAreaLabel = useCallback(
+    (id: string, label: string) => {
+      const { source: src, parseResult: parsed } = useDiagramStore.getState()
+      if (!parsed.ok) return
+      const area = parsed.diagram.areas.find((a) => a.id === id)
+      const next = area && setAreaLabel(src, area, label)
+      if (!next) return
+      interaction.noteActivity()
+      setSource(next)
+    },
+    [setSource],
+  )
+
   // Create a node from the canvas (N): mint a stable machine id, append a bare
   // declaration to the .d2, and select it. Returns the new id so the canvas can
   // open its inline label editor once the node lands (creation is async — it
@@ -627,6 +642,7 @@ export const App = () => {
         onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
         onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
         onCommitNodeLabel={handleCommitNodeLabel}
+        onCommitAreaLabel={handleCommitAreaLabel}
         onCreateNode={handleCreateNode}
         onConnectSelection={handleConnectSelection}
         onDeleteSelection={handleDeleteSelection}

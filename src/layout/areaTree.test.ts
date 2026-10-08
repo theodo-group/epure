@@ -46,8 +46,8 @@ describe('buildAreaTree', () => {
   it('terminates on a membership cycle (defensive — parser rejects these)', () => {
     // Hand-built AST: A ∈ B and B ∈ A. The tree must not recurse forever.
     const cyclic = [
-      { kind: 'area', id: 'A', members: ['B'], memberRanges: [], range: r() },
-      { kind: 'area', id: 'B', members: ['A'], memberRanges: [], range: r() },
+      { kind: 'area', id: 'A', idRange: r(), members: ['B'], memberRanges: [], range: r() },
+      { kind: 'area', id: 'B', idRange: r(), members: ['A'], memberRanges: [], range: r() },
     ] as const
     const tree = buildAreaTree([...cyclic] as never)
     expect(tree.leafNodesOf.get('A')!.size).toBe(0)

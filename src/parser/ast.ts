@@ -56,6 +56,10 @@ export interface AreaDecl {
   kind: 'area'
   id: string
   label?: string
+  /** Source span of the id token and of the label value (when declared), so an
+   *  inline title edit can rewrite just the label in place. */
+  idRange: SourceRange
+  labelRange?: SourceRange
   members: string[]
   /** Source span of each member's id token, parallel to `members`. Lets an edit
    *  remove a single member from the block (e.g. when its node is deleted)

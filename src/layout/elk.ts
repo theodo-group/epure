@@ -11,6 +11,7 @@ import {
 
 import type { Diagram } from '@/parser/ast'
 
+import { areaMinWidth, areaTitleRect } from './areaTitle'
 import { buildAreaTree } from './areaTree'
 import type {
   EdgeRoute,
@@ -44,32 +45,17 @@ const AREA_PAD = 24
 // Exported for tests.
 export const NESTED_AREA_PAD = 48
 
-// Geometry of the area title "chip" — the rounded tab AreaLabel (renderer/Area.tsx)
-// draws straddling an area's top border, inset from the top-LEFT corner. These
-// mirror AreaLabel's on-screen defaults at text scale 1. The chip pokes ABOVE the
-// area's obstacle rect, so unless routing knows about it an edge skimming the top
-// border draws straight over the title text — and "inside" edges skip the area
-// rects entirely, so they cross it even more freely.
+// The area title chip pokes ABOVE the area's obstacle rect, so unless routing
+// knows about it an edge skimming the top border draws straight over the title
+// text — and "inside" edges skip the area rects entirely, so they cross it even
+// more freely. Its geometry lives in ./areaTitle, shared with the renderer.
 //
 // Known limitation: the router has no textScale (it produces the canonical,
 // scale-1 geometry the whole pipeline is built on — like edge-label and node-text
 // avoidance, which are also scale-unaware). AreaLabel scales the chip by the live
 // text zoom, so at a zoom other than 100% this obstacle no longer matches the
 // rendered chip exactly. Acceptable: the committed/exported geometry is at scale 1.
-const TITLE_INSET_X = 14 // chip left inset from the area's left edge
-const TITLE_HEIGHT = 22 // LABEL_HEIGHT
-const TITLE_CHAR_PX = 7 // LABEL_CHAR_PX (approx glyph advance)
-const TITLE_PAD_X = 10 // LABEL_PAD_X
-const TITLE_MIN_W = 40 // chip minimum width
-
-// The title chip's rect for an area, given the area's (padded) obstacle rect and
-// label. Exported so tests assert against the exact geometry routing avoids.
-export const areaTitleRect = (areaRect: Rect, label: string): Rect => ({
-  x: areaRect.x + TITLE_INSET_X,
-  y: areaRect.y - TITLE_HEIGHT / 2,
-  w: Math.max(TITLE_MIN_W, label.length * TITLE_CHAR_PX + TITLE_PAD_X * 2),
-  h: TITLE_HEIGHT,
-})
+export { areaTitleRect }
 
 // An area treated as a routing obstacle: the padded bounding box of its members
 // plus the membership set. `members` holds the TRANSITIVE leaf-node ids —
@@ -329,6 +315,18 @@ export const route = async (
       w: maxX - minX + AREA_PAD * 2,
       h: maxY - minY + AREA_PAD * 2,
     }
+    // A long title must never overhang the frame: widen the area until the chip
+    // fits with an inset on both sides, growing AWAY from the title's alignment
+    // (left keeps the left border, right keeps the right one, center grows both
+    // ways) so the chosen alignment stays visible over the members.
+    const minW = area.label ? areaMinWidth(area.label) : 0
+    if (rect.w < minW) {
+      const align = layout.areas?.[aid]?.labelAlign ?? 'center'
+      const grow = minW - rect.w
+      if (align === 'right') rect.x -= grow
+      else if (align === 'center') rect.x -= grow / 2
+      rect.w = minW
+    }
     areaRectById.set(aid, rect)
     return rect
   }
@@ -355,7 +353,7 @@ export const route = async (
     if (!rect) continue
     titleObstacles.push({
       id: a.id,
-      rect: areaTitleRect(rect, a.label),
+      rect: areaTitleRect(rect, a.label, layout.areas?.[a.id]?.labelAlign),
       members: new Set(),
     })
   }
@@ -881,6 +879,7 @@ export const route = async (
         borderColor: style?.borderColor,
         borderStyle: style?.borderStyle,
         fillColor: style?.fillColor,
+        labelAlign: style?.labelAlign,
       }
     })
 

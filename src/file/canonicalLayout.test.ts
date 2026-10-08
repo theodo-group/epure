@@ -51,6 +51,17 @@ describe('canonicalizeLayout', () => {
     }
   })
 
+  it('orders an area labelAlign after its style fields and rejects unknown values', () => {
+    const out = canonicalizeLayout(
+      parse('{"gridSize":40,"nodes":{},"edges":{},"areas":{"g":{"labelAlign":"right","fillColor":"teal"}}}'),
+    )
+    expect(out).toContain('"g": { "fillColor": "teal", "labelAlign": "right" }')
+    const bad = validateLayoutJson(
+      '{"gridSize":40,"nodes":{},"edges":{},"areas":{"g":{"labelAlign":"middle"}}}',
+    )
+    expect(bad.errors.length).toBeGreaterThan(0)
+  })
+
   it('round-trips a negative label offset on an edge after its style fields', () => {
     const layout: LayoutSidecar = {
       gridSize: 40,

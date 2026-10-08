@@ -273,34 +273,36 @@ describe('edge obstacle avoidance', () => {
     expect(edge.points.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('routes an OUTSIDE edge around a wide title tab overhanging its area', async () => {
-    // For an outside edge the area RECT is already an obstacle whose buffer covers
-    // the tab's small upward poke — so the title only ADDS anything when a long
-    // label makes the tab overhang the area's SIDE, into open space the rect never
-    // occupies. `Grp` is a one-node area (right edge 504) with a long label whose
-    // tab reaches x=610; the outside edge p→q runs a vertical leg at x=560 —
-    // clear of the rect but through the overhanging tab. This exercises the title
-    // obstacle in the OUTSIDE-edge pass (a different libavoid call than above).
+  it('widens an area away from its title alignment so a long title never overhangs it', async () => {
+    // `Grp` holds one 160px node (x 320..480): its padded box (296..504) is far
+    // narrower than the long title's chip, so the area must grow around the
+    // node's center until the chip fits inside the frame on both sides.
     const parsed = parse(
-      'p\nq\ng\np -> q\nGrp: "A Very Long Overhanging Group Title Here" {\n  g\n}\n',
+      'g\nGrp: "A Very Long Overhanging Group Title Here" {\n  g\n}\n',
     )
     if (!parsed.ok) throw new Error('parse failed')
     const layout: LayoutSidecar = {
       gridSize: 40,
-      nodes: {
-        p: { cx: 14, cy: 8, w: 4, h: 2 },
-        q: { cx: 14, cy: 18, w: 4, h: 2 },
-        g: { cx: 10, cy: 14, w: 4, h: 2 },
-      },
+      nodes: { g: { cx: 10, cy: 14, w: 4, h: 2 } },
       edges: {},
     }
     const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const area = routed.areas.find((x) => x.id === 'Grp')!
     const title = titleOf(routed, 'Grp')
-    const edge = routed.edges.find((e) => e.id.startsWith('p->q'))!
-    const [a, b] = [edge.points[0]!, edge.points[edge.points.length - 1]!]
-    expect(segHitsRect(a, b, title)).toBe(true) // guard: straight leg hits the tab
-    expect(pathHitsTitle(edge, title)).toBe(false)
-    expect(edge.points.length).toBeGreaterThanOrEqual(2)
+    expect(area.w).toBeGreaterThan(208)
+    expect(area.x + area.w / 2).toBe(400)
+    expect(title.x).toBeGreaterThan(area.x)
+    expect(title.x + title.w).toBeLessThan(area.x + area.w)
+
+    // Left/right alignment keeps the matching border on the members' padded box.
+    const aligned = async (labelAlign: 'left' | 'right') => {
+      const l = { ...layout, areas: { Grp: { labelAlign } } }
+      const r = await route(parsed.diagram, normalizeForRoute(parsed.diagram, l))
+      return r.areas.find((x) => x.id === 'Grp')!
+    }
+    expect((await aligned('left')).x).toBe(296)
+    const right = await aligned('right')
+    expect(right.x + right.w).toBe(504)
   })
 
   it('is deterministic — identical geometry across repeated routes', async () => {

@@ -4,6 +4,7 @@
 //   labelToEditorHtml  — D2 label string  → sanitized innerHTML for the editor
 //   editorHtmlToLabel  — contentEditable DOM → D2 label markup string
 //   quoteD2            — markup string → a D2 quoted-string literal for the .d2
+//   setAreaLabel       — rewrite an area title in the .d2 source
 //
 // The label markup is a tiny HTML subset (see `@/renderer/richText`): the inline
 // tags <b>/<i>/<small>, the void <br>, and the list tags <ul>/<li>. Both
@@ -11,6 +12,7 @@
 // (label → editor → label) is stable, and so nothing an editor produces can
 // smuggle arbitrary HTML into the .d2 file.
 
+import type { AreaDecl } from '@/parser/ast'
 import { LABEL_TAG_RE, tagKey } from '@/renderer/richText'
 
 const escapeHtml = (s: string): string =>
@@ -177,4 +179,20 @@ export const quoteD2 = (label: string): string => {
     .replace(/\r/g, '\\r')
     .replace(/\t/g, '\\t')
   return `"${esc}"`
+}
+
+// Rewrite an area's title in the .d2 source: replace the declared label, insert
+// one after the id when there is none, or drop it (with its `: `) when cleared.
+// Returns null when there is nothing to write.
+export const setAreaLabel = (
+  src: string,
+  area: Pick<AreaDecl, 'label' | 'idRange' | 'labelRange'>,
+  label: string,
+): string | null => {
+  if (label === (area.label ?? '')) return null
+  const at = area.idRange.end.offset
+  if (!area.labelRange) return `${src.slice(0, at)}: ${quoteD2(label)}${src.slice(at)}`
+  const end = area.labelRange.end.offset
+  if (label === '') return src.slice(0, at) + src.slice(end)
+  return src.slice(0, area.labelRange.start.offset) + quoteD2(label) + src.slice(end)
 }

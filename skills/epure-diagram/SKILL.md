@@ -138,7 +138,7 @@ Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
   nudge the label off its auto-anchor; drag the label in the editor or set them here). Edge geometry is
   auto-routed; sides are hints.
 - **`areas`** — keyed by area id from the `.epr.d2`. **Style only**: `borderColor`, `borderStyle`,
-  `fillColor`. The area's box is computed from its members' positions — do NOT put `x/y/w/h/members`
+  `fillColor`, `labelAlign` (`left` | `center` | `right`, default `center`). The area's box is computed from its members' positions — do NOT put `x/y/w/h/members`
   here (membership lives in the `.d2`).
 
 **Palette colors:** `black gray red orange yellow green teal blue purple pink` (fills additionally allow

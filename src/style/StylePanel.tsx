@@ -627,6 +627,18 @@ export const StylePanel = () => {
               onChange={(c) => setAreaStyle({ fillColor: c })}
             />
           </Row>
+          <Row label="Title">
+            <Segmented
+              options={[
+                { value: 'left', label: 'Left', title: 'Title on the left' },
+                { value: 'center', label: 'Center', title: 'Title centered' },
+                { value: 'right', label: 'Right', title: 'Title on the right' },
+              ]}
+              value={common(areaStyles.map((a) => a.labelAlign))}
+              defaultValue="center"
+              onChange={(v) => setAreaStyle({ labelAlign: v })}
+            />
+          </Row>
         </section>
       ) : null}
     </div>

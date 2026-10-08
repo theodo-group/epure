@@ -1126,3 +1126,16 @@ body.epure-dragging * {
   margin: 0 2px;
   background: var(--ep-border);
 }
+
+.ep-area-label-input {
+  z-index: 40;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1.5px solid var(--ep-accent);
+  border-radius: 999px;
+  background: var(--ep-surface);
+  box-shadow: 0 0 0 2px var(--ep-accent-bg);
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+}

@@ -10,11 +10,12 @@ import {
 } from 'react'
 
 import type { EdgeDirection, EdgeStyle, ShapeName } from '@/parser/ast'
+import { areaTitleRect } from '@/layout/areaTitle'
 import { computeCrossings } from '@/layout/crossings'
 import type { RoutedDiagram, Side } from '@/layout/types'
 import { resolveFill, solidOf, TEXT_SIZE } from '@/style/palette'
 
-import { Area, AreaLabel } from './Area'
+import { Area, AreaLabel, AreaLabelInput } from './Area'
 import { computeContentBounds } from './bounds'
 import { beginDrag, endDrag } from './dragState'
 import { Edge, EdgeDefs } from './Edge'
@@ -55,6 +56,9 @@ interface CanvasProps {
   /** Commit an inline label edit (double-click a node). `markup` is the D2
    *  label subset; an empty string clears the label. */
   onCommitNodeLabel?: (id: string, markup: string) => void
+  /** Commit an inline group-title edit (double-click a title chip). Plain
+   *  text; an empty string clears the title. */
+  onCommitAreaLabel?: (id: string, label: string) => void
   /** Create a node (N). Returns the new node's id so the canvas can open its
    *  inline label editor once the node lands in the routed diagram, or null if
    *  the document can't currently accept one (e.g. an unparseable .d2). */
@@ -114,6 +118,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onResizeNode,
       onMoveLabel,
       onCommitNodeLabel,
+      onCommitAreaLabel,
       onCreateNode,
       onConnectSelection,
       onDeleteSelection,
@@ -143,6 +148,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     const [spaceHeld, setSpaceHeld] = useState(false)
     // Id of the node whose label is being edited inline (double-click), or null.
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+    // Id of the area whose title is being edited inline, or null.
+    const [editingAreaId, setEditingAreaId] = useState<string | null>(null)
     // Id of a just-created node (N) awaiting its inline label editor. The node
     // is appended to the .d2 and only appears after an async reparse+reroute, so
     // we can't open the editor synchronously — we wait for it to land below.
@@ -168,6 +175,16 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
         setEditingNodeId(null)
       }
     }, [diagram, editingNodeId])
+
+    // Same for the group-title editor.
+    useEffect(() => {
+      if (
+        editingAreaId &&
+        !diagram.areas.some((a) => a.id === editingAreaId)
+      ) {
+        setEditingAreaId(null)
+      }
+    }, [diagram, editingAreaId])
 
     // Track container size.
     useLayoutEffect(() => {
@@ -465,6 +482,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       editingNodeId != null
         ? diagram.nodes.find((n) => n.id === editingNodeId) ?? null
         : null
+    const editingArea =
+      editingAreaId != null
+        ? diagram.areas.find((a) => a.id === editingAreaId) ?? null
+        : null
 
     return (
       <div className="pane-canvas-inner" style={{ position: 'absolute', inset: 0 }}>
@@ -496,6 +517,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 onSelect={onSelectArea}
                 onDragStart={onAreaDragStart}
                 onDragMove={onAreaDragMove}
+                onStartEdit={onCommitAreaLabel ? setEditingAreaId : undefined}
               />
             ))}
             {diagram.edges.map((edge) => {
@@ -554,6 +576,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                 area={area}
                 textScale={textScale}
                 fontFamily={fontFamily}
+                onSelect={onSelectArea}
+                onDragStart={onAreaDragStart}
+                onDragMove={onAreaDragMove}
+                onStartEdit={onCommitAreaLabel ? setEditingAreaId : undefined}
               />
             ))}
             {marquee ? (
@@ -602,6 +628,44 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                     onCommitNodeLabel?.(id, markup)
                   }}
                   onCancel={() => setEditingNodeId(null)}
+                />
+              )
+            })()
+          : null}
+
+        {editingArea
+          ? (() => {
+              const chip = areaTitleRect(
+                editingArea,
+                editingArea.label ?? '',
+                editingArea.labelAlign,
+                textScale,
+              )
+              // Open wide enough to type a longer title; the chip re-fits on commit.
+              const w = Math.max(chip.w, 240 * textScale) * z
+              const cx = (chip.x + chip.w / 2 - viewBoxX) * z
+              return (
+                <AreaLabelInput
+                  key={editingArea.id}
+                  initialLabel={editingArea.label ?? ''}
+                  style={{
+                    position: 'absolute',
+                    left: cx - w / 2,
+                    top: (chip.y - viewBoxY) * z,
+                    width: w,
+                    height: chip.h * z,
+                    fontSize: 12 * textScale * z,
+                    fontFamily: fontFamily ?? 'Inter, system-ui, sans-serif',
+                    color: editingArea.borderColor
+                      ? solidOf(editingArea.borderColor)
+                      : '#5b6478',
+                  }}
+                  onCommit={(label) => {
+                    const id = editingArea.id
+                    setEditingAreaId(null)
+                    onCommitAreaLabel?.(id, label)
+                  }}
+                  onCancel={() => setEditingAreaId(null)}
                 />
               )
             })()
