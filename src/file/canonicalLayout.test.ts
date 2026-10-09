@@ -51,6 +51,14 @@ describe('canonicalizeLayout', () => {
     }
   })
 
+  it('emits textScale after gridSize, and omits it at the default of 1', () => {
+    const scaled = canonicalizeLayout({ gridSize: 40, textScale: 1.32, nodes: {}, edges: {} })
+    expect(scaled).toContain('"gridSize": 40,\n  "textScale": 1.32,\n  "nodes"')
+    expect(canonicalizeLayout(parse(scaled))).toBe(scaled)
+    const unit = canonicalizeLayout({ gridSize: 40, textScale: 1, nodes: {}, edges: {} })
+    expect(unit).not.toContain('textScale')
+  })
+
   it('round-trips a negative label offset on an edge after its style fields', () => {
     const layout: LayoutSidecar = {
       gridSize: 40,

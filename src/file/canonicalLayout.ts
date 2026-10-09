@@ -17,7 +17,8 @@
 //   - record keys (node/edge/area ids) emitted in lexicographic order, built
 //     manually so numeric-looking ids never get reordered by JS object rules,
 //   - fields within each record emitted in a fixed order,
-//   - absent optionals omitted entirely (never `null`),
+//   - absent optionals omitted entirely (never `null`); a `textScale` of 1 is
+//     the default and is omitted too,
 //   - numbers round-trip verbatim via JSON.stringify: gridSize is an int, and
 //     cx/cy/w/h may be fractional (an odd-spanned node resized against the grid
 //     centers on a half/quarter unit) but a value like 1.5 stringifies to "1.5"
@@ -79,6 +80,9 @@ const keyedMap = (
 export const canonicalizeLayout = (layout: LayoutSidecar): string => {
   const lines: string[] = ['{']
   lines.push(`  "gridSize": ${JSON.stringify(layout.gridSize)},`)
+  if (isPresent(layout.textScale) && layout.textScale !== 1) {
+    lines.push(`  "textScale": ${JSON.stringify(layout.textScale)},`)
+  }
   lines.push(`  "nodes": ${keyedMap(layout.nodes, NODE_FIELD_ORDER)},`)
 
   // `edges` is the last required field; `areas` (optional) trails it only when

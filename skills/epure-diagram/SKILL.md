@@ -125,6 +125,8 @@ All geometry is in **grid units, integers** — never pixels.
 Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
 
 - **`gridSize`** — integer ≥ 1. The pixel pitch of one grid unit (40 is a good default).
+- **`textScale`** — optional number in `[0.6, 2.4]`: the global text zoom (the editor's A−/A+ control),
+  applied on top of per-node `textSize`. Omit it for the default of 1.
 - **`nodes`** — keyed by `.epr.d2` node id. Each node:
   - **required:** `cx`, `cy` (center, integer grid units), `w`, `h` (integer grid units ≥ 1). Default size `w:4 h:2`.
   - style (all optional): `textSize` (`S|M|L|XL`), `textColor` & `borderColor` (palette), `fillColor`

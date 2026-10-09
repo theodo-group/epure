@@ -17,6 +17,8 @@ export interface DiagramModel {
   nodes: Record<string, NodeMeta>
   /** Edge metadata keyed by routed edge id (`src->tgt#i`). */
   edges: Record<string, EdgeMeta>
+  /** Global text zoom from the layout sidecar (`textScale`). Absent = 1. */
+  textScale?: number
 }
 
 export interface DiagramOptions {
@@ -31,7 +33,11 @@ const DEFAULT_PADDING = 32
 // every edge-label pill. Mirrors the editor's fit logic so the frame matches
 // the diagram identically. Label pills matter because a user can nudge a label
 // (labelDx/labelDy) well off its edge; left out of the bounds it would clip.
-const computeBounds = (diagram: RoutedDiagram, edgeMeta: Record<string, Partial<EdgeMeta>>) => {
+const computeBounds = (
+  diagram: RoutedDiagram,
+  edgeMeta: Record<string, Partial<EdgeMeta>>,
+  textScale: number,
+) => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -46,22 +52,22 @@ const computeBounds = (diagram: RoutedDiagram, edgeMeta: Record<string, Partial<
     grow(a.x, a.y)
     grow(a.x + a.w, a.y + a.h)
     // Area labels straddle the top border and sit ~14px left of the box.
-    grow(a.x, a.y - 12)
+    grow(a.x, a.y - 12 * textScale)
   }
   for (const n of diagram.nodes) {
     grow(n.x, n.y)
     grow(n.x + n.w, n.y + n.h)
     // Labels below person nodes and corner badges overhang slightly. Keep this
     // in sync with LABEL_BELOW_GAP + LINE_HEIGHT in Node.tsx (plus descender).
-    grow(n.x + n.w, n.y + n.h + 26)
+    grow(n.x + n.w, n.y + n.h + 26 * textScale)
   }
   for (const e of diagram.edges) {
     for (const p of e.points) grow(p.x, p.y)
-    // The label pill (centered on labelAnchor), sized at the default textScale
-    // of 1, matching how Edge renders outside the editor.
+    // The label pill (centered on labelAnchor), sized at the diagram's text
+    // scale, matching how Edge renders it.
     const label = edgeMeta[e.id]?.label
     if (label && e.labelAnchor) {
-      const { w: pillW, h: pillH } = labelPillSize(label)
+      const { w: pillW, h: pillH } = labelPillSize(label, textScale)
       grow(e.labelAnchor.x - pillW / 2, e.labelAnchor.y - pillH / 2)
       grow(e.labelAnchor.x + pillW / 2, e.labelAnchor.y + pillH / 2)
     }
@@ -74,9 +80,9 @@ const computeBounds = (diagram: RoutedDiagram, edgeMeta: Record<string, Partial<
 /** The diagram, framed to its content. Purely presentational: no interactive
  *  handles render (those belong to the editor's canvas). */
 export const Diagram = ({ model, padding, background }: { model: DiagramModel } & DiagramOptions) => {
-  const { routed, nodes, edges } = model
+  const { routed, nodes, edges, textScale = 1 } = model
   const pad = padding ?? DEFAULT_PADDING
-  const b = computeBounds(routed, edges)
+  const b = computeBounds(routed, edges, textScale)
   // Same crossing pass the live canvas runs, so gaps fade identically.
   const crossings = computeCrossings(routed.edges)
   const x = b.x - pad
@@ -101,6 +107,7 @@ export const Diagram = ({ model, padding, background }: { model: DiagramModel } 
             style={m.style}
             marker={m.marker}
             crossings={crossings.get(edge.id)}
+            textScale={textScale}
           />
         )
       })}
@@ -124,11 +131,12 @@ export const Diagram = ({ model, padding, background }: { model: DiagramModel } 
             icon={node.icon}
             iconPosition={node.iconPosition}
             gridSize={routed.gridSize}
+            textScale={textScale}
           />
         )
       })}
       {routed.areas.map((area) => (
-        <AreaLabel key={`label-${area.id}`} area={area} />
+        <AreaLabel key={`label-${area.id}`} area={area} textScale={textScale} />
       ))}
     </svg>
   )
