@@ -270,7 +270,10 @@ const EDGE_FIELDS = new Set([
   'sourceSide', 'targetSide', 'labelDx', 'labelDy',
 ])
 const AREA_FIELDS = new Set(['borderColor', 'borderStyle', 'fillColor'])
-const ROOT_FIELDS = new Set(['gridSize', 'nodes', 'edges', 'areas'])
+const ROOT_FIELDS = new Set(['gridSize', 'textScale', 'nodes', 'edges', 'areas'])
+// Bounds of the global text zoom (the canvas's A−/A+ control clamps to these).
+export const TEXT_SCALE_MIN = 0.6
+export const TEXT_SCALE_MAX = 2.4
 
 interface Ctx {
   errors: ParseError[]
@@ -299,6 +302,7 @@ const validateEnum = (
 interface NumberOpts {
   integer?: boolean
   min?: number
+  max?: number
 }
 
 const validateNumber = (
@@ -316,6 +320,9 @@ const validateNumber = (
   }
   if (opts.min !== undefined && node.value < opts.min) {
     push(ctx, `${label} must be ≥ ${opts.min}`, node.range)
+  }
+  if (opts.max !== undefined && node.value > opts.max) {
+    push(ctx, `${label} must be ≤ ${opts.max}`, node.range)
   }
 }
 
@@ -491,6 +498,12 @@ const validateRoot = (node: JsonNode, ctx: Ctx): void => {
     switch (entry.key) {
       case 'gridSize':
         validateNumber(entry.value, 'gridSize', ctx, { integer: true, min: 1 })
+        break
+      case 'textScale':
+        validateNumber(entry.value, 'textScale', ctx, {
+          min: TEXT_SCALE_MIN,
+          max: TEXT_SCALE_MAX,
+        })
         break
       case 'nodes':
         validateMap(entry.value, 'nodes', ctx, validateNode)

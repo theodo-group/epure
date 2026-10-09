@@ -12,6 +12,7 @@ import type {
 } from '@/layout/types'
 import { invalidateFaceCache, makeEdgeId, route } from '@/layout/elk'
 import { normalizeForRoute } from '@/layout/normalize'
+import { TEXT_SCALE_MAX, TEXT_SCALE_MIN } from '@/file/layoutSchema'
 
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
 // `source->target` (shared across parallel edges), so strip the ordinal.
@@ -110,8 +111,6 @@ export interface DiagramState {
   showGrid: boolean
   gridSize: number
   exportScale: ExportScale
-  /** Global multiplier applied on top of per-element font sizes. */
-  textScale: number
   /** Global font family used for all diagram text. */
   fontFamily: FontFamilyId
   /** Optional pixel position of the floating style panel. null = anchored
@@ -161,6 +160,8 @@ export interface DiagramActions {
   toggleGrid: () => void
   setGridSize: (n: number) => void
   setExportScale: (s: ExportScale) => void
+  /** Set the document's global text zoom (`layout.textScale`, persisted in the
+   *  sidecar). Clamped, rounded to whole percents; 1 clears the field. */
   setTextScale: (s: number) => void
   setFontFamily: (f: FontFamilyId) => void
   setStylePanelPosition: (pos: { left: number; top: number } | null) => void
@@ -231,7 +232,6 @@ export const useDiagramStore = create<DiagramStore>()(
       showGrid: true,
       gridSize: 16,
       exportScale: 2,
-      textScale: 1,
       fontFamily: 'inter',
       stylePanelPosition: null,
 
@@ -563,10 +563,16 @@ export const useDiagramStore = create<DiagramStore>()(
       setExportScale: (scale) => set((s) => ({ ...s, exportScale: scale })),
 
       setTextScale: (scale) =>
-        set((s) => ({
-          ...s,
-          textScale: Math.max(0.6, Math.min(2.4, scale)),
-        })),
+        set((s) => {
+          const clean =
+            Math.round(Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, scale)) * 100) / 100
+          if ((s.layout.textScale ?? 1) === clean) return s
+          const { textScale: _prev, ...rest } = s.layout
+          return {
+            ...s,
+            layout: clean === 1 ? rest : { ...rest, textScale: clean },
+          }
+        }),
 
       setFontFamily: (fontFamily) => set((s) => ({ ...s, fontFamily })),
 

@@ -55,6 +55,17 @@ describe('headless diagram render', () => {
     expect(svg).toContain('Services')
   })
 
+  it('honors the layout textScale (larger text, wider frame)', async () => {
+    const base = await model(D2, LAYOUT)
+    const big = await model(D2, LAYOUT.replace('"gridSize": 40,', '"gridSize": 40, "textScale": 1.5,'))
+    if ('error' in base || 'error' in big) throw new Error('model failed')
+    expect(big.textScale).toBe(1.5)
+    const svgBase = renderSvgString(base)
+    const svgBig = renderSvgString(big)
+    expect(svgBig).not.toBe(svgBase)
+    expect(viewBoxOf(svgBig).h).toBeGreaterThanOrEqual(viewBoxOf(svgBase).h)
+  })
+
   it('inlines icon files as data URIs', async () => {
     const m = await model(D2, LAYOUT)
     if ('error' in m) throw new Error(m.error)

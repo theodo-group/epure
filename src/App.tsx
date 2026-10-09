@@ -112,7 +112,7 @@ export const App = () => {
   const layout = useDiagramStore((s) => s.layout)
   const routed = useDiagramStore((s) => s.routed)
   const showGrid = useDiagramStore((s) => s.showGrid)
-  const textScale = useDiagramStore((s) => s.textScale)
+  const textScale = useDiagramStore((s) => s.layout.textScale ?? 1)
   const fontFamily = useDiagramStore((s) => s.fontFamily)
   const selectedNodeIds = useDiagramStore((s) => s.selectedNodeIds)
   const selectedAreaIds = useDiagramStore((s) => s.selectedAreaIds)

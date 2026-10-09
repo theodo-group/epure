@@ -52,5 +52,5 @@ export const model = async (
     }
   })
 
-  return { routed, nodes, edges }
+  return { routed, nodes, edges, textScale: layout.textScale }
 }

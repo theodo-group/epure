@@ -91,6 +91,8 @@ export interface LayoutEdge extends EdgeStyleSpec {
 
 export interface LayoutSidecar {
   gridSize: number
+  /** Global text zoom applied on top of per-element font sizes. Absent = 1. */
+  textScale?: number
   nodes: Record<string, LayoutNode>
   edges: Record<string, LayoutEdge>
   /** Optional style overrides keyed by area id (matches AST area names). */

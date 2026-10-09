@@ -83,6 +83,12 @@ describe('validateLayoutJson', () => {
     expect(r.errors[0]!.message).toMatch(/gridSize must be a number/)
   })
 
+  it('accepts an optional root textScale within bounds', () => {
+    expect(ok('{"gridSize":40,"textScale":1.32,"nodes":{},"edges":{}}').textScale).toBe(1.32)
+    const r = validateLayoutJson('{"gridSize":40,"textScale":5,"nodes":{},"edges":{}}')
+    expect(r.errors[0]!.message).toMatch(/textScale must be ≤ 2.4/)
+  })
+
   it('accepts fractional node coordinates and sizes', () => {
     // Resizing an odd-spanned node lands its center/size on a half or quarter
     // grid unit (see resizeNode in diagramStore.ts), and the renderer draws
