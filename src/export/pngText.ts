@@ -83,6 +83,42 @@ export const embedPngText = (
   return concat([png.subarray(0, insertAt), ...chunks, png.subarray(insertAt)])
 }
 
+/** Read every `iTXt`/`tEXt` chunk back into a keyword→text map. Inverse of
+ *  `embedPngText`; mirror of the server's `readPngText`. Used by Open to
+ *  recover the editable pair from an exported PNG. */
+export const readPngText = (png: Uint8Array): Record<string, string> => {
+  const out: Record<string, string> = {}
+  if (!isPng(png)) return out
+  const decodeLatin1 = new TextDecoder('latin1')
+  const decodeUtf8 = new TextDecoder('utf-8')
+  let off = 8
+  while (off + 8 <= png.length) {
+    const len = readU32be(png, off)
+    const type = decodeLatin1.decode(png.subarray(off + 4, off + 8))
+    const data = png.subarray(off + 8, off + 8 + len)
+    if (type === 'tEXt') {
+      const sep = data.indexOf(0x00)
+      if (sep >= 0)
+        out[decodeLatin1.decode(data.subarray(0, sep))] = decodeLatin1.decode(
+          data.subarray(sep + 1),
+        )
+    } else if (type === 'iTXt') {
+      const kwEnd = data.indexOf(0x00)
+      if (kwEnd >= 0) {
+        const keyword = decodeLatin1.decode(data.subarray(0, kwEnd))
+        // after keyword\0: compFlag(1) compMethod(1) lang\0 transKeyword\0 text
+        const langStart = kwEnd + 3
+        const langEnd = data.indexOf(0x00, langStart)
+        const transEnd = data.indexOf(0x00, langEnd + 1)
+        out[keyword] = decodeUtf8.decode(data.subarray(transEnd + 1))
+      }
+    }
+    if (type === 'IEND') break
+    off += 8 + len + 4 // len + type + data + crc
+  }
+  return out
+}
+
 /** Keywords under which the diagram source is stored — mirror of the server's
  *  `PNG_SOURCE_KEYS`. */
 export const PNG_SOURCE_KEYS = {
