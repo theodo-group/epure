@@ -157,6 +157,9 @@ export interface DiagramActions {
   reparse: () => void
   reroute: () => Promise<void>
   loadDocument: (source: string, layout: LayoutSidecar) => void
+  /** Open a file over the current document as ONE undoable step: unlike
+   *  `loadDocument` it keeps history, so undo brings the previous diagram back. */
+  openDocument: (source: string, layout: LayoutSidecar) => void
   /** Inbound bridge chokepoint: apply a remote (CC/disk) edit without creating
    *  an undo entry or clearing history. See `flushBurst`. */
   applyRemote: (patch: { source?: string; layout?: LayoutSidecar }) => void
@@ -644,6 +647,23 @@ export const useDiagramStore = create<DiagramStore>()(
         }))
         temporal.clear()
         temporal.resume()
+      },
+
+      openDocument: (source, layout) => {
+        // Close any edit burst first so the open isn't folded into it, and
+        // after, so the next edit starts its own undo step.
+        invalidateFaceCache()
+        flushBurst()
+        set((s) => ({
+          ...s,
+          source,
+          layout,
+          gridSize: layout.gridSize,
+          selectedNodeIds: [],
+          selectedAreaIds: [],
+          selectedEdgeIds: [],
+        }))
+        flushBurst()
       },
 
       applyRemote: (patch) => {

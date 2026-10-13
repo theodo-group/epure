@@ -16,7 +16,7 @@ import {
   useTemporalStore,
   type FontFamilyId,
 } from '@/store/diagramStore'
-import { openWithFileSystemAccess } from '@/file/zip'
+import { OpenError, openFiles, pickFiles } from '@/file/open'
 import {
   clearStoredHistory,
   loadStoredDoc,
@@ -143,6 +143,7 @@ export const App = () => {
   const reparse = useDiagramStore((s) => s.reparse)
   const reroute = useDiagramStore((s) => s.reroute)
   const loadDocumentBase = useDiagramStore((s) => s.loadDocument)
+  const openDocumentBase = useDiagramStore((s) => s.openDocument)
   const toggleGrid = useDiagramStore((s) => s.toggleGrid)
   const setTextScale = useDiagramStore((s) => s.setTextScale)
   const setFontFamily = useDiagramStore((s) => s.setFontFamily)
@@ -192,19 +193,42 @@ export const App = () => {
     [loadDocumentBase, resetLayoutBuffer],
   )
 
-  // Open a document from disk and remember its filename stem (shown in the UI
-  // and used for export). Lifted here from the Header so both the Open button
-  // and the ⌘O shortcut go through one path that captures the name.
+  // Open is a standalone-editor action. With a bridge (the CLI's live files, or
+  // a host page embedding us) the host owns the document: an Open would write
+  // another diagram over it, so the button, ⌘O and canvas drops are disabled.
+  const [canOpen] = useState(() => bridgeSignal() === null)
+  const [openNotice, setOpenNotice] = useState<string | null>(null)
+  const [dropActive, setDropActive] = useState(false)
+  // Refit once the opened document's first route lands.
+  const fitAfterOpenRef = useRef(false)
+
+  // Open picked or dropped files over the current document as one undoable
+  // step, and remember the filename stem (shown in the UI, used for export).
+  const openFromFiles = useCallback(
+    async (files: readonly File[]) => {
+      try {
+        const doc = await openFiles(files)
+        resetLayoutBuffer()
+        openDocumentBase(doc.source, doc.layout)
+        setOpenedName(doc.filename)
+        setOpenNotice(null)
+        fitAfterOpenRef.current = true
+      } catch (err) {
+        if (!(err instanceof OpenError)) console.error('open failed', err)
+        setOpenNotice(err instanceof OpenError ? err.message : "Couldn't open that file.")
+      }
+    },
+    [openDocumentBase, resetLayoutBuffer],
+  )
   const handleOpen = useCallback(async () => {
-    try {
-      const doc = await openWithFileSystemAccess()
-      if (!doc) return
-      loadDocument(doc.source, doc.layout)
-      setOpenedName(doc.filename)
-    } catch (err) {
-      console.error('open failed', err)
-    }
-  }, [loadDocument])
+    const files = await pickFiles()
+    if (files) await openFromFiles(files)
+  }, [openFromFiles])
+  useEffect(() => {
+    if (!routed || !fitAfterOpenRef.current) return
+    fitAfterOpenRef.current = false
+    setFitVersion((v) => v + 1)
+  }, [routed])
   const multiDragRef = useRef<{
     leaderId: string
     leaderStart: { cx: number; cy: number }
@@ -443,8 +467,9 @@ export const App = () => {
       }
 
       if (key === 'o') {
+        // Always swallow ⌘O so the browser's own "open file" never navigates away.
         ev.preventDefault()
-        await handleOpen()
+        if (canOpen) await handleOpen()
         return
       }
 
@@ -455,7 +480,7 @@ export const App = () => {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleOpen, onExportPng, toggleEditor])
+  }, [canOpen, handleOpen, onExportPng, toggleEditor])
 
   // Commit an inline label edit from the canvas: rewrite the node's label in
   // the .d2 source in place (or insert one after the id when the node has none).
@@ -570,7 +595,36 @@ export const App = () => {
   // The drawing surface. Rendered inside the split when the code pane is
   // shown, or alone (full width) when it is hidden.
   const canvasPane = (
-    <div className="pane pane-canvas">
+    // biome-ignore lint/a11y/noStaticElementInteractions: a drop target for files; Open is the keyboard path.
+    <div
+      className={dropActive ? 'pane pane-canvas is-drop-target' : 'pane pane-canvas'}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        // Always claim file drags so a drop never navigates the tab to the file.
+        e.preventDefault()
+        e.dataTransfer.dropEffect = canOpen ? 'copy' : 'none'
+        if (canOpen) setDropActive(true)
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+        setDropActive(false)
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        e.preventDefault()
+        setDropActive(false)
+        if (canOpen) void openFromFiles([...e.dataTransfer.files])
+      }}
+    >
+      {dropActive ? <div className="ep-drop-hint">Drop to open</div> : null}
+      {openNotice ? (
+        <div className="ep-notice" role="alert">
+          <span>{openNotice}</span>
+          <button type="button" aria-label="Dismiss" onClick={() => setOpenNotice(null)}>
+            ×
+          </button>
+        </div>
+      ) : null}
       <Canvas
         ref={svgRef}
         diagram={renderDiagram}
@@ -699,7 +753,7 @@ export const App = () => {
   return (
     <div className="app-root">
       <Header
-        onOpen={handleOpen}
+        onOpen={canOpen ? handleOpen : undefined}
         onExportPng={onExportPng}
         onExportHtml={onExportHtml}
         editorVisible={editorVisible}

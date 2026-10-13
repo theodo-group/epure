@@ -3,7 +3,8 @@ import { useStore } from 'zustand'
 import { useDiagramStore, useTemporalStore, type ExportScale } from '@/store/diagramStore'
 
 interface HeaderProps {
-  onOpen: () => Promise<void> | void
+  /** Absent when the document is owned by a bridge host (Open is hidden). */
+  onOpen?: () => Promise<void> | void
   onExportPng: () => Promise<void> | void
   onExportHtml: () => Promise<void> | void
   /** Whether the code pane is shown; drives the toggle's pressed state. */
@@ -148,9 +149,11 @@ export const Header = ({
 
       <div className="ep-vrule" />
 
-      <button className="ep-btn ep-btn-ghost" onClick={onOpen} type="button">
-        Open
-      </button>
+      {onOpen ? (
+        <button className="ep-btn ep-btn-ghost" onClick={onOpen} type="button">
+          Open
+        </button>
+      ) : null}
 
       <div className="ep-menu-wrap" ref={exportRef}>
         <button
