@@ -532,3 +532,97 @@ describe('edge obstacle avoidance', () => {
     }
   })
 })
+
+describe('ports on a shared side', () => {
+  const routeOf = async (d2: string, layout: LayoutSidecar) => {
+    const parsed = parse(d2)
+    if (!parsed.ok) throw new Error('parse failed')
+    return route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+  }
+  const edgeOf = (routed: RoutedDiagram, key: string) =>
+    routed.edges.find((e) => e.id.startsWith(`${key}#`) || e.id === key)!
+  const isStraight = (points: { x: number; y: number }[]) => {
+    const first = points[0]!
+    return (
+      points.every((p) => Math.abs(p.y - first.y) < 0.5) ||
+      points.every((p) => Math.abs(p.x - first.x) < 0.5)
+    )
+  }
+
+  it('gives the centre port to the edge whose target is aligned (fan-out)', async () => {
+    // hub fans out of its E side to an aligned target and one above it.
+    const routed = await routeOf('hub\nflat\nhigh\nhub -> flat\nhub -> high\n', {
+      gridSize: 20,
+      nodes: {
+        hub: { cx: 10, cy: 20, w: 8, h: 4 },
+        flat: { cx: 30, cy: 20, w: 8, h: 4 },
+        high: { cx: 30, cy: 8, w: 8, h: 4 },
+      },
+      edges: {
+        'hub->flat': { sourceSide: 'E', targetSide: 'W' },
+        'hub->high': { sourceSide: 'E', targetSide: 'W' },
+      },
+    })
+    expect(isStraight(edgeOf(routed, 'hub->flat').points)).toBe(true)
+    // The sibling still leaves the same side, above the straight one.
+    const high = edgeOf(routed, 'hub->high')
+    expect(high.source.side).toBe('E')
+    expect(high.points[0]!.y).toBeLessThan(edgeOf(routed, 'hub->flat').points[0]!.y)
+  })
+
+  it('keeps the aligned edge straight on a shared target side (fan-in)', async () => {
+    // web and bff both enter api from the W; web sits on api's row.
+    const routed = await routeOf('web\nbff\napi\nweb -> api\nbff -> api\n', {
+      gridSize: 20,
+      nodes: {
+        web: { cx: 10, cy: 20, w: 8, h: 4 },
+        bff: { cx: 10, cy: 32, w: 8, h: 4 },
+        api: { cx: 30, cy: 20, w: 8, h: 4 },
+      },
+      edges: {
+        'web->api': { sourceSide: 'E', targetSide: 'W' },
+        'bff->api': { sourceSide: 'E', targetSide: 'W' },
+      },
+    })
+    expect(isStraight(edgeOf(routed, 'web->api').points)).toBe(true)
+  })
+
+  it('keeps two aligned edges straight when the side has room for both', async () => {
+    // A tall hub with two targets, each on its own row inside the hub's face.
+    const routed = await routeOf('hub\nup\ndown\nhub -> up\nhub -> down\n', {
+      gridSize: 20,
+      nodes: {
+        hub: { cx: 10, cy: 20, w: 8, h: 12 },
+        up: { cx: 30, cy: 17, w: 8, h: 4 },
+        down: { cx: 30, cy: 23, w: 8, h: 4 },
+      },
+      edges: {
+        'hub->up': { sourceSide: 'E', targetSide: 'W' },
+        'hub->down': { sourceSide: 'E', targetSide: 'W' },
+      },
+    })
+    expect(isStraight(edgeOf(routed, 'hub->up').points)).toBe(true)
+    expect(isStraight(edgeOf(routed, 'hub->down').points)).toBe(true)
+  })
+
+  it('spreads the ports evenly when no edge on the side can be straight', async () => {
+    const routed = await routeOf('hub\nhigh\nlow\nhub -> high\nhub -> low\n', {
+      gridSize: 20,
+      nodes: {
+        hub: { cx: 10, cy: 20, w: 8, h: 4 },
+        high: { cx: 30, cy: 8, w: 8, h: 4 },
+        low: { cx: 30, cy: 32, w: 8, h: 4 },
+      },
+      edges: {
+        'hub->high': { sourceSide: 'E', targetSide: 'W' },
+        'hub->low': { sourceSide: 'E', targetSide: 'W' },
+      },
+    })
+    const hub = rectOf(routed, 'hub')
+    const ys = ['hub->high', 'hub->low'].map((k) => edgeOf(routed, k).points[0]!.y - hub.y)
+    // Even spread over the face minus its margins: a quarter and three quarters.
+    const [lo, hi] = [12, hub.h - 12]
+    expect(ys[0]).toBeCloseTo(lo + (hi - lo) * 0.25, 0)
+    expect(ys[1]).toBeCloseTo(lo + (hi - lo) * 0.75, 0)
+  })
+})

@@ -946,6 +946,70 @@ const fanOrderKey = (fanCenter: Pt, connectedCenter: Pt, side: Side): number => 
   return Math.atan2(dx * t.x + dy * t.y, dx * n.x + dy * n.y)
 }
 
+const OPPOSITE_SIDE: Record<Side, Side> = { N: 'S', S: 'N', E: 'W', W: 'E' }
+
+// Smallest distance between two ports on one face. A crowded face whose even
+// spread is already tighter than this keeps that spread.
+const MIN_PORT_GAP = 8
+
+// Ports of a multi-edge face, in fan order. `straight[i]` is the coordinate at
+// which member i would be one straight segment (undefined when it cannot be).
+// Those members get their coordinate; the others share the gaps between them,
+// in order, a face end counting half a gap as in the even spread. A member
+// that cannot keep its coordinate (too close to a neighbour, out of order)
+// loses it, the one furthest from its even slot first; with none left the
+// face is spread evenly.
+const placePorts = (lo: number, hi: number, straight: (number | undefined)[]): number[] => {
+  const n = straight.length
+  const step = (hi - lo) / n
+  const even = straight.map((_, i) => lo + step * (i + 0.5))
+  const gap = Math.min(MIN_PORT_GAP, step / 2)
+  const pins = [...straight]
+
+  const around = (): number[] | null => {
+    const out: number[] = new Array(n)
+    let from = lo
+    let fromEnd = true
+    let start = 0
+    const fill = (end: number, to: number, toEnd: boolean) => {
+      const k = end - start
+      if (k === 0) return
+      const left = fromEnd ? 0.5 : 1
+      const total = left + (k - 1) + (toEnd ? 0.5 : 1)
+      for (let j = 0; j < k; j++) out[start + j] = from + ((to - from) * (left + j)) / total
+    }
+    for (let i = 0; i < n; i++) {
+      const pin = pins[i]
+      if (pin === undefined) continue
+      fill(i, pin, false)
+      out[i] = pin
+      from = pin
+      fromEnd = false
+      start = i + 1
+    }
+    fill(n, hi, true)
+    for (let i = 1; i < n; i++) if (out[i]! - out[i - 1]! < gap) return null
+    return out
+  }
+
+  for (;;) {
+    if (pins.every((pin) => pin === undefined)) return even
+    const placed = around()
+    if (placed) return placed
+    let worst = -1
+    let worstOff = -1
+    pins.forEach((pin, i) => {
+      if (pin === undefined) return
+      const off = Math.abs(pin - even[i]!)
+      if (off >= worstOff) {
+        worst = i
+        worstOff = off
+      }
+    })
+    pins[worst] = undefined
+  }
+}
+
 interface EdgeRoutingHints {
   sourceAnchor: Pt
   targetAnchor: Pt
@@ -955,7 +1019,8 @@ interface EdgeRoutingHints {
 }
 
 // Pre-compute anchor positions for all edges. Multi-edge faces (fan-out /
-// fan-in) get evenly distributed ports. Single-edge faces match the
+// fan-in) give an aligned member the port that draws it straight and spread
+// the others around it (placePorts). Single-edge faces match the
 // distributed position on the other end of the edge, or fall back to the
 // smaller-node-midpoint heuristic for straight lines. Edges in a fan also
 // get a staggered bend coordinate so their vertical legs don't overlap —
@@ -1010,9 +1075,25 @@ const computeEdgeAnchors = (
         fanOrderKey(fanCenter, connectedCenter(b.connectedId), fanSide),
     )
 
-    const step = (hi - lo) / n
+    // A member can be one straight segment when its other end faces this side
+    // from the outside, carries no other edge (so it attaches at its centre)
+    // and that centre falls inside this face's port range.
+    const fanFC = faceCoord(fanNode, fanSide)
+    const outward = fanSide === 'E' || fanSide === 'S' ? 1 : -1
+    const straight = sorted.map(({ edgeId, connectedId }) => {
+      const m = edgeMeta.get(edgeId)!
+      if (m.source === m.target) return undefined
+      const otherSide = m.source === nodeId ? m.targetSide : m.sourceSide
+      if (otherSide !== OPPOSITE_SIDE[fanSide]) return undefined
+      if ((faceGroups.get(`${connectedId}:${otherSide}`)?.length ?? 0) !== 1) return undefined
+      const other = nodes[connectedId]!
+      if ((faceCoord(other, otherSide) - fanFC) * outward < 0) return undefined
+      const centre = horiz ? other.y + other.h / 2 : other.x + other.w / 2
+      return centre >= lo && centre <= hi ? centre : undefined
+    })
+    const ports = placePorts(lo, hi, straight)
     for (let i = 0; i < n; i++) {
-      distributed.set(`${sorted[i]!.edgeId}:${nodeId}`, lo + step * (i + 0.5))
+      distributed.set(`${sorted[i]!.edgeId}:${nodeId}`, ports[i]!)
     }
     for (const g of group) multiFaces.add(`${g.edgeId}:${nodeId!}`)
 
@@ -1024,7 +1105,6 @@ const computeEdgeAnchors = (
     // bend closest to the fan face; inner depths bend closer to the other
     // end. Their vertical legs are in disjoint y ranges (one above, one
     // below the fan center) so sharing a bend column doesn't cause overlap.
-    const fanFC = faceCoord(fanNode, fanSide)
     const fanCenterPerp = horiz
       ? fanNode.y + fanNode.h / 2
       : fanNode.x + fanNode.w / 2
@@ -1090,11 +1170,9 @@ const computeEdgeAnchors = (
       tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
     }
 
-    // Note: we don't try to "snap to straight line" by forcing one end's
-    // anchor to match the other's center. Doing so can collide with another
-    // fan member whose distributed port happens to land at the same y. The
-    // distribution itself naturally produces a straight line when the
-    // source y matches the assigned port y.
+    // A multi-edge face already placed an aligned member's port on the other
+    // end's centre (placePorts, which keeps ports apart), so that member is
+    // one straight segment here.
 
     const sourceAnchor: Pt = srcHoriz ? { x: srcFC, y: srcPerp } : { x: srcPerp, y: srcFC }
     const targetAnchor: Pt = tgtHoriz ? { x: tgtFC, y: tgtPerp } : { x: tgtPerp, y: tgtFC }
