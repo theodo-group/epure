@@ -50,6 +50,7 @@ interface NodeProps {
   /** When true this node's label is being edited in the overlay editor, so the
    *  baked SVG label is suppressed to avoid rendering it twice. */
   editing?: boolean
+  /** Unused by the node itself; kept so the public `Node` props stay stable. */
   gridSize: number
   textScale?: number
   fontFamily?: string
@@ -104,7 +105,6 @@ export const Node: FC<NodeProps> = ({
   onResize,
   onStartEdit,
   editing,
-  gridSize,
   textScale = 1,
   fontFamily = 'Inter, system-ui, sans-serif',
 }) => {
@@ -231,7 +231,7 @@ export const Node: FC<NodeProps> = ({
       window.addEventListener('mousemove', onPointerMove)
       window.addEventListener('mouseup', onPointerUp)
     },
-    [id, x, y, w, h, onSelect, onMove, gridSize],
+    [id, x, y, w, h, onSelect, onMove],
   )
 
   const handleResizeDown = useCallback(
