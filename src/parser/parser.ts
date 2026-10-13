@@ -1,208 +1,221 @@
-// Chevrotain CST parser for the D2 subset.
+// Recursive-descent parser for the D2 subset.
 //
 // Grammar (informal):
-//   program        := (statement Newline?)*
+//   program        := Newline* (statement Newline*)*
 //   statement      := edgeDecl | nodeOrAreaDecl
-//   nodeOrAreaDecl := Identifier (Colon labelOrValue)? (LCurly blockItem* RCurly)?
+//   nodeOrAreaDecl := Identifier (Colon labelOrValue)? (LCurly Newline* (blockItem (Semicolon | Newline)*)* RCurly)?
 //   blockItem      := attr | memberStmt
 //   attr           := Identifier (Dot Identifier)* Colon attrValue
-//   memberStmt     := Identifier (Semicolon | Newline)?
-//   edgeDecl       := Identifier arrowOp Identifier (Colon labelOrValue)? (LCurly attr* RCurly)?
+//   memberStmt     := Identifier
+//   edgeDecl       := Identifier arrowOp Identifier (Colon labelOrValue)? (LCurly Newline* (attr (Semicolon | Newline)*)* RCurly)?
 //   arrowOp        := ArrowRight | ArrowLeft | ArrowBoth | DashDash
-//   labelOrValue   := StringLit | Identifier
+//   labelOrValue   := StringLit | Identifier+
 //   attrValue      := StringLit | Identifier | NumberLit
 //
-// The grammar is intentionally permissive about node-vs-area; the visitor
+// The grammar is intentionally permissive about node-vs-area; the builder
 // disambiguates by inspecting the block items it collected.
+//
+// The first syntax error stops the parse (there is no error recovery). Input
+// left over after the last statement is reported but still yields the
+// statements parsed so far, so their semantic errors surface too.
 
-import { CstParser, type IToken } from 'chevrotain'
+import type { Token, TokenKind } from './lexer'
 
-import {
-  allTokens,
-  ArrowBoth,
-  ArrowLeft,
-  ArrowRight,
-  Colon,
-  DashDash,
-  Dot,
-  Identifier,
-  LCurly,
-  Newline,
-  NumberLit,
-  RCurly,
-  Semicolon,
-  StringLit,
-} from './lexer'
+export interface LabelSyntax {
+  /** The StringLit, or the run of unquoted identifiers (`api: Web App`). */
+  tokens: Token[]
+  quoted: boolean
+}
 
-export class D2Parser extends CstParser {
-  constructor() {
-    super(allTokens, {
-      recoveryEnabled: false,
-      // We only need 2-token lookahead to distinguish edges (id arrow ...)
-      // from node/area declarations (id colon ... | id { ... } | id alone).
-      maxLookahead: 3,
-    })
-    this.performSelfAnalysis()
+export interface AttrSyntax {
+  kind: 'attr'
+  /** Dotted path segments (`style` `.` `stroke-dash`). */
+  path: Token[]
+  value: Token
+}
+
+export interface MemberSyntax {
+  kind: 'member'
+  id: Token
+}
+
+export interface BlockSyntax<Item> {
+  open: Token
+  close: Token
+  items: Item[]
+}
+
+export interface NodeOrAreaSyntax {
+  kind: 'nodeOrArea'
+  id: Token
+  label?: LabelSyntax
+  block?: BlockSyntax<AttrSyntax | MemberSyntax>
+}
+
+export interface EdgeSyntax {
+  kind: 'edge'
+  source: Token
+  arrow: Token
+  target: Token
+  label?: LabelSyntax
+  block?: BlockSyntax<AttrSyntax>
+}
+
+export type StatementSyntax = NodeOrAreaSyntax | EdgeSyntax
+
+export interface SyntaxIssue {
+  message: string
+  /** The offending token; absent when the parser ran out of input. */
+  token?: Token
+}
+
+export interface ProgramSyntax {
+  /** Absent when a syntax error stopped the parse. */
+  statements?: StatementSyntax[]
+  error?: SyntaxIssue
+}
+
+const ARROWS: readonly TokenKind[] = ['ArrowRight', 'ArrowLeft', 'ArrowBoth', 'DashDash']
+
+class Failure {
+  constructor(readonly error: SyntaxIssue) {}
+}
+
+const foundImage = (token: Token | undefined): string => token?.image ?? ''
+
+export function parseTokens(tokens: Token[]): ProgramSyntax {
+  let pos = 0
+
+  const peek = (ahead = 0): Token | undefined => tokens[pos + ahead]
+  const is = (kind: TokenKind, ahead = 0): boolean => peek(ahead)?.kind === kind
+
+  const consume = (kind: TokenKind): Token => {
+    const token = peek()
+    if (token?.kind !== kind) {
+      throw new Failure({
+        message: `Expecting token of type --> ${kind} <-- but found --> '${foundImage(token)}' <--`,
+        token,
+      })
+    }
+    pos++
+    return token
   }
 
-  // program := (statement Newline?)*
-  public program = this.RULE('program', () => {
-    // Swallow leading blank lines.
-    this.MANY1(() => this.CONSUME1(Newline))
-    this.MANY2(() => {
-      this.SUBRULE(this.statement)
-      this.MANY3(() => this.CONSUME2(Newline))
+  /** No alternative fits the next token; each entry is one accepted kind. */
+  const noViableAlt = (kinds: TokenKind[]): Failure => {
+    const token = peek()
+    const options = kinds.map((k, i) => `  ${i + 1}. [${k}]`).join('\n')
+    return new Failure({
+      message: `Expecting: one of these possible Token sequences:\n${options}\nbut found: '${foundImage(token)}'`,
+      token,
     })
-  })
+  }
 
-  // statement := edgeDecl | nodeOrAreaDecl
+  const skip = (...kinds: TokenKind[]): void => {
+    while (kinds.some((k) => is(k))) pos++
+  }
+
+  // labelOrValue := StringLit | Identifier+
   //
-  // Disambiguated by looking at the token after the first Identifier: an
-  // arrow operator means we're in an edge declaration.
-  private statement = this.RULE('statement', () => {
-    this.OR([
-      {
-        GATE: () => this.isArrowAhead(),
-        ALT: () => this.SUBRULE(this.edgeDecl),
-      },
-      { ALT: () => this.SUBRULE(this.nodeOrAreaDecl) },
-    ])
-  })
+  // Unquoted labels may contain spaces (e.g. `api: Web App`), so we greedily
+  // consume consecutive identifiers up to the next structural token.
+  const labelOrValue = (): LabelSyntax => {
+    if (is('StringLit')) return { tokens: [consume('StringLit')], quoted: true }
+    if (!is('Identifier')) throw noViableAlt(['StringLit', 'Identifier'])
+    const ids = [consume('Identifier')]
+    while (is('Identifier')) ids.push(consume('Identifier'))
+    return { tokens: ids, quoted: false }
+  }
 
-  // nodeOrAreaDecl := Identifier (Colon labelOrValue)? (LCurly blockItem* RCurly)?
-  private nodeOrAreaDecl = this.RULE('nodeOrAreaDecl', () => {
-    this.CONSUME(Identifier)
-    this.OPTION1(() => {
-      this.CONSUME(Colon)
-      this.SUBRULE(this.labelOrValue)
-    })
-    this.OPTION2(() => {
-      this.CONSUME(LCurly)
-      // Allow a newline immediately after `{`.
-      this.MANY1(() => this.CONSUME1(Newline))
-      this.MANY2(() => {
-        this.SUBRULE(this.blockItem)
-        // Block items are terminated by `;` or newline; both are optional
-        // before `}` so a trailing item works.
-        this.MANY3(() => {
-          this.OR2([{ ALT: () => this.CONSUME(Semicolon) }, { ALT: () => this.CONSUME2(Newline) }])
-        })
-      })
-      this.CONSUME(RCurly)
-    })
-  })
+  // attrValue := StringLit | Identifier | NumberLit
+  const attrValue = (): Token => {
+    for (const kind of ['StringLit', 'Identifier', 'NumberLit'] as const) {
+      if (is(kind)) return consume(kind)
+    }
+    throw noViableAlt(['StringLit', 'Identifier', 'NumberLit'])
+  }
+
+  // attr := Identifier (Dot Identifier)* Colon attrValue
+  const attr = (): AttrSyntax => {
+    const path = [consume('Identifier')]
+    while (is('Dot')) {
+      consume('Dot')
+      path.push(consume('Identifier'))
+    }
+    consume('Colon')
+    return { kind: 'attr', path, value: attrValue() }
+  }
+
+  // `{` Newline* (item (`;` | Newline)*)* `}` — items are terminated by `;` or
+  // newline; both are optional before `}` so a trailing item works.
+  const block = <Item>(item: () => Item): BlockSyntax<Item> => {
+    const open = consume('LCurly')
+    skip('Newline')
+    const items: Item[] = []
+    while (is('Identifier')) {
+      items.push(item())
+      skip('Semicolon', 'Newline')
+    }
+    return { open, items, close: consume('RCurly') }
+  }
 
   // blockItem := attr | memberStmt
   //
   // We distinguish on the second token: `Identifier Colon` or `Identifier Dot`
   // is an attr; `Identifier` followed by anything else (`;`, newline, `}`) is
   // a member declaration.
-  private blockItem = this.RULE('blockItem', () => {
-    this.OR([
-      {
-        GATE: () => this.isAttrAhead(),
-        ALT: () => this.SUBRULE(this.attr),
-      },
-      { ALT: () => this.SUBRULE(this.memberStmt) },
-    ])
-  })
+  const blockItem = (): AttrSyntax | MemberSyntax =>
+    is('Colon', 1) || is('Dot', 1) ? attr() : { kind: 'member', id: consume('Identifier') }
 
-  // attr := Identifier (Dot Identifier)* Colon attrValue
-  private attr = this.RULE('attr', () => {
-    this.CONSUME(Identifier)
-    this.MANY(() => {
-      this.CONSUME(Dot)
-      this.CONSUME2(Identifier)
-    })
-    this.CONSUME(Colon)
-    this.SUBRULE(this.attrValue)
-  })
-
-  // memberStmt := Identifier
-  // Terminators (`;`, newline) are consumed by the enclosing block rule.
-  private memberStmt = this.RULE('memberStmt', () => {
-    this.CONSUME(Identifier)
-  })
-
-  // edgeDecl := Identifier arrowOp Identifier (Colon labelOrValue)? (LCurly attr* RCurly)?
-  private edgeDecl = this.RULE('edgeDecl', () => {
-    this.CONSUME(Identifier)
-    this.SUBRULE(this.arrowOp)
-    this.CONSUME2(Identifier)
-    this.OPTION1(() => {
-      this.CONSUME(Colon)
-      this.SUBRULE(this.labelOrValue)
-    })
-    this.OPTION2(() => {
-      this.CONSUME(LCurly)
-      this.MANY1(() => this.CONSUME1(Newline))
-      this.MANY2(() => {
-        this.SUBRULE(this.attr)
-        this.MANY3(() => {
-          this.OR([{ ALT: () => this.CONSUME(Semicolon) }, { ALT: () => this.CONSUME2(Newline) }])
-        })
-      })
-      this.CONSUME(RCurly)
-    })
-  })
-
-  // arrowOp := -> | <- | <-> | --
-  private arrowOp = this.RULE('arrowOp', () => {
-    this.OR([
-      { ALT: () => this.CONSUME(ArrowRight) },
-      { ALT: () => this.CONSUME(ArrowLeft) },
-      { ALT: () => this.CONSUME(ArrowBoth) },
-      { ALT: () => this.CONSUME(DashDash) },
-    ])
-  })
-
-  // labelOrValue := StringLit | Identifier+
-  //
-  // Unquoted labels may contain spaces (e.g. `api: Web App`), so we greedily
-  // consume consecutive identifiers up to the next structural token.
-  private labelOrValue = this.RULE('labelOrValue', () => {
-    this.OR([
-      { ALT: () => this.CONSUME(StringLit) },
-      {
-        ALT: () => {
-          this.CONSUME(Identifier)
-          this.MANY(() => this.CONSUME2(Identifier))
-        },
-      },
-    ])
-  })
-
-  // attrValue := StringLit | Identifier | NumberLit
-  private attrValue = this.RULE('attrValue', () => {
-    this.OR([
-      { ALT: () => this.CONSUME(StringLit) },
-      { ALT: () => this.CONSUME(Identifier) },
-      { ALT: () => this.CONSUME(NumberLit) },
-    ])
-  })
-
-  // --- Lookahead helpers --------------------------------------------------
-
-  private isArrowAhead(): boolean {
-    const t1 = this.LA(1) as IToken
-    const t2 = this.LA(2) as IToken
-    if (t1.tokenType !== Identifier) return false
-    return (
-      t2.tokenType === ArrowRight ||
-      t2.tokenType === ArrowLeft ||
-      t2.tokenType === ArrowBoth ||
-      t2.tokenType === DashDash
-    )
+  const optionalLabel = (): LabelSyntax | undefined => {
+    if (!is('Colon')) return undefined
+    consume('Colon')
+    return labelOrValue()
   }
 
-  private isAttrAhead(): boolean {
-    const t1 = this.LA(1) as IToken
-    const t2 = this.LA(2) as IToken
-    if (t1.tokenType !== Identifier) return false
-    return t2.tokenType === Colon || t2.tokenType === Dot
+  // nodeOrAreaDecl := Identifier (Colon labelOrValue)? block?
+  const nodeOrAreaDecl = (): NodeOrAreaSyntax => {
+    const id = consume('Identifier')
+    const label = optionalLabel()
+    const body = is('LCurly') ? block(blockItem) : undefined
+    return { kind: 'nodeOrArea', id, label, block: body }
+  }
+
+  // edgeDecl := Identifier arrowOp Identifier (Colon labelOrValue)? block?
+  const edgeDecl = (): EdgeSyntax => {
+    const source = consume('Identifier')
+    const arrow = consume(peek()!.kind)
+    const target = consume('Identifier')
+    const label = optionalLabel()
+    const body = is('LCurly') ? block(attr) : undefined
+    return { kind: 'edge', source, arrow, target, label, block: body }
+  }
+
+  // statement := edgeDecl | nodeOrAreaDecl — an arrow after the first
+  // identifier means an edge.
+  const statement = (): StatementSyntax => {
+    const next = peek(1)
+    return next && ARROWS.includes(next.kind) ? edgeDecl() : nodeOrAreaDecl()
+  }
+
+  // program := Newline* (statement Newline*)*
+  try {
+    const statements: StatementSyntax[] = []
+    skip('Newline')
+    while (is('Identifier')) {
+      statements.push(statement())
+      skip('Newline')
+    }
+    const rest = peek()
+    if (rest) {
+      return {
+        statements,
+        error: { message: `Redundant input, expecting EOF but found: ${rest.image}`, token: rest },
+      }
+    }
+    return { statements }
+  } catch (e) {
+    if (e instanceof Failure) return { error: e.error }
+    throw e
   }
 }
-
-// Single shared parser instance (Chevrotain best practice — building a parser
-// is expensive, parsing isn't).
-export const parserInstance = new D2Parser()
