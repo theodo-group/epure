@@ -326,7 +326,18 @@ body {
   height: 100%;
 }
 
-/* ── Resize handle ────────────────────────────────────── */
+/* ── Split + resize handle ────────────────────────────── */
+
+.ep-split {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.ep-split.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
 
 .resize-handle {
   width: 1px;
@@ -335,6 +346,19 @@ body {
   position: relative;
   flex: 0 0 1px;
   transition: background 0.15s;
+}
+
+/* A wider, invisible grab area around the 1px line. */
+.resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0 -5px;
+  z-index: 1;
+}
+
+.resize-handle:focus-visible {
+  outline: none;
+  background: var(--ep-accent);
 }
 
 .resize-handle:hover,
