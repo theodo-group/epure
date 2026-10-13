@@ -345,9 +345,9 @@ describe('edge obstacle avoidance', () => {
       edges: {},
     }
     const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
-    const isH = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-      Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) > 0.5
-    const cross = (h: any[], v: any[]) => {
+    type Pt = { x: number; y: number }
+    const isH = (a: Pt, b: Pt) => Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) > 0.5
+    const cross = (h: [Pt, Pt], v: [Pt, Pt]) => {
       const e = 1
       return (
         v[0].x > Math.min(h[0].x, h[1].x) + e && v[0].x < Math.max(h[0].x, h[1].x) - e &&
@@ -355,7 +355,7 @@ describe('edge obstacle avoidance', () => {
       )
     }
     const segsOf = (e: (typeof routed.edges)[number]) =>
-      e.points.slice(1).map((p, i) => [e.points[i]!, p])
+      e.points.slice(1).map((p, i): [Pt, Pt] => [e.points[i]!, p])
     let crossings = 0
     for (let i = 0; i < routed.edges.length; i += 1) {
       for (let j = i + 1; j < routed.edges.length; j += 1) {
