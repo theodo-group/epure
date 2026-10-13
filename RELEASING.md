@@ -54,5 +54,11 @@ npm version patch   # or minor / major — updates package.json + tags
 git push --follow-tags
 ```
 
-CI (`.github/workflows/ci.yml`) runs typecheck, lint, tests, the SPA + CLI
-builds, and a CLI render smoke-test on every push and PR.
+There is no CI yet, so run the checks before tagging:
+
+```sh
+pnpm typecheck && pnpm lint && pnpm test && pnpm build:all
+```
+
+`pnpm lint` is Biome (`biome check`: lint + format check); `pnpm format`
+applies its fixes and formatting.
