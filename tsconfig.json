@@ -22,9 +22,8 @@
     "allowImportingTsExtensions": false,
     "noEmit": true,
     "types": ["vite/client", "vitest"],
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "tests", "server", "bin", "lib"]

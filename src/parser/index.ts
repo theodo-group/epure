@@ -91,10 +91,11 @@ function parserErrorToParseError(
   }
 }
 
-/** Return `v` when it is a real finite number, else `fallback`. Unlike `??`,
- *  this also rejects NaN (Chevrotain's EOF token positions). */
+/** Return `v` when it is a real, non-negative position, else `fallback`. Unlike
+ *  `??`, this also rejects Chevrotain's "no position" markers on the EOF token
+ *  (NaN before v13, -1 since). */
 function finite(v: number | undefined, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : fallback
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback
 }
 
 /** Position just past the last character of the source (1-based line/column,

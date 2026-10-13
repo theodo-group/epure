@@ -338,7 +338,7 @@ body {
 }
 
 .resize-handle:hover,
-.resize-handle[data-resize-handle-active] {
+.resize-handle[data-separator="active"] {
   background: var(--ep-accent);
 }
 

@@ -19,7 +19,9 @@ export default defineConfig({
   outDir: 'dist-lib',
   // Share chunks so the ~1.3 MB icon catalog isn't inlined three times.
   splitting: true,
-  dts: true,
+  // tsup's dts step injects `baseUrl: "."` itself, which TypeScript 6 rejects
+  // as deprecated. Our tsconfig no longer sets it; silence it for tsup only.
+  dts: { compilerOptions: { ignoreDeprecations: '6.0' } },
   clean: true,
   // Same stub as scripts/build-server.mjs: `@/icons` reads Vite's BASE_URL at
   // load; outside the editor SPA the base is always the root.
