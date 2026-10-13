@@ -1,99 +1,61 @@
 // Public entrypoint: parse(source) -> ParseResult.
 
-import type { ILexingError, IRecognitionException, IToken } from 'chevrotain'
-
-import type { ParseError, ParseResult, SourcePos, SourceRange } from './ast'
-
-/** A degenerate range at the document origin, for errors with no located token
- *  (e.g. a visitor exception). */
-function emptyRange(): SourceRange {
-  return {
-    start: { line: 1, column: 1, offset: 0 },
-    end: { line: 1, column: 1, offset: 0 },
-  }
-}
-import { lexer } from './lexer'
-import { parserInstance } from './parser'
-import { D2Visitor } from './visitor'
+import type { ParseError, ParseResult, SourcePos } from './ast'
+import { buildDiagram } from './build'
+import { type LexError, tokenize } from './lexer'
+import { parseTokens, type SyntaxIssue } from './parser'
 
 export * from './ast'
 
 export function parse(source: string): ParseResult {
-  const lexResult = lexer.tokenize(source)
+  const lexResult = tokenize(source)
 
   const errors: ParseError[] = lexResult.errors.map(lexErrorToParseError)
 
-  parserInstance.input = lexResult.tokens
-  const cst = parserInstance.program()
+  const program = parseTokens(lexResult.tokens)
+  if (program.error) errors.push(syntaxIssueToParseError(program.error, eofPos(source)))
 
-  // End-of-input position, used as the fallback when a parser error lands on the
-  // EOF token — Chevrotain gives that token no real position (NaN before v13,
-  // -1 since).
-  const eof = eofPos(source)
-  for (const e of parserInstance.errors) {
-    errors.push(parserErrorToParseError(e, eof))
-  }
-
-  // Always run the visitor — even with errors — so we can surface as many
-  // problems as possible in one pass.
-  const visitor = new D2Visitor()
-  let diagram: ReturnType<D2Visitor['program']>
-  try {
-    diagram = visitor.visit(cst) as ReturnType<D2Visitor['program']>
-  } catch (err) {
-    errors.push({
-      message: (err as Error).message,
-      range: emptyRange(),
-    })
-    return { ok: false, errors }
-  }
-  errors.push(...visitor.errors)
+  // A syntax error stops the parse; leftover input after the last statement
+  // still yields the statements before it, so their semantic errors surface
+  // in the same pass.
+  if (!program.statements) return { ok: false, errors }
+  const { diagram, errors: semanticErrors } = buildDiagram(program.statements)
+  errors.push(...semanticErrors)
 
   if (errors.length > 0) return { ok: false, errors }
   return { ok: true, diagram }
 }
 
-function lexErrorToParseError(e: ILexingError): ParseError {
-  const line = e.line ?? 1
-  const column = e.column ?? 1
-  const offset = e.offset ?? 0
-  const length = e.length ?? 1
+function lexErrorToParseError(e: LexError): ParseError {
   return {
     message: e.message,
     range: {
-      start: { line, column, offset },
-      end: { line, column: column + length, offset: offset + length },
+      start: { line: e.line, column: e.column, offset: e.offset },
+      end: { line: e.line, column: e.column + e.length, offset: e.offset + e.length },
     },
   }
 }
 
-function parserErrorToParseError(e: IRecognitionException, eof: SourcePos): ParseError {
-  // The error token can be missing (no token) OR the EOF token, whose position
-  // fields are all NaN. `?? 1` doesn't catch NaN, so every field is sanitized
-  // through `finite`, falling back to the end-of-input position — otherwise a
-  // NaN line reaches the editor and crashes `doc.line(NaN)` on the next render.
-  const tok: IToken | undefined = e.token
-  const startLine = finite(tok?.startLine, eof.line)
-  const startColumn = finite(tok?.startColumn, eof.column)
-  const startOffset = finite(tok?.startOffset, eof.offset)
-  return {
-    message: e.message,
-    range: {
-      start: { line: startLine, column: startColumn, offset: startOffset },
-      end: {
-        line: finite(tok?.endLine, startLine),
-        column: finite(tok?.endColumn, startColumn) + 1,
-        offset: finite(tok?.endOffset, startOffset) + 1,
+function syntaxIssueToParseError(e: SyntaxIssue, eof: SourcePos): ParseError {
+  // An error with no token ran out of input: anchor it one character past the
+  // end, so the editor can still underline it.
+  const tok = e.token
+  if (!tok) {
+    return {
+      message: e.message,
+      range: {
+        start: eof,
+        end: { line: eof.line, column: eof.column + 1, offset: eof.offset + 1 },
       },
+    }
+  }
+  return {
+    message: e.message,
+    range: {
+      start: { line: tok.startLine, column: tok.startColumn, offset: tok.startOffset },
+      end: { line: tok.endLine, column: tok.endColumn + 1, offset: tok.endOffset + 1 },
     },
   }
-}
-
-/** Return `v` when it is a real, non-negative position, else `fallback`. Unlike
- *  `??`, this also rejects Chevrotain's "no position" markers on the EOF token
- *  (NaN before v13, -1 since). */
-function finite(v: number | undefined, fallback: number): number {
-  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback
 }
 
 /** Position just past the last character of the source (1-based line/column,

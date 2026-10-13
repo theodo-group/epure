@@ -1,6 +1,6 @@
 // Typed AST emitted by the D2-subset parser.
 //
-// Source ranges use 1-based lines/columns (matching Chevrotain tokens) and a
+// Source ranges use 1-based lines/columns (matching the lexer's tokens) and a
 // 0-based byte offset; this lets editors map errors back to the CodeMirror
 // document without extra bookkeeping.
 

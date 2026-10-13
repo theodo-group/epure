@@ -1,6 +1,7 @@
-// Chevrotain's EOF token carries NaN for every position field. An error anchored
-// there once produced a NaN range that crashed the editor's `doc.line(NaN)` on
-// the next render. Every parse error must expose a finite, editor-safe range.
+// An error found at end of input has no token to anchor it. The old parser's
+// EOF token once produced a NaN range there, which crashed the editor's
+// `doc.line(NaN)` on the next render. Every parse error must expose a finite,
+// editor-safe range.
 import { describe, it, expect } from 'vitest'
 import { parse } from '@/parser'
 

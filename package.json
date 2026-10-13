@@ -75,7 +75,6 @@
   "dependencies": {
     "@mr_mint/elkjs-libavoid": "^0.3.0",
     "@resvg/resvg-js": "^2.6.2",
-    "chevrotain": "^13.2.0",
     "chokidar": "^5.0.0",
     "ws": "^8.22.0"
   },
