@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@mr_mint/elkjs-libavoid':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.5.0
+        version: 0.5.0
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -629,8 +629,8 @@ packages:
   '@marijn/find-cluster-break@1.0.4':
     resolution: {integrity: sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==}
 
-  '@mr_mint/elkjs-libavoid@0.3.0':
-    resolution: {integrity: sha512-Ihctf5m8hgDcHb3bECFY+oJA5hW/Yl9F/cGHCV0ONqzHwRBIMzI369KCA0u+UF+64ZWZSE14orLmL95fxwUHEw==}
+  '@mr_mint/elkjs-libavoid@0.5.0':
+    resolution: {integrity: sha512-kFxLFRCNh8ph3wEg7ml0I0xGT4qSWHK6ytC4LPMa18bGiQru9cTmoskRlzjiJUJCAVDaRfXC1DzstQYpRRxbuQ==}
     engines: {node: '>=20'}
     peerDependencies:
       elkjs: '>=0.8.0'
@@ -2044,7 +2044,7 @@ snapshots:
 
   '@marijn/find-cluster-break@1.0.4': {}
 
-  '@mr_mint/elkjs-libavoid@0.3.0':
+  '@mr_mint/elkjs-libavoid@0.5.0':
     dependencies:
       libavoid-js: 0.5.0-beta.5
 
