@@ -98,9 +98,9 @@ describe('BridgeCore', () => {
     await expect(
       core.applyInbound([{ kind: 'layout', content: '{ not json' }]),
     ).rejects.toBeInstanceOf(InvalidApplyError)
-    await expect(
-      readFile(join(dir, 'system.epr.layout.json'), 'utf8'),
-    ).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(readFile(join(dir, 'system.epr.layout.json'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 
   it('hydrate reports absent files as null, present files validated', async () => {

@@ -27,9 +27,7 @@ const readOrNull = async (path: string): Promise<string | null> => {
   }
 }
 
-export const validatePair = async (
-  pair: ResolvedPair,
-): Promise<ValidationIssue[]> => {
+export const validatePair = async (pair: ResolvedPair): Promise<ValidationIssue[]> => {
   const issues: ValidationIssue[] = []
   const d2Text = await readOrNull(pair.paths.d2)
   const layoutText = await readOrNull(pair.paths.layout)

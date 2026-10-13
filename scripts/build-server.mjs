@@ -36,7 +36,7 @@ await build({
     // Shebang so npm marks the bin executable; createRequire enables any CJS
     // interop the external node deps need under ESM.
     js:
-      "#!/usr/bin/env node\n" +
+      '#!/usr/bin/env node\n' +
       "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);",
   },
   logLevel: 'info',
@@ -45,7 +45,4 @@ await build({
 // Ship libavoid's wasm alongside the CLI so `epure export` does real
 // server-side routing (the headless render points init() at this file).
 mkdirSync(resolve(root, 'dist-server'), { recursive: true })
-copyFileSync(
-  resolve(root, 'public/libavoid.wasm'),
-  resolve(root, 'dist-server/libavoid.wasm'),
-)
+copyFileSync(resolve(root, 'public/libavoid.wasm'), resolve(root, 'dist-server/libavoid.wasm'))

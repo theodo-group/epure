@@ -57,7 +57,10 @@ describe('headless diagram render', () => {
 
   it('honors the layout textScale (larger text, wider frame)', async () => {
     const base = await model(D2, LAYOUT)
-    const big = await model(D2, LAYOUT.replace('"gridSize": 40,', '"gridSize": 40, "textScale": 1.5,'))
+    const big = await model(
+      D2,
+      LAYOUT.replace('"gridSize": 40,', '"gridSize": 40, "textScale": 1.5,'),
+    )
     if ('error' in base || 'error' in big) throw new Error('model failed')
     expect(big.textScale).toBe(1.5)
     const svgBase = renderSvgString(base)
@@ -80,7 +83,9 @@ describe('headless diagram render', () => {
     const png = svgToPng(inlineIcons(renderSvgString(m), ICONS), { scale: 1 })
     expect(Buffer.isBuffer(png)).toBe(true)
     // PNG magic number.
-    expect(png.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    expect(png.subarray(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    )
     expect(png.length).toBeGreaterThan(1000)
   })
 
@@ -100,7 +105,9 @@ describe('headless diagram render', () => {
     const bytes = await png(D2, LAYOUT, { icons: ICONS, scale: 1 })
     if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
     // Still a valid PNG after splicing metadata chunks.
-    expect(bytes.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    expect(bytes.subarray(0, 8)).toEqual(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    )
     const meta = readPngText(bytes)
     expect(meta[PNG_SOURCE_KEYS.d2]).toBe(D2)
     expect(meta[PNG_SOURCE_KEYS.layout]).toBe(LAYOUT)
@@ -139,7 +146,9 @@ describe('the library surface', () => {
 describe('PNG text metadata', () => {
   it('round-trips UTF-8 keywords and text through iTXt chunks', () => {
     // A minimal but valid PNG to splice into (1×1 via a tiny render).
-    const base = svgToPng('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>', { scale: 1 })
+    const base = svgToPng('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>', {
+      scale: 1,
+    })
     const text = 'user: Utilisateur { shape: person }\napi: "Café ☕ API"\nuser -> api: héllo\n'
     const out = embedPngText(base, [{ keyword: 'epure.d2', text }])
     expect(out.subarray(0, 8)).toEqual(base.subarray(0, 8)) // signature intact

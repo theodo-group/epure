@@ -137,17 +137,13 @@ export const parseRichText = (label: string): RichLine[] => {
 // True when at least one tag we recognise actually parsed out. Lets the
 // renderer skip the rich path entirely for plain labels.
 export const hasRichMarkup = (label: string): boolean =>
-  /<\s*\/?\s*(b|strong|i|em|small|br|ul|li)\s*\/?\s*>/i.test(label) ||
-  label.includes('\n')
+  /<\s*\/?\s*(b|strong|i|em|small|br|ul|li)\s*\/?\s*>/i.test(label) || label.includes('\n')
 
 // Re-wrap rich lines so no rendered line exceeds `maxChars` characters. Hard
 // breaks (real <br>/\n in the input) and list items are preserved as line
 // boundaries; we only word-wrap the runs in between. A wrapped bullet line
 // keeps its bullet on the first visual line only.
-export const wrapRichText = (
-  lines: RichLine[],
-  maxChars: number,
-): RichLine[] => {
+export const wrapRichText = (lines: RichLine[], maxChars: number): RichLine[] => {
   const out: RichLine[] = []
   for (const line of lines) {
     if (line.words.length === 0) {
@@ -158,9 +154,7 @@ export const wrapRichText = (
     let curLen = 0
     let first = true
     const pushSeg = () => {
-      out.push(
-        first && line.bullet ? { words: cur, bullet: true } : { words: cur },
-      )
+      out.push(first && line.bullet ? { words: cur, bullet: true } : { words: cur })
       first = false
     }
     for (const w of line.words) {

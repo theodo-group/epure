@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap");
 
 :root {
   --ep-bg: #ecebe7;
@@ -28,11 +28,11 @@
   --ep-warn-bg: oklch(0.97 0.04 60);
   --ep-ok: oklch(0.62 0.14 145);
 
-  --ep-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --ep-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --ep-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ep-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 
   --ep-shadow-card: 0 4px 16px rgba(28, 25, 23, 0.06);
-  --ep-shadow-app: 0 1px 2px rgba(0, 0, 0, 0.04), 0 18px 48px rgba(28, 25, 23, 0.10);
+  --ep-shadow-app: 0 1px 2px rgba(0, 0, 0, 0.04), 0 18px 48px rgba(28, 25, 23, 0.1);
 }
 
 html,
@@ -271,7 +271,7 @@ body {
 }
 
 .ep-tab::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -687,7 +687,9 @@ body {
 }
 
 .ep-swatch.active {
-  box-shadow: 0 0 0 1.5px var(--ep-surface), 0 0 0 3px var(--ep-accent);
+  box-shadow:
+    0 0 0 1.5px var(--ep-surface),
+    0 0 0 3px var(--ep-accent);
 }
 
 .ep-swatch-none {
@@ -701,7 +703,9 @@ body {
     linear-gradient(45deg, #c9c9c9 25%, transparent 25%, transparent 75%, #c9c9c9 75%),
     linear-gradient(45deg, #c9c9c9 25%, transparent 25%, transparent 75%, #c9c9c9 75%);
   background-size: 8px 8px;
-  background-position: 0 0, 4px 4px;
+  background-position:
+    0 0,
+    4px 4px;
 }
 
 .ep-seg {
@@ -784,7 +788,9 @@ body {
     linear-gradient(45deg, #ececec 25%, transparent 25%, transparent 75%, #ececec 75%),
     linear-gradient(45deg, #ececec 25%, transparent 25%, transparent 75%, #ececec 75%);
   background-size: 6px 6px;
-  background-position: 0 0, 3px 3px;
+  background-position:
+    0 0,
+    3px 3px;
 }
 
 .ep-icon-trigger-label {
@@ -1009,7 +1015,9 @@ body.epure-dragging * {
   border: 1px solid var(--ep-border-soft);
   background: var(--ep-surface);
   cursor: pointer;
-  transition: border-color 120ms, background 120ms;
+  transition:
+    border-color 120ms,
+    background 120ms;
 }
 
 .ep-clash-choice:hover {

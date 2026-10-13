@@ -1,11 +1,5 @@
 import type { ShapeName } from '@/parser/ast'
-import type {
-  EndCap,
-  FillColor,
-  LineStyle,
-  PaletteColor,
-  Size,
-} from '@/style/palette'
+import type { EndCap, FillColor, LineStyle, PaletteColor, Size } from '@/style/palette'
 
 export type Side = 'N' | 'S' | 'E' | 'W'
 

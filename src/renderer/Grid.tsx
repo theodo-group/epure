@@ -17,23 +17,12 @@ export const Grid: FC<GridProps> = ({
   gridSize,
   patternId = 'epure-grid',
 }) => (
-  <g aria-hidden='true' data-ep-grid=''>
+  <g aria-hidden="true" data-ep-grid="">
     <defs>
-      <pattern
-        id={patternId}
-        width={gridSize}
-        height={gridSize}
-        patternUnits='userSpaceOnUse'
-      >
-        <circle cx={0} cy={0} r={1.5} fill='#cbd5e1' />
+      <pattern id={patternId} width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">
+        <circle cx={0} cy={0} r={1.5} fill="#cbd5e1" />
       </pattern>
     </defs>
-    <rect
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      fill={`url(#${patternId})`}
-    />
+    <rect x={x} y={y} width={width} height={height} fill={`url(#${patternId})`} />
   </g>
 )

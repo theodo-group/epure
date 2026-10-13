@@ -94,8 +94,7 @@ describe('validateLayoutJson', () => {
     // grid unit (see resizeNode in diagramStore.ts), and the renderer draws
     // those fine. The schema must not reject them — a single rejected field
     // nulls the whole layout, dropping every position and icon on load.
-    const text =
-      '{"gridSize":40,"nodes":{"a":{"cx":5.5,"cy":-4.5,"w":4,"h":1.5}},"edges":{}}'
+    const text = '{"gridSize":40,"nodes":{"a":{"cx":5.5,"cy":-4.5,"w":4,"h":1.5}},"edges":{}}'
     const v = ok(text)
     expect(v.nodes.a).toMatchObject({ cx: 5.5, cy: -4.5, w: 4, h: 1.5 })
   })
@@ -151,7 +150,9 @@ describe('locateLayoutKeyRanges', () => {
   it('spans a node entry from its key quote to the end of its value', () => {
     const [r] = locateLayoutKeyRanges(text, { nodes: ['a'] })
     expect(r).toBeDefined()
-    expect(slice(r!)).toBe('"a": {\n      "cx": 1,\n      "cy": 1,\n      "w": 2,\n      "h": 2\n    }')
+    expect(slice(r!)).toBe(
+      '"a": {\n      "cx": 1,\n      "cy": 1,\n      "w": 2,\n      "h": 2\n    }',
+    )
   })
 
   it('locates edges and areas by their map keys', () => {

@@ -85,10 +85,7 @@ export class D2Parser extends CstParser {
         // Block items are terminated by `;` or newline; both are optional
         // before `}` so a trailing item works.
         this.MANY3(() => {
-          this.OR2([
-            { ALT: () => this.CONSUME(Semicolon) },
-            { ALT: () => this.CONSUME2(Newline) },
-          ])
+          this.OR2([{ ALT: () => this.CONSUME(Semicolon) }, { ALT: () => this.CONSUME2(Newline) }])
         })
       })
       this.CONSUME(RCurly)
@@ -142,10 +139,7 @@ export class D2Parser extends CstParser {
       this.MANY2(() => {
         this.SUBRULE(this.attr)
         this.MANY3(() => {
-          this.OR([
-            { ALT: () => this.CONSUME(Semicolon) },
-            { ALT: () => this.CONSUME2(Newline) },
-          ])
+          this.OR([{ ALT: () => this.CONSUME(Semicolon) }, { ALT: () => this.CONSUME2(Newline) }])
         })
       })
       this.CONSUME(RCurly)

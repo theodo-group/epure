@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from 'zustand'
-import {
-  useDiagramStore,
-  useTemporalStore,
-  type ExportScale,
-} from '@/store/diagramStore'
+import { useDiagramStore, useTemporalStore, type ExportScale } from '@/store/diagramStore'
 
 interface HeaderProps {
   onOpen: () => Promise<void> | void
@@ -194,10 +190,7 @@ export const Header = ({
                       borderRadius: 4,
                       border: '1px solid var(--ep-border)',
                       background: exportScale === s ? 'var(--ep-accent-bg)' : '#fff',
-                      color:
-                        exportScale === s
-                          ? 'var(--ep-accent-deep)'
-                          : 'var(--ep-text)',
+                      color: exportScale === s ? 'var(--ep-accent-deep)' : 'var(--ep-text)',
                       fontSize: 11,
                       fontFamily: 'var(--ep-mono)',
                       cursor: 'pointer',

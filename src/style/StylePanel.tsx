@@ -67,12 +67,7 @@ interface SwatchesProps<C extends string> {
   options: C[]
 }
 
-const Swatches = <C extends string>({
-  value,
-  onChange,
-  variant,
-  options,
-}: SwatchesProps<C>) => (
+const Swatches = <C extends string>({ value, onChange, variant, options }: SwatchesProps<C>) => (
   <div className="ep-swatches">
     <button
       type="button"
@@ -161,7 +156,9 @@ const Segmented = <T extends string>({
           <button
             key={opt.value}
             type="button"
-            title={isExplicit ? `${opt.title ?? opt.value} (click to reset)` : opt.title ?? opt.value}
+            title={
+              isExplicit ? `${opt.title ?? opt.value} (click to reset)` : (opt.title ?? opt.value)
+            }
             className={`ep-seg-btn${active ? ' active' : ''}`}
             // Picking the default (or re-clicking the explicit value) clears the
             // override so the layout file only stores genuine overrides.
@@ -187,9 +184,7 @@ const LineIcon = ({ style }: { style: LineStyle }) => (
       stroke="currentColor"
       strokeWidth="1.6"
       strokeLinecap="round"
-      strokeDasharray={
-        style === 'dashed' ? '5 3' : style === 'dotted' ? '1.6 3' : undefined
-      }
+      strokeDasharray={style === 'dashed' ? '5 3' : style === 'dotted' ? '1.6 3' : undefined}
     />
   </svg>
 )
@@ -198,25 +193,57 @@ const CapIcon = ({ cap, flip }: { cap: EndCap; flip?: boolean }) => {
   const inner = (() => {
     if (cap === 'none')
       return (
-        <line x1="2" y1="6" x2="22" y2="6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <line
+          x1="2"
+          y1="6"
+          x2="22"
+          y2="6"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       )
     if (cap === 'dot')
       return (
         <>
-          <line x1="2" y1="6" x2="15" y2="6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <line
+            x1="2"
+            y1="6"
+            x2="15"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
           <circle cx="18" cy="6" r="3" fill="currentColor" />
         </>
       )
     if (cap === 'diamond')
       return (
         <>
-          <line x1="2" y1="6" x2="13" y2="6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          <line
+            x1="2"
+            y1="6"
+            x2="13"
+            y2="6"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
           <path d="M18 2 L22 6 L18 10 L14 6 Z" fill="currentColor" />
         </>
       )
     return (
       <>
-        <line x1="2" y1="6" x2="15" y2="6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <line
+          x1="2"
+          y1="6"
+          x2="15"
+          y2="6"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
         <path d="M14 2 L22 6 L14 10 Z" fill="currentColor" />
       </>
     )
@@ -316,7 +343,17 @@ const ShapeIcon = ({ shape }: { shape: ShapeName }) => {
   // rectangle (default)
   return (
     <svg width="22" height="14" viewBox="0 0 22 14" aria-hidden>
-      <rect x="3" y="3" width="16" height="8" rx="1.6" ry="1.6" stroke={stroke} strokeWidth={sw} fill={fill} />
+      <rect
+        x="3"
+        y="3"
+        width="16"
+        height="8"
+        rx="1.6"
+        ry="1.6"
+        stroke={stroke}
+        strokeWidth={sw}
+        fill={fill}
+      />
     </svg>
   )
 }
@@ -385,9 +422,7 @@ export const StylePanel = () => {
   const nodeStyles = selectedNodeIds
     .map((id) => layout.nodes[id])
     .filter((n): n is NonNullable<typeof n> => Boolean(n))
-  const edgeStyles = selectedEdgeIds.map(
-    (id) => layout.edges[edgeStyleKey(id)] ?? {},
-  )
+  const edgeStyles = selectedEdgeIds.map((id) => layout.edges[edgeStyleKey(id)] ?? {})
   const areaStyles = selectedAreaIds.map((id) => layout.areas?.[id] ?? {})
 
   // Effective default caps come from the parsed edge direction, so a default
@@ -402,12 +437,8 @@ export const StylePanel = () => {
           ),
         )
       : new Map<string, EdgeDirection>()
-    startCapDefault = common(
-      selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'start')),
-    )
-    endCapDefault = common(
-      selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'end')),
-    )
+    startCapDefault = common(selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'start')))
+    endCapDefault = common(selectedEdgeIds.map((id) => defaultCapFor(dirById.get(id), 'end')))
   }
 
   const astShapeFor = new Map<string, ShapeName>()
@@ -444,11 +475,7 @@ export const StylePanel = () => {
       aria-label="Style"
       style={panelStyle}
     >
-      <div
-        className="ep-style-head ep-style-drag"
-        onMouseDown={startDrag}
-        title="Drag to move"
-      >
+      <div className="ep-style-head ep-style-drag" onMouseDown={startDrag} title="Drag to move">
         <span>{summaryParts.join(' · ')}</span>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
           <circle cx="5" cy="4" r="1" fill="currentColor" />
@@ -467,13 +494,7 @@ export const StylePanel = () => {
             <Segmented
               options={shapeOptions}
               value={common(nodeStyles.map((n) => n.shape))}
-              defaultValue={
-                common(
-                  selectedNodeIds.map(
-                    (id) => astShapeFor.get(id),
-                  ),
-                ) ?? 'rectangle'
-              }
+              defaultValue={common(selectedNodeIds.map((id) => astShapeFor.get(id))) ?? 'rectangle'}
               onChange={(v) => setNodeStyle({ shape: v })}
             />
           </Row>

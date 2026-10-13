@@ -177,9 +177,7 @@ export class BridgeCore {
 
   /** Read every sidecar's current state for the first-load `hydrate` frame. */
   async hydrate(): Promise<FileFrame[]> {
-    return Promise.all(
-      FILE_KINDS.map((kind) => readFrame(kind, this.pair.paths[kind])),
-    )
+    return Promise.all(FILE_KINDS.map((kind) => readFrame(kind, this.pair.paths[kind])))
   }
 
   private async handleDiskEvent(path: string): Promise<void> {

@@ -17,11 +17,7 @@ export interface SourceRange {
 
 export type ShapeName = 'rectangle' | 'cylinder' | 'person'
 
-export const SHAPE_NAMES: readonly ShapeName[] = [
-  'rectangle',
-  'cylinder',
-  'person',
-]
+export const SHAPE_NAMES: readonly ShapeName[] = ['rectangle', 'cylinder', 'person']
 
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted'
 
@@ -75,6 +71,4 @@ export interface ParseError {
   range: SourceRange
 }
 
-export type ParseResult =
-  | { ok: true; diagram: Diagram }
-  | { ok: false; errors: ParseError[] }
+export type ParseResult = { ok: true; diagram: Diagram } | { ok: false; errors: ParseError[] }

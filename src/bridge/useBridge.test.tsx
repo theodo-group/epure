@@ -20,10 +20,16 @@ class FakeSocket implements SocketLike {
   onclose: ((ev?: unknown) => void) | null = null
   onmessage: ((ev: { data: unknown }) => void) | null = null
   onerror: ((ev?: unknown) => void) | null = null
-  send(d: string) { this.sent.push(d) }
+  send(d: string) {
+    this.sent.push(d)
+  }
   close() {}
-  open() { this.onopen?.() }
-  emit(msg: ServerMsg) { this.onmessage?.({ data: JSON.stringify(msg) }) }
+  open() {
+    this.onopen?.()
+  }
+  emit(msg: ServerMsg) {
+    this.onmessage?.({ data: JSON.stringify(msg) })
+  }
 }
 
 let sockets: FakeSocket[] = []
@@ -60,7 +66,12 @@ beforeEach(() => {
   installLocalStorage()
   useDiagramStore.getState().loadDocument('', { gridSize: 40, nodes: {}, edges: {} })
   window.__EPURE_BRIDGE__ = {
-    token: 'tok', wsUrl: '/__epure/ws', protocol: 1, doc: 'sys', file: '/x', version: '1',
+    token: 'tok',
+    wsUrl: '/__epure/ws',
+    protocol: 1,
+    doc: 'sys',
+    file: '/x',
+    version: '1',
   }
   __setTestSocketFactory(() => {
     const s = new FakeSocket()
@@ -106,7 +117,13 @@ describe('useBridge', () => {
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
     await act(async () => {
-      lastSocket().emit({ type: 'fileChanged', doc: 'sys', kind: 'layout', content: layoutText(8), valid: true })
+      lastSocket().emit({
+        type: 'fileChanged',
+        doc: 'sys',
+        kind: 'layout',
+        content: layoutText(8),
+        valid: true,
+      })
     })
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(8)
   })
@@ -119,7 +136,13 @@ describe('useBridge', () => {
     // Pointer is down (a drag may be in flight) → guard is "busy".
     await act(async () => interaction.setPointerDown(true))
     await act(async () => {
-      lastSocket().emit({ type: 'fileChanged', doc: 'sys', kind: 'layout', content: layoutText(9), valid: true })
+      lastSocket().emit({
+        type: 'fileChanged',
+        doc: 'sys',
+        kind: 'layout',
+        content: layoutText(9),
+        valid: true,
+      })
     })
     // Deferred: store unchanged, pill flags a pending disk change.
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(2)
@@ -149,7 +172,9 @@ describe('useBridge', () => {
     // Store holds a usable default layout...
     expect(useDiagramStore.getState().layout.nodes).toEqual({})
     // ...but nothing was sent back to disk — only the hello frame went out.
-    const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    const applies = lastSocket()
+      .sent.map((s) => JSON.parse(s))
+      .filter((m) => m.type === 'apply')
     expect(applies).toHaveLength(0)
   })
 
@@ -178,7 +203,9 @@ describe('useBridge', () => {
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     const applyMsgs = () =>
-      lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+      lastSocket()
+        .sent.map((s) => JSON.parse(s))
+        .filter((m) => m.type === 'apply')
     expect(applyMsgs()).toHaveLength(0)
 
     // Three edits fired synchronously — a stand-in for a keystroke/drag burst.
@@ -223,7 +250,12 @@ describe('useBridge', () => {
 
   it('prompts on a genuine clash (local and disk both diverged from base)', async () => {
     // base = layout(5); local = layout(8); disk = layout(2) → all differ.
-    writeBackup('sys', { source: D2, layout: layoutObj(8), base: docKeyOf(D2, layoutObj(5)), savedAt: 99 })
+    writeBackup('sys', {
+      source: D2,
+      layout: layoutObj(8),
+      base: docKeyOf(D2, layoutObj(5)),
+      savedAt: 99,
+    })
     const { result } = renderHook(() => useBridge())
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
@@ -237,7 +269,12 @@ describe('useBridge', () => {
 
   it('keeps local edits without prompting when only the local copy changed', async () => {
     // base == disk (no external change); local has edits → keep-local, push to disk.
-    writeBackup('sys', { source: D2, layout: layoutObj(8), base: docKeyOf(D2, layoutObj(2)), savedAt: 7 })
+    writeBackup('sys', {
+      source: D2,
+      layout: layoutObj(8),
+      base: docKeyOf(D2, layoutObj(2)),
+      savedAt: 7,
+    })
     const { result } = renderHook(() => useBridge())
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
@@ -245,7 +282,9 @@ describe('useBridge', () => {
     // The local edits are kept...
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(8)
     // ...and pushed to disk.
-    const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    const applies = lastSocket()
+      .sent.map((s) => JSON.parse(s))
+      .filter((m) => m.type === 'apply')
     expect(applies.length).toBeGreaterThan(0)
   })
 
@@ -263,7 +302,9 @@ describe('useBridge', () => {
     })
     const localCx = useDiagramStore.getState().layout.nodes.a!.cx
     expect(localCx).not.toBe(2) // the offline edit moved it
-    const offlineApplies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    const offlineApplies = lastSocket()
+      .sent.map((s) => JSON.parse(s))
+      .filter((m) => m.type === 'apply')
     expect(offlineApplies).toHaveLength(0) // nothing left the (dead) socket
 
     // Reconnect: a fresh socket opens after the backoff and re-hydrates disk
@@ -275,7 +316,9 @@ describe('useBridge', () => {
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(localCx) // local kept
-    const applies = lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+    const applies = lastSocket()
+      .sent.map((s) => JSON.parse(s))
+      .filter((m) => m.type === 'apply')
     expect(applies.length).toBeGreaterThan(0)
     const layoutFrame = applies.at(-1)!.files.find((f: { kind: string }) => f.kind === 'layout')
     expect(JSON.parse(layoutFrame.content).nodes.a.cx).toBe(localCx)
@@ -301,7 +344,9 @@ describe('useBridge', () => {
       useDiagramStore.getState().moveNode('a', 200, 80)
     })
     const applyTypes = () =>
-      lastSocket().sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+      lastSocket()
+        .sent.map((s) => JSON.parse(s))
+        .filter((m) => m.type === 'apply')
     expect(applyTypes()).toHaveLength(0)
 
     // Once the disk baseline lands, edits are safe to persist again.
@@ -345,7 +390,14 @@ describe('useBridge', () => {
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
     await act(async () => {
-      lastSocket().emit({ type: 'fileChanged', doc: 'sys', kind: 'layout', content: '{ bad', valid: false, error: '1:1 oops' })
+      lastSocket().emit({
+        type: 'fileChanged',
+        doc: 'sys',
+        kind: 'layout',
+        content: '{ bad',
+        valid: false,
+        error: '1:1 oops',
+      })
     })
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(2) // unchanged
     expect(result.current.remoteError).toContain('oops')

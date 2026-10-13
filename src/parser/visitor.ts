@@ -70,11 +70,7 @@ export class D2Visitor extends BaseVisitor {
     const seenIds = new Set<string>()
 
     for (const stmt of ctx.statement ?? []) {
-      const result = this.visit(stmt) as
-        | NodeDecl
-        | AreaDecl
-        | EdgeDecl
-        | undefined
+      const result = this.visit(stmt) as NodeDecl | AreaDecl | EdgeDecl | undefined
       if (!result) continue
 
       if (result.kind === 'edge') {
@@ -169,16 +165,12 @@ export class D2Visitor extends BaseVisitor {
     const label = ctx.labelOrValue
       ? (this.visit(ctx.labelOrValue) as LabelOrValueResult).text
       : undefined
-    const labelRange = ctx.labelOrValue?.[0]
-      ? this.labelValueRange(ctx.labelOrValue[0])
-      : undefined
+    const labelRange = ctx.labelOrValue?.[0] ? this.labelValueRange(ctx.labelOrValue[0]) : undefined
 
     const block = this.collectBlock(ctx)
     const endTok: IToken =
       ctx.RCurly?.[0] ??
-      (ctx.labelOrValue?.[0]
-        ? this.lastTokenOfLabel(ctx.labelOrValue[0])
-        : undefined) ??
+      (ctx.labelOrValue?.[0] ? this.lastTokenOfLabel(ctx.labelOrValue[0]) : undefined) ??
       idTok
     const range = makeRange(idTok, endTok)
 
@@ -231,9 +223,7 @@ export class D2Visitor extends BaseVisitor {
       // except dotted paths longer than 2 which we explicitly reject.
       if (item.path.length > 2) {
         this.errors.push({
-          message: `Unsupported dotted attribute "${item.path.join(
-            '.',
-          )}" on node "${id}".`,
+          message: `Unsupported dotted attribute "${item.path.join('.')}" on node "${id}".`,
           range: item.range,
         })
       }
@@ -287,19 +277,13 @@ export class D2Visitor extends BaseVisitor {
     for (const a of ctx.attr ?? []) {
       const item = this.visit(a) as BlockItemResult
       if (item.kind !== 'attr') continue
-      if (
-        item.path.length === 2 &&
-        item.path[0] === 'style' &&
-        item.path[1] === 'stroke-dash'
-      ) {
+      if (item.path.length === 2 && item.path[0] === 'style' && item.path[1] === 'stroke-dash') {
         style = strokeDashToStyle(item.value)
         continue
       }
       if (item.path.length > 2) {
         this.errors.push({
-          message: `Unsupported dotted attribute "${item.path.join(
-            '.',
-          )}" on edge.`,
+          message: `Unsupported dotted attribute "${item.path.join('.')}" on edge.`,
           range: item.range,
         })
       }
@@ -307,9 +291,7 @@ export class D2Visitor extends BaseVisitor {
 
     const endTok: IToken =
       ctx.RCurly?.[0] ??
-      (ctx.labelOrValue?.[0]
-        ? this.lastTokenOfLabel(ctx.labelOrValue[0])
-        : undefined) ??
+      (ctx.labelOrValue?.[0] ? this.lastTokenOfLabel(ctx.labelOrValue[0]) : undefined) ??
       targetTok
     const range = makeRange(sourceTok, endTok)
 
@@ -338,10 +320,7 @@ export class D2Visitor extends BaseVisitor {
 
   // -- block bodies -------------------------------------------------------
 
-  blockItem(ctx: {
-    attr?: CstNode[]
-    memberStmt?: CstNode[]
-  }): BlockItemResult {
+  blockItem(ctx: { attr?: CstNode[]; memberStmt?: CstNode[] }): BlockItemResult {
     if (ctx.attr) return this.visit(ctx.attr) as BlockItemResult
     return this.visit(ctx.memberStmt!) as BlockItemResult
   }
@@ -354,10 +333,7 @@ export class D2Visitor extends BaseVisitor {
   }): BlockItemResult {
     const path = ctx.Identifier.map((t) => t.image)
     const value = this.visit(ctx.attrValue) as AttrValue
-    const range = makeRange(
-      ctx.Identifier[0]!,
-      this.lastTokenOfAttrValue(ctx.attrValue[0]!),
-    )
+    const range = makeRange(ctx.Identifier[0]!, this.lastTokenOfAttrValue(ctx.attrValue[0]!))
     return { kind: 'attr', path, value, range }
   }
 
@@ -370,10 +346,7 @@ export class D2Visitor extends BaseVisitor {
     }
   }
 
-  labelOrValue(ctx: {
-    StringLit?: IToken[]
-    Identifier?: IToken[]
-  }): LabelOrValueResult {
+  labelOrValue(ctx: { StringLit?: IToken[]; Identifier?: IToken[] }): LabelOrValueResult {
     if (ctx.StringLit) {
       const tok = ctx.StringLit[0]!
       return { kind: 'string', text: unquote(tok.image) }
@@ -383,11 +356,7 @@ export class D2Visitor extends BaseVisitor {
     return { kind: 'identifier', text }
   }
 
-  attrValue(ctx: {
-    StringLit?: IToken[]
-    Identifier?: IToken[]
-    NumberLit?: IToken[]
-  }): AttrValue {
+  attrValue(ctx: { StringLit?: IToken[]; Identifier?: IToken[]; NumberLit?: IToken[] }): AttrValue {
     if (ctx.StringLit) {
       const tok = ctx.StringLit[0]!
       return { kind: 'string', text: unquote(tok.image), raw: tok.image }
@@ -413,9 +382,8 @@ export class D2Visitor extends BaseVisitor {
     }
     const start = ctx.LCurly?.[0]
     const end = ctx.RCurly?.[0]
-    const range: SourceRange = start && end
-      ? makeRange(start, end)
-      : { start: dummyPos(), end: dummyPos() }
+    const range: SourceRange =
+      start && end ? makeRange(start, end) : { start: dummyPos(), end: dummyPos() }
     return { items, range }
   }
 

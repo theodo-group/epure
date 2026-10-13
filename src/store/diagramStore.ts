@@ -42,10 +42,7 @@ export const mintNodeId = (diagram: Diagram): string => {
 // newline after it. That turns "delete this declaration/member token" into
 // "delete its whole line", so no blank line or dangling indent is left behind.
 // Ranges are merged, so adjacent deletions collapse cleanly.
-const spliceOut = (
-  src: string,
-  ranges: Array<{ start: number; end: number }>,
-): string => {
+const spliceOut = (src: string, ranges: Array<{ start: number; end: number }>): string => {
   if (ranges.length === 0) return src
   const isIndent = (c: string | undefined) => c === ' ' || c === '\t'
   const grown = ranges
@@ -74,13 +71,7 @@ const spliceOut = (
 
 export type ExportScale = 1 | 2 | 4
 
-export type FontFamilyId =
-  | 'inter'
-  | 'poppins'
-  | 'system'
-  | 'helvetica'
-  | 'georgia'
-  | 'mono'
+export type FontFamilyId = 'inter' | 'poppins' | 'system' | 'helvetica' | 'georgia' | 'mono'
 
 export const FONT_STACKS: Record<FontFamilyId, string> = {
   inter: 'Inter, system-ui, sans-serif',
@@ -125,9 +116,7 @@ export interface DiagramActions {
   /** Set absolute grid positions for a batch of nodes. A node with no sidecar
    *  entry yet (e.g. an auto-placed group member) is created — pass its `w`/`h`
    *  so it materializes at the size it was rendered, not the default. */
-  moveNodes: (
-    positions: Record<string, { cx: number; cy: number; w?: number; h?: number }>,
-  ) => void
+  moveNodes: (positions: Record<string, { cx: number; cy: number; w?: number; h?: number }>) => void
   resizeNode: (id: string, side: Side, pxX: number, pxY: number) => void
   setEdgeSide: (edgeKey: string, end: 'source' | 'target', side: Side) => void
   /** Nudge an edge's label off its routed anchor, in grid units. Pass a routed
@@ -254,9 +243,7 @@ export const useDiagramStore = create<DiagramStore>()(
           const cx = Math.round(x / grid)
           const cy = Math.round(y / grid)
           const existing = s.layout.nodes[id]
-          const nextNode = existing
-            ? { ...existing, cx, cy }
-            : { cx, cy, w: 4, h: 2 }
+          const nextNode = existing ? { ...existing, cx, cy } : { cx, cy, w: 4, h: 2 }
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },
@@ -271,9 +258,7 @@ export const useDiagramStore = create<DiagramStore>()(
             // Upsert: move an existing node (keeping its size), or materialize a
             // not-yet-pinned member at the size it was drawn (falling back to the
             // canonical default, matching `moveNode`).
-            nextNodes[id] = ex
-              ? { ...ex, cx, cy }
-              : { cx, cy, w: w ?? 4, h: h ?? 2 }
+            nextNodes[id] = ex ? { ...ex, cx, cy } : { cx, cy, w: w ?? 4, h: h ?? 2 }
           }
           return {
             ...s,
@@ -339,9 +324,7 @@ export const useDiagramStore = create<DiagramStore>()(
             targetSide: 'W' as Side,
           }
           const next =
-            end === 'source'
-              ? { ...current, sourceSide: side }
-              : { ...current, targetSide: side }
+            end === 'source' ? { ...current, sourceSide: side } : { ...current, targetSide: side }
           return {
             ...s,
             layout: { ...s.layout, edges: { ...s.layout.edges, [edgeKey]: next } },
@@ -377,36 +360,29 @@ export const useDiagramStore = create<DiagramStore>()(
 
       selectNode: (id, additive) =>
         set((s) => {
-          if (!id)
-            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          if (!id) return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
           if (!additive)
             return { ...s, selectedNodeIds: [id], selectedAreaIds: [], selectedEdgeIds: [] }
           const cur = s.selectedNodeIds
           const idx = cur.indexOf(id)
-          const next = idx >= 0
-            ? [...cur.slice(0, idx), ...cur.slice(idx + 1)]
-            : [...cur, id]
+          const next = idx >= 0 ? [...cur.slice(0, idx), ...cur.slice(idx + 1)] : [...cur, id]
           return { ...s, selectedNodeIds: next }
         }),
 
       selectArea: (id, additive) =>
         set((s) => {
-          if (!id)
-            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          if (!id) return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
           if (!additive)
             return { ...s, selectedNodeIds: [], selectedAreaIds: [id], selectedEdgeIds: [] }
           const cur = s.selectedAreaIds
           const idx = cur.indexOf(id)
-          const next = idx >= 0
-            ? [...cur.slice(0, idx), ...cur.slice(idx + 1)]
-            : [...cur, id]
+          const next = idx >= 0 ? [...cur.slice(0, idx), ...cur.slice(idx + 1)] : [...cur, id]
           return { ...s, selectedAreaIds: next }
         }),
 
       selectEdge: (id, additive) =>
         set((s) => {
-          if (!id)
-            return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
+          if (!id) return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: [] }
           // Edge styles are keyed by source->target (shared across parallel
           // edges), so selecting one edge selects every sibling that shares its
           // style key — what you select then matches what a style edit writes.
@@ -458,8 +434,7 @@ export const useDiagramStore = create<DiagramStore>()(
           // Selection holds routed edge ids (`src->tgt#i`); the .d2 and the style
           // sidecar both key on `src->tgt`, so collapse to that shared key.
           const delEdgeKeys = new Set(s.selectedEdgeIds.map(edgeStyleKey))
-          if (delNodes.size === 0 && delAreas.size === 0 && delEdgeKeys.size === 0)
-            return s
+          if (delNodes.size === 0 && delAreas.size === 0 && delEdgeKeys.size === 0) return s
 
           const { diagram } = s.parseResult
           const cuts: Array<{ start: number; end: number }> = []
@@ -576,8 +551,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       setFontFamily: (fontFamily) => set((s) => ({ ...s, fontFamily })),
 
-      setStylePanelPosition: (stylePanelPosition) =>
-        set((s) => ({ ...s, stylePanelPosition })),
+      setStylePanelPosition: (stylePanelPosition) => set((s) => ({ ...s, stylePanelPosition })),
 
       reparse: () => {
         const { source } = get()

@@ -92,7 +92,12 @@ describe('BridgeClient handshake + dispatch', () => {
     const { client, last } = makeClient({ onStatus: (s) => statuses.push(s) })
     client.connect()
     last().open()
-    expect(last().lastSent()).toMatchObject({ type: 'hello', token: 'tok', protocol: 1, doc: 'sys' })
+    expect(last().lastSent()).toMatchObject({
+      type: 'hello',
+      token: 'tok',
+      protocol: 1,
+      doc: 'sys',
+    })
     expect(statuses).toContain('connecting')
     expect(statuses).toContain('connected')
   })
@@ -154,7 +159,13 @@ describe('BridgeClient.apply — validity gate + echo suppression', () => {
     client.connect()
     last().open()
     // Remote layout arrives → client records its key.
-    last().emit({ type: 'fileChanged', doc: 'sys', kind: 'layout', content: LAYOUT_CANON, valid: true })
+    last().emit({
+      type: 'fileChanged',
+      doc: 'sys',
+      kind: 'layout',
+      content: LAYOUT_CANON,
+      valid: true,
+    })
     last().sent.length = 0
     // The store would now hold that layout; the outbound must NOT bounce it back.
     const result = client.apply([{ kind: 'layout', content: LAYOUT_CANON }])
@@ -166,7 +177,13 @@ describe('BridgeClient.apply — validity gate + echo suppression', () => {
     const { client, last } = makeClient()
     client.connect()
     last().open()
-    last().emit({ type: 'fileChanged', doc: 'sys', kind: 'layout', content: LAYOUT_CANON, valid: true })
+    last().emit({
+      type: 'fileChanged',
+      doc: 'sys',
+      kind: 'layout',
+      content: LAYOUT_CANON,
+      valid: true,
+    })
     last().sent.length = 0
     const messy = '{ "gridSize":40, "nodes":{ "a":{"cy":2,"cx":2,"h":2,"w":4} }, "edges":{} }'
     expect(client.apply([{ kind: 'layout', content: messy }]).sent).toEqual([])

@@ -11,7 +11,9 @@ import { Diagram, type DiagramModel, type DiagramOptions } from '../../src/rende
 
 /** SSR the model to an SVG string sized exactly to its content. */
 export const renderSvgString = (model: DiagramModel, opts: DiagramOptions = {}): string =>
-  renderToStaticMarkup(<Diagram model={model} padding={opts.padding} background={opts.background} />)
+  renderToStaticMarkup(
+    <Diagram model={model} padding={opts.padding} background={opts.background} />,
+  )
 
 /**
  * Replace `href="/icons/<file>"` (or `xlink:href`) with inlined base64 data

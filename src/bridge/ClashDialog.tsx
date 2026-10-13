@@ -26,18 +26,13 @@ export const ClashDialog = ({
   onResolve: (choice: 'local' | 'disk') => void
 }) => (
   <div className="ep-clash-backdrop" role="presentation">
-    <div
-      className="ep-clash"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="ep-clash-title"
-    >
+    <div className="ep-clash" role="alertdialog" aria-modal="true" aria-labelledby="ep-clash-title">
       <h2 id="ep-clash-title" className="ep-clash-title">
         This diagram changed in two places
       </h2>
       <p className="ep-clash-body">
-        Your browser has unsaved changes that differ from the file on disk (it was
-        edited elsewhere while you were offline). Keep one — the other is discarded.
+        Your browser has unsaved changes that differ from the file on disk (it was edited elsewhere
+        while you were offline). Keep one — the other is discarded.
       </p>
       <div className="ep-clash-choices">
         <button type="button" className="ep-clash-choice" onClick={() => onResolve('local')}>

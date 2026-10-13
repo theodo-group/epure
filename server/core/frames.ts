@@ -54,19 +54,14 @@ export const verdictFor = (kind: FileKind, content: string): ContentVerdict => {
   }
 }
 
-const formatError = (
-  message: string,
-  pos: { line: number; column: number },
-): string => `${pos.line}:${pos.column} ${message}`
+const formatError = (message: string, pos: { line: number; column: number }): string =>
+  `${pos.line}:${pos.column} ${message}`
 
 /**
  * Read a sidecar into a frame. A missing file is `{ content: null, valid: true }`
  * — absence is a legitimate state (e.g. no layout yet), not an error.
  */
-export const readFrame = async (
-  kind: FileKind,
-  path: string,
-): Promise<FileFrame> => {
+export const readFrame = async (kind: FileKind, path: string): Promise<FileFrame> => {
   let content: string
   try {
     content = await readFile(path, 'utf8')
@@ -77,7 +72,5 @@ export const readFrame = async (
     throw e
   }
   const v = verdictFor(kind, content)
-  return v.valid
-    ? { kind, content, valid: true }
-    : { kind, content, valid: false, error: v.error }
+  return v.valid ? { kind, content, valid: true } : { kind, content, valid: false, error: v.error }
 }

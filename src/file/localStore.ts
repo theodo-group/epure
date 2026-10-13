@@ -14,9 +14,7 @@ const isLayoutSidecar = (value: unknown): value is LayoutSidecar => {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
   return (
-    typeof v.gridSize === 'number' &&
-    typeof v.nodes === 'object' &&
-    typeof v.edges === 'object'
+    typeof v.gridSize === 'number' && typeof v.nodes === 'object' && typeof v.edges === 'object'
   )
 }
 

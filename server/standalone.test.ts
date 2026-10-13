@@ -9,8 +9,7 @@ import { PROTOCOL_VERSION, type ServerMsg } from './core/protocol'
 import { portForPath } from './core/port'
 import { startStandalone, type StandaloneHandle } from './standalone'
 
-const INDEX_HTML =
-  '<!doctype html><html><head><title>Épure</title></head><body></body></html>'
+const INDEX_HTML = '<!doctype html><html><head><title>Épure</title></head><body></body></html>'
 
 const fetchText = async (url: string): Promise<{ status: number; body: string }> => {
   const res = await fetch(url)
@@ -83,13 +82,20 @@ describe('standalone server', () => {
     await new Promise((r) => socket.once('open', r))
 
     socket.send(
-      JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'secret-token', doc: 'sys' }),
+      JSON.stringify({
+        type: 'hello',
+        protocol: PROTOCOL_VERSION,
+        token: 'secret-token',
+        doc: 'sys',
+      }),
     )
     const hydrate = await nextMessage(socket)
     expect(hydrate.type).toBe('hydrate')
 
     const layout = '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2}}, "edges":{} }'
-    socket.send(JSON.stringify({ type: 'apply', doc: 'sys', files: [{ kind: 'layout', content: layout }] }))
+    socket.send(
+      JSON.stringify({ type: 'apply', doc: 'sys', files: [{ kind: 'layout', content: layout }] }),
+    )
     const applied = await nextMessage(socket)
     expect(applied).toMatchObject({ type: 'applied', kinds: ['layout'] })
 
@@ -102,16 +108,25 @@ describe('standalone server', () => {
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
     await new Promise((r) => socket.once('open', r))
     socket.send(
-      JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'secret-token', doc: 'sys' }),
+      JSON.stringify({
+        type: 'hello',
+        protocol: PROTOCOL_VERSION,
+        token: 'secret-token',
+        doc: 'sys',
+      }),
     )
     await nextMessage(socket) // hydrate
 
-    const layout = '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2},"b":{"cx":8,"cy":2,"w":4,"h":2}}, "edges":{} }'
+    const layout =
+      '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2},"b":{"cx":8,"cy":2,"w":4,"h":2}}, "edges":{} }'
     socket.send(
       JSON.stringify({
         type: 'apply',
         doc: 'sys',
-        files: [{ kind: 'd2', content: 'a\nb\na -> b\n' }, { kind: 'layout', content: layout }],
+        files: [
+          { kind: 'd2', content: 'a\nb\na -> b\n' },
+          { kind: 'layout', content: layout },
+        ],
       }),
     )
     await nextMessage(socket) // applied
@@ -127,7 +142,11 @@ describe('standalone server', () => {
     const firstMtime = (await stat(dest)).mtimeMs
     await new Promise((r) => setTimeout(r, 20)) // ensure a distinct mtime
     socket.send(
-      JSON.stringify({ type: 'apply', doc: 'sys', files: [{ kind: 'd2', content: 'a\nb\nc\na -> b\nb -> c\n' }] }),
+      JSON.stringify({
+        type: 'apply',
+        doc: 'sys',
+        files: [{ kind: 'd2', content: 'a\nb\nc\na -> b\nb -> c\n' }],
+      }),
     )
     await nextMessage(socket) // applied
     await waitFor(async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime, 6000)
@@ -138,7 +157,9 @@ describe('standalone server', () => {
   it('rejects a WS hello with the wrong token', async () => {
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
     await new Promise((r) => socket.once('open', r))
-    socket.send(JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'wrong', doc: 'sys' }))
+    socket.send(
+      JSON.stringify({ type: 'hello', protocol: PROTOCOL_VERSION, token: 'wrong', doc: 'sys' }),
+    )
     const reply = await nextMessage(socket)
     expect(reply).toMatchObject({ type: 'rejected', reason: 'unauthorized' })
     socket.close()
@@ -157,7 +178,13 @@ describe('standalone server', () => {
       version: '1',
     })
     await expect(
-      startStandalone({ pairInput: join(dir, 'sys.epr.d2'), port, token: 't', distDir, version: '1' }),
+      startStandalone({
+        pairInput: join(dir, 'sys.epr.d2'),
+        port,
+        token: 't',
+        distDir,
+        version: '1',
+      }),
     ).rejects.toMatchObject({ code: 'EADDRINUSE' })
     await first.close()
   })

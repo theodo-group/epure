@@ -89,10 +89,7 @@ describe('canonicalizeLayout', () => {
   })
 
   it('round-trips the bundled fixture through parse without semantic loss', () => {
-    const fixture = readFileSync(
-      resolve(process.cwd(), 'fixtures/system.epr.layout.json'),
-      'utf8',
-    )
+    const fixture = readFileSync(resolve(process.cwd(), 'fixtures/system.epr.layout.json'), 'utf8')
     const canonical = canonicalizeLayout(parse(fixture))
     // Re-parsing the canonical form yields the same canonical bytes.
     expect(canonicalizeLayout(parse(canonical))).toBe(canonical)

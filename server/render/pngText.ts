@@ -49,17 +49,16 @@ const iTXtChunk = (keyword: string, text: string): Buffer => {
 }
 
 const isPng = (png: Buffer): boolean =>
-  png.length >= 33 && png.subarray(0, 8).equals(PNG_SIGNATURE) && png.subarray(12, 16).toString('latin1') === 'IHDR'
+  png.length >= 33 &&
+  png.subarray(0, 8).equals(PNG_SIGNATURE) &&
+  png.subarray(12, 16).toString('latin1') === 'IHDR'
 
 /**
  * Return `png` with an `iTXt` chunk per entry spliced in after IHDR. A
  * non-PNG (or empty-entries) input is returned untouched — embedding metadata
  * must never be able to corrupt the image.
  */
-export const embedPngText = (
-  png: Buffer,
-  entries: { keyword: string; text: string }[],
-): Buffer => {
+export const embedPngText = (png: Buffer, entries: { keyword: string; text: string }[]): Buffer => {
   if (entries.length === 0 || !isPng(png)) return png
   const ihdrLen = png.readUInt32BE(8)
   const insertAt = 8 + 4 + 4 + ihdrLen + 4 // signature + (len + type + data + crc)
@@ -80,7 +79,8 @@ export const readPngText = (png: Buffer): Record<string, string> => {
     const data = png.subarray(off + 8, off + 8 + len)
     if (type === 'tEXt') {
       const sep = data.indexOf(0x00)
-      if (sep >= 0) out[data.subarray(0, sep).toString('latin1')] = data.subarray(sep + 1).toString('latin1')
+      if (sep >= 0)
+        out[data.subarray(0, sep).toString('latin1')] = data.subarray(sep + 1).toString('latin1')
     } else if (type === 'iTXt') {
       const kwEnd = data.indexOf(0x00)
       if (kwEnd >= 0) {

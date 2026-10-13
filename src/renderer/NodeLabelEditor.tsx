@@ -39,18 +39,12 @@ const TOOLBAR_FLIP_Y = 48
 
 // Walk up from the selection's focus to see if it sits inside a tag we care
 // about — used both for toggling <small> and for lighting up toolbar buttons.
-const selectionAncestor = (
-  root: HTMLElement,
-  tagNames: string[],
-): HTMLElement | null => {
+const selectionAncestor = (root: HTMLElement, tagNames: string[]): HTMLElement | null => {
   const sel = window.getSelection()
   if (!sel || sel.rangeCount === 0) return null
   let node: Node | null = sel.getRangeAt(0).commonAncestorContainer
   while (node && node !== root) {
-    if (
-      node.nodeType === 1 &&
-      tagNames.includes((node as HTMLElement).tagName.toLowerCase())
-    ) {
+    if (node.nodeType === 1 && tagNames.includes((node as HTMLElement).tagName.toLowerCase())) {
       return node as HTMLElement
     }
     node = node.parentNode
@@ -319,11 +313,7 @@ export const NodeLabelEditor = ({
         <ToolButton label="Bold (⌘B)" active={fmt.bold} onActivate={() => exec('bold')}>
           <span style={{ fontWeight: 700 }}>B</span>
         </ToolButton>
-        <ToolButton
-          label="Italic (⌘I)"
-          active={fmt.italic}
-          onActivate={() => exec('italic')}
-        >
+        <ToolButton label="Italic (⌘I)" active={fmt.italic} onActivate={() => exec('italic')}>
           <span style={{ fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>I</span>
         </ToolButton>
         <ToolButton label="Small" active={fmt.small} onActivate={toggleSmall}>

@@ -62,9 +62,7 @@ export const exportPng = async (
     await document.fonts.ready
   }
 
-  const { width, height } = frame
-    ? { width: frame.w, height: frame.h }
-    : measure(svgEl)
+  const { width, height } = frame ? { width: frame.w, height: frame.h } : measure(svgEl)
   const clone = svgEl.cloneNode(true) as SVGSVGElement
   clone.setAttribute('xmlns', SVG_NS)
   clone.setAttribute('xmlns:xlink', XLINK_NS)

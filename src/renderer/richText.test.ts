@@ -19,17 +19,12 @@ describe('parseRichText — lists', () => {
 
   it('returns to an ordinary line after </ul>', () => {
     const lines = parseRichText('<ul><li>a</li></ul>tail')
-    expect(lines).toEqual([
-      { words: [{ text: 'a' }], bullet: true },
-      { words: [{ text: 'tail' }] },
-    ])
+    expect(lines).toEqual([{ words: [{ text: 'a' }], bullet: true }, { words: [{ text: 'tail' }] }])
   })
 
   it('keeps inline styles inside list items', () => {
     const lines = parseRichText('<ul><li><b>bold</b></li></ul>')
-    expect(lines).toEqual([
-      { words: [{ text: 'bold', bold: true }], bullet: true },
-    ])
+    expect(lines).toEqual([{ words: [{ text: 'bold', bold: true }], bullet: true }])
   })
 })
 
@@ -41,10 +36,7 @@ describe('hasRichMarkup', () => {
 
 describe('wrapRichText — bullets', () => {
   it('keeps the bullet on only the first wrapped segment', () => {
-    const lines = wrapRichText(
-      [{ words: [{ text: 'aaa' }, { text: 'bbb' }], bullet: true }],
-      4,
-    )
+    const lines = wrapRichText([{ words: [{ text: 'aaa' }, { text: 'bbb' }], bullet: true }], 4)
     expect(lines).toEqual([
       { words: [{ text: 'aaa' }], bullet: true },
       { words: [{ text: 'bbb' }] },

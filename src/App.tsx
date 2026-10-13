@@ -164,9 +164,9 @@ export const App = () => {
   const moveNodes = useDiagramStore((s) => s.moveNodes)
   const setEdgeLabelOffset = useDiagramStore((s) => s.setEdgeLabelOffset)
   const resizeNode = useDiagramStore((s) => s.resizeNode)
-  const areaDragStartRef = useRef<
-    Record<string, { cx: number; cy: number; w: number; h: number }>
-  >({})
+  const areaDragStartRef = useRef<Record<string, { cx: number; cy: number; w: number; h: number }>>(
+    {},
+  )
   const [fitVersion, setFitVersion] = useState(0)
   const [openedName, setOpenedName] = useState(DEFAULT_DOC_NAME)
   const [activeTab, setActiveTab] = useState<'d2' | 'layout'>('d2')
@@ -232,8 +232,10 @@ export const App = () => {
     const raf = requestAnimationFrame(() => setFitVersion((v) => v + 1))
     return () => cancelAnimationFrame(raf)
   }, [editorVisible])
-  const { defaultLayout: panelLayout, onLayoutChanged: onPanelLayoutChanged } =
-    useDefaultLayout({ id: 'epure:panels', storage: panelLayoutStorage })
+  const { defaultLayout: panelLayout, onLayoutChanged: onPanelLayoutChanged } = useDefaultLayout({
+    id: 'epure:panels',
+    storage: panelLayoutStorage,
+  })
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   // The live bridge (when present) hydrates the store from disk over WebSocket;
@@ -247,8 +249,7 @@ export const App = () => {
   // opened name (e.g. a bare `.epr.zip` → empty stem) never yields `.png` /
   // `.d2` with no base.
   const docName =
-    (bridge.active && bridge.filename ? bridge.filename : openedName) ||
-    DEFAULT_DOC_NAME
+    (bridge.active && bridge.filename ? bridge.filename : openedName) || DEFAULT_DOC_NAME
 
   // Hydrate from localStorage on mount, falling back to the bundled fixture.
   // In bridge mode the hydrate is authoritative: skip localStorage entirely so
@@ -348,14 +349,7 @@ export const App = () => {
       if (e) ranges.push({ from: e.range.start.offset, to: e.range.end.offset })
     }
     handle.highlightRanges(ranges)
-  }, [
-    selectedNodeIds,
-    selectedAreaIds,
-    selectedEdgeIds,
-    parseResult,
-    activeTab,
-    layoutText,
-  ])
+  }, [selectedNodeIds, selectedAreaIds, selectedEdgeIds, parseResult, activeTab, layoutText])
 
   // Reroute whenever a successful parse or layout lands.
   useEffect(() => {
@@ -520,16 +514,10 @@ export const App = () => {
   // sidecar entry — the router picks the faces — so the diff is just the lines.
   const handleConnectSelection = useCallback(
     (reverse: boolean) => {
-      const {
-        source: src,
-        parseResult: parsed,
-        selectedNodeIds: sel,
-      } = useDiagramStore.getState()
+      const { source: src, parseResult: parsed, selectedNodeIds: sel } = useDiagramStore.getState()
       if (!parsed.ok || sel.length < 2) return
       const nodeIds = new Set(parsed.diagram.nodes.map((n) => n.id))
-      const seen = new Set(
-        parsed.diagram.edges.map((e) => `${e.source}->${e.target}`),
-      )
+      const seen = new Set(parsed.diagram.edges.map((e) => `${e.source}->${e.target}`))
       const lines: string[] = []
       for (let i = 0; i < sel.length - 1; i += 1) {
         const a = sel[i]!
@@ -680,10 +668,7 @@ export const App = () => {
           const norm = normalizeForRoute(diagram, layout)
           const memberIds =
             buildAreaTree(diagram.areas).leafNodesOf.get(areaId) ?? new Set<string>()
-          const starts: Record<
-            string,
-            { cx: number; cy: number; w: number; h: number }
-          > = {}
+          const starts: Record<string, { cx: number; cy: number; w: number; h: number }> = {}
           for (const memberId of memberIds) {
             const n = norm.nodes[memberId]
             if (n) starts[memberId] = { cx: n.cx, cy: n.cy, w: n.w, h: n.h }
@@ -694,10 +679,7 @@ export const App = () => {
           const { gridSize } = useDiagramStore.getState().layout
           const dgx = Math.round(dx / gridSize)
           const dgy = Math.round(dy / gridSize)
-          const moves: Record<
-            string,
-            { cx: number; cy: number; w: number; h: number }
-          > = {}
+          const moves: Record<string, { cx: number; cy: number; w: number; h: number }> = {}
           for (const [id, start] of Object.entries(areaDragStartRef.current)) {
             moves[id] = { cx: start.cx + dgx, cy: start.cy + dgy, w: start.w, h: start.h }
           }
@@ -795,9 +777,7 @@ export const App = () => {
         )}
       </div>
       <Footer bridge={bridge} />
-      {bridge.clash ? (
-        <ClashDialog clash={bridge.clash} onResolve={bridge.resolveClash} />
-      ) : null}
+      {bridge.clash ? <ClashDialog clash={bridge.clash} onResolve={bridge.resolveClash} /> : null}
     </div>
   )
 }

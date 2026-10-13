@@ -4,27 +4,12 @@ import type { ShapeName } from '@/parser/ast'
 import type { Side } from '@/layout/types'
 import type { FillColor, LineStyle, PaletteColor, Size } from '@/style/palette'
 import { url } from '@/icons'
-import {
-  dashArrayFor,
-  resolveFill,
-  solidOf,
-  TEXT_SIZE,
-} from '@/style/palette'
+import { dashArrayFor, resolveFill, solidOf, TEXT_SIZE } from '@/style/palette'
 
 import { beginDrag, endDrag } from './dragState'
-import {
-  hasRichMarkup,
-  parseRichText,
-  wrapRichText,
-  type RichLine,
-} from './richText'
+import { hasRichMarkup, parseRichText, wrapRichText, type RichLine } from './richText'
 
-import {
-  Cylinder,
-  Person,
-  Rectangle,
-  type ShapeProps,
-} from './shapes'
+import { Cylinder, Person, Rectangle, type ShapeProps } from './shapes'
 
 interface NodeProps {
   id: string
@@ -73,7 +58,17 @@ const LABEL_BELOW_GAP = 8
 // previous behaviour for labels without any markup.
 const wrapPlain = (label: string, w: number): RichLine[] => {
   const maxChars = Math.max(4, Math.floor((w - 16) / AVG_CHAR_PX))
-  return wrapRichText([{ words: label.split(/\s+/).filter(Boolean).map((t) => ({ text: t })) }], maxChars)
+  return wrapRichText(
+    [
+      {
+        words: label
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((t) => ({ text: t })),
+      },
+    ],
+    maxChars,
+  )
 }
 
 const wrapRich = (label: string, w: number): RichLine[] => {
@@ -281,7 +276,7 @@ export const Node: FC<NodeProps> = ({
       }
       style={{ cursor: onMove ? 'grab' : 'pointer' }}
     >
-      <g filter='url(#ep-node-shadow)'>
+      <g filter="url(#ep-node-shadow)">
         <Shape
           x={x}
           y={y}
@@ -300,63 +295,63 @@ export const Node: FC<NodeProps> = ({
           height={h + 6}
           rx={8}
           ry={8}
-          fill='none'
-          stroke='#3b82f6'
+          fill="none"
+          stroke="#3b82f6"
           strokeWidth={1.5}
-          strokeDasharray='4 3'
-          pointerEvents='none'
+          strokeDasharray="4 3"
+          pointerEvents="none"
         />
       ) : null}
-      {badge ? (
-        (() => {
-          const s = badge.size
-          const bx = badge.cx - s / 2
-          const by = badge.cy - s / 2
-          const rad = s * 0.24
-          const iconS = s * 0.68
-          return (
-            <g pointerEvents='none'>
-              {/* Soft drop shadow tinted with the node's border colour. */}
-              <rect
-                x={bx}
-                y={by + 1.5}
-                width={s}
-                height={s}
-                rx={rad}
-                ry={rad}
-                fill={strokeColor}
-                opacity={0.45}
-                filter='url(#ep-badge-shadow)'
-              />
-              {/* Chip behind the logo. Picks up the node's effective fill so
+      {badge
+        ? (() => {
+            const s = badge.size
+            const bx = badge.cx - s / 2
+            const by = badge.cy - s / 2
+            const rad = s * 0.24
+            const iconS = s * 0.68
+            return (
+              <g pointerEvents="none">
+                {/* Soft drop shadow tinted with the node's border colour. */}
+                <rect
+                  x={bx}
+                  y={by + 1.5}
+                  width={s}
+                  height={s}
+                  rx={rad}
+                  ry={rad}
+                  fill={strokeColor}
+                  opacity={0.45}
+                  filter="url(#ep-badge-shadow)"
+                />
+                {/* Chip behind the logo. Picks up the node's effective fill so
                   the badge reads as part of the node when the user has chosen
                   a coloured fill; defaults to white on white/transparent
                   nodes so the logo still reads against the body. */}
-              <rect
-                x={bx}
-                y={by}
-                width={s}
-                height={s}
-                rx={rad}
-                ry={rad}
-                fill={shapeFill === 'transparent' ? '#ffffff' : shapeFill}
-                stroke='#e7e5e4'
-                strokeWidth={1}
-              />
-              <image
-                href={iconUrl}
-                x={badge.cx - iconS / 2}
-                y={badge.cy - iconS / 2}
-                width={iconS}
-                height={iconS}
-                preserveAspectRatio='xMidYMid meet'
-              />
-            </g>
-          )
-        })()
-      ) : null}
+                <rect
+                  x={bx}
+                  y={by}
+                  width={s}
+                  height={s}
+                  rx={rad}
+                  ry={rad}
+                  fill={shapeFill === 'transparent' ? '#ffffff' : shapeFill}
+                  stroke="#e7e5e4"
+                  strokeWidth={1}
+                />
+                <image
+                  href={iconUrl}
+                  x={badge.cx - iconS / 2}
+                  y={badge.cy - iconS / 2}
+                  width={iconS}
+                  height={iconS}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </g>
+            )
+          })()
+        : null}
       {topIcon ? (
-        <g pointerEvents='none'>
+        <g pointerEvents="none">
           {/* Soft white halo behind the icon: a circle blurred via
               ep-icon-halo so the icon fades smoothly into the node body
               and any underlying strokes (e.g. the cylinder top arc) read
@@ -367,7 +362,7 @@ export const Node: FC<NodeProps> = ({
             cy={topIcon.cy}
             r={topIcon.size * 0.62}
             fill={shapeFill === 'transparent' ? '#ffffff' : shapeFill}
-            filter='url(#ep-icon-halo)'
+            filter="url(#ep-icon-halo)"
           />
           <image
             href={iconUrl}
@@ -375,48 +370,49 @@ export const Node: FC<NodeProps> = ({
             y={topIcon.cy - topIcon.size / 2}
             width={topIcon.size}
             height={topIcon.size}
-            preserveAspectRatio='xMidYMid meet'
+            preserveAspectRatio="xMidYMid meet"
           />
         </g>
       ) : null}
-      {!editing && rich.map((line, i) => {
-        if (isLineEmpty(line)) {
-          // Preserve vertical spacing for explicit blank lines without
-          // emitting an empty <text> element.
-          return null
-        }
-        return (
-          <text
-            key={i}
-            x={x + w / 2}
-            y={startY + i * lineHeight}
-            textAnchor='middle'
-            fontFamily={fontFamily}
-            fontSize={fontSize}
-            fill={labelFill}
-            pointerEvents='none'
-          >
-            {line.bullet ? <tspan>{'• '}</tspan> : null}
-            {line.words.map((wd, j) => {
-              const weight = wd.bold ? 700 : undefined
-              const style = wd.italic ? 'italic' : undefined
-              const sz = wd.small ? Math.max(9, fontSize - 2) : undefined
-              const opacity = wd.small ? 0.7 : undefined
-              return (
-                <tspan
-                  key={j}
-                  fontWeight={weight}
-                  fontStyle={style}
-                  fontSize={sz}
-                  opacity={opacity}
-                >
-                  {(j > 0 ? ' ' : '') + wd.text}
-                </tspan>
-              )
-            })}
-          </text>
-        )
-      })}
+      {!editing &&
+        rich.map((line, i) => {
+          if (isLineEmpty(line)) {
+            // Preserve vertical spacing for explicit blank lines without
+            // emitting an empty <text> element.
+            return null
+          }
+          return (
+            <text
+              key={i}
+              x={x + w / 2}
+              y={startY + i * lineHeight}
+              textAnchor="middle"
+              fontFamily={fontFamily}
+              fontSize={fontSize}
+              fill={labelFill}
+              pointerEvents="none"
+            >
+              {line.bullet ? <tspan>{'• '}</tspan> : null}
+              {line.words.map((wd, j) => {
+                const weight = wd.bold ? 700 : undefined
+                const style = wd.italic ? 'italic' : undefined
+                const sz = wd.small ? Math.max(9, fontSize - 2) : undefined
+                const opacity = wd.small ? 0.7 : undefined
+                return (
+                  <tspan
+                    key={j}
+                    fontWeight={weight}
+                    fontStyle={style}
+                    fontSize={sz}
+                    opacity={opacity}
+                  >
+                    {(j > 0 ? ' ' : '') + wd.text}
+                  </tspan>
+                )
+              })}
+            </text>
+          )
+        })}
       {onResize ? (
         <>
           <rect
@@ -424,7 +420,7 @@ export const Node: FC<NodeProps> = ({
             y={y + RESIZE_HANDLE}
             width={RESIZE_HANDLE}
             height={h - RESIZE_HANDLE * 2}
-            fill='transparent'
+            fill="transparent"
             style={{ cursor: 'ew-resize' }}
             onMouseDown={handleResizeDown('W')}
           />
@@ -433,7 +429,7 @@ export const Node: FC<NodeProps> = ({
             y={y + RESIZE_HANDLE}
             width={RESIZE_HANDLE}
             height={h - RESIZE_HANDLE * 2}
-            fill='transparent'
+            fill="transparent"
             style={{ cursor: 'ew-resize' }}
             onMouseDown={handleResizeDown('E')}
           />
@@ -442,7 +438,7 @@ export const Node: FC<NodeProps> = ({
             y={y - RESIZE_HANDLE / 2}
             width={w - RESIZE_HANDLE * 2}
             height={RESIZE_HANDLE}
-            fill='transparent'
+            fill="transparent"
             style={{ cursor: 'ns-resize' }}
             onMouseDown={handleResizeDown('N')}
           />
@@ -451,7 +447,7 @@ export const Node: FC<NodeProps> = ({
             y={y + h - RESIZE_HANDLE / 2}
             width={w - RESIZE_HANDLE * 2}
             height={RESIZE_HANDLE}
-            fill='transparent'
+            fill="transparent"
             style={{ cursor: 'ns-resize' }}
             onMouseDown={handleResizeDown('S')}
           />

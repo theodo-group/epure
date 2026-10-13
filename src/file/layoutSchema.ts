@@ -201,14 +201,38 @@ class JsonParser {
         const esc = this.peek()
         if (esc === undefined) throw this.error('Unterminated escape', this.pos())
         switch (esc) {
-          case '"': value += '"'; this.advance(); break
-          case '\\': value += '\\'; this.advance(); break
-          case '/': value += '/'; this.advance(); break
-          case 'b': value += '\b'; this.advance(); break
-          case 'f': value += '\f'; this.advance(); break
-          case 'n': value += '\n'; this.advance(); break
-          case 'r': value += '\r'; this.advance(); break
-          case 't': value += '\t'; this.advance(); break
+          case '"':
+            value += '"'
+            this.advance()
+            break
+          case '\\':
+            value += '\\'
+            this.advance()
+            break
+          case '/':
+            value += '/'
+            this.advance()
+            break
+          case 'b':
+            value += '\b'
+            this.advance()
+            break
+          case 'f':
+            value += '\f'
+            this.advance()
+            break
+          case 'n':
+            value += '\n'
+            this.advance()
+            break
+          case 'r':
+            value += '\r'
+            this.advance()
+            break
+          case 't':
+            value += '\t'
+            this.advance()
+            break
           case 'u': {
             this.advance()
             const hex = this.text.slice(this.i, this.i + 4)
@@ -249,8 +273,16 @@ class JsonParser {
 // Exported so docs/skill drift-checks can assert against the single source of
 // truth rather than a hand-copied list (see tests/skillSchema.test.ts).
 export const PALETTE_COLORS = new Set([
-  'black', 'gray', 'red', 'orange', 'yellow',
-  'green', 'teal', 'blue', 'purple', 'pink',
+  'black',
+  'gray',
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'teal',
+  'blue',
+  'purple',
+  'pink',
 ])
 export const FILL_COLORS = new Set([...PALETTE_COLORS, 'transparent', 'white'])
 export const SIZES = new Set(['S', 'M', 'L', 'XL'])
@@ -260,14 +292,30 @@ export const ICON_POSITIONS = new Set(['corner', 'top'])
 export const SIDES = new Set(['N', 'S', 'E', 'W'])
 
 const NODE_FIELDS = new Set([
-  'cx', 'cy', 'w', 'h',
-  'textSize', 'textColor', 'borderColor', 'borderStyle',
-  'fillColor', 'icon', 'iconPosition', 'shape',
+  'cx',
+  'cy',
+  'w',
+  'h',
+  'textSize',
+  'textColor',
+  'borderColor',
+  'borderStyle',
+  'fillColor',
+  'icon',
+  'iconPosition',
+  'shape',
 ])
 export const SHAPES = new Set(['rectangle', 'cylinder', 'person'])
 const EDGE_FIELDS = new Set([
-  'color', 'lineStyle', 'width', 'startCap', 'endCap',
-  'sourceSide', 'targetSide', 'labelDx', 'labelDy',
+  'color',
+  'lineStyle',
+  'width',
+  'startCap',
+  'endCap',
+  'sourceSide',
+  'targetSide',
+  'labelDx',
+  'labelDy',
 ])
 const AREA_FIELDS = new Set(['borderColor', 'borderStyle', 'fillColor'])
 const ROOT_FIELDS = new Set(['gridSize', 'textScale', 'nodes', 'edges', 'areas'])
@@ -283,12 +331,7 @@ const push = (ctx: Ctx, message: string, range: SourceRange): void => {
   ctx.errors.push({ message, range })
 }
 
-const validateEnum = (
-  node: JsonNode,
-  allowed: Set<string>,
-  label: string,
-  ctx: Ctx,
-): void => {
+const validateEnum = (node: JsonNode, allowed: Set<string>, label: string, ctx: Ctx): void => {
   if (node.kind !== 'string') {
     push(ctx, `${label} must be a string`, node.range)
     return
@@ -305,12 +348,7 @@ interface NumberOpts {
   max?: number
 }
 
-const validateNumber = (
-  node: JsonNode,
-  label: string,
-  ctx: Ctx,
-  opts: NumberOpts = {},
-): void => {
+const validateNumber = (node: JsonNode, label: string, ctx: Ctx, opts: NumberOpts = {}): void => {
   if (node.kind !== 'number') {
     push(ctx, `${label} must be a number`, node.range)
     return
@@ -529,11 +567,16 @@ const validateRoot = (node: JsonNode, ctx: Ctx): void => {
 
 const nodeToValue = (node: JsonNode): unknown => {
   switch (node.kind) {
-    case 'string': return node.value
-    case 'number': return node.value
-    case 'boolean': return node.value
-    case 'null': return null
-    case 'array': return node.items.map(nodeToValue)
+    case 'string':
+      return node.value
+    case 'number':
+      return node.value
+    case 'boolean':
+      return node.value
+    case 'null':
+      return null
+    case 'array':
+      return node.items.map(nodeToValue)
     case 'object': {
       const out: Record<string, unknown> = {}
       for (const entry of node.entries) out[entry.key] = nodeToValue(entry.value)

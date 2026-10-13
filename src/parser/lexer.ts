@@ -65,9 +65,7 @@ const LETTER = 'A-Za-zÀ-ÿĀ-ɏ'
 const DIGIT = '0-9'
 export const Identifier = createToken({
   name: 'Identifier',
-  pattern: new RegExp(
-    `[${LETTER}_][${LETTER}${DIGIT}_]*(?:-[${LETTER}${DIGIT}_]+)*`,
-  ),
+  pattern: new RegExp(`[${LETTER}_][${LETTER}${DIGIT}_]*(?:-[${LETTER}${DIGIT}_]+)*`),
 })
 
 // Token order matters: longer / more specific patterns come first.

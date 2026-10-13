@@ -5,8 +5,7 @@ import { inlineSvgImages } from './inlineImages'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
 
-const escapeForScript = (src: string) =>
-  src.replace(/<\/script>/gi, '<\\/script>')
+const escapeForScript = (src: string) => src.replace(/<\/script>/gi, '<\\/script>')
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

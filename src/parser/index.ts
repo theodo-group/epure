@@ -66,10 +66,7 @@ function lexErrorToParseError(e: ILexingError): ParseError {
   }
 }
 
-function parserErrorToParseError(
-  e: IRecognitionException,
-  eof: SourcePos,
-): ParseError {
+function parserErrorToParseError(e: IRecognitionException, eof: SourcePos): ParseError {
   // The error token can be missing (no token) OR the EOF token, whose position
   // fields are all NaN. `?? 1` doesn't catch NaN, so every field is sanitized
   // through `finite`, falling back to the end-of-input position — otherwise a

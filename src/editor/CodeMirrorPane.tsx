@@ -1,10 +1,4 @@
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useRef,
-} from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react'
 import { EditorState, StateEffect, StateField } from '@codemirror/state'
 import {
   EditorView,
@@ -17,11 +11,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
-import {
-  bracketMatching,
-  indentOnInput,
-  type LanguageSupport,
-} from '@codemirror/language'
+import { bracketMatching, indentOnInput, type LanguageSupport } from '@codemirror/language'
 import { search, searchKeymap, openSearchPanel } from '@codemirror/search'
 import { d2Support } from './d2-language'
 import type { ParseError } from '@/parser/ast'
@@ -31,9 +21,7 @@ export interface CodeMirrorPaneHandle {
   openSearch: () => void
   /** Apply a set of selection highlights (canvas selection mirrored into the
    *  editor as line + range decorations). Pass an empty array to clear. */
-  highlightRanges: (
-    ranges: ReadonlyArray<{ from: number; to: number }>,
-  ) => void
+  highlightRanges: (ranges: ReadonlyArray<{ from: number; to: number }>) => void
 }
 
 export interface CodeMirrorPaneProps {
@@ -65,8 +53,7 @@ export const minimalDocChange = (
   const maxSuffix = maxLen - from
   while (
     suffix < maxSuffix &&
-    current.charCodeAt(current.length - 1 - suffix) ===
-      next.charCodeAt(next.length - 1 - suffix)
+    current.charCodeAt(current.length - 1 - suffix) === next.charCodeAt(next.length - 1 - suffix)
   ) {
     suffix++
   }
@@ -110,9 +97,7 @@ class ErrorMessageWidget extends WidgetType {
 // Mirror the canvas selection into the editor: highlight the line(s) of each
 // selected node/edge/area, and underline the exact declaration range. Kept
 // separate from the error field so the two layers can coexist.
-const setSelectionHighlights = StateEffect.define<
-  ReadonlyArray<{ from: number; to: number }>
->()
+const setSelectionHighlights = StateEffect.define<ReadonlyArray<{ from: number; to: number }>>()
 
 const selectionLineDeco = Decoration.line({
   attributes: { class: 'cm-epure-sel-line' },
@@ -142,8 +127,7 @@ const selectionField = StateField.define<DecorationSet>({
             stampedLines.add(ln)
             decos.push(selectionLineDeco.range(doc.line(ln).from))
           }
-          if (safeTo > safeFrom)
-            decos.push(selectionMarkDeco.range(safeFrom, safeTo))
+          if (safeTo > safeFrom) decos.push(selectionMarkDeco.range(safeFrom, safeTo))
         }
         next = Decoration.set(decos, true)
       }
@@ -323,8 +307,7 @@ const baseTheme = EditorView.theme(
       border: '1px solid #27272a',
       borderRadius: '4px',
       padding: '4px 8px',
-      fontFamily:
-        "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+      fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
       fontSize: '12px',
       outline: 'none',
       minWidth: '180px',
@@ -466,13 +449,9 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
             to: Math.max(0, Math.min(docLen, r.to)),
           }))
           .filter((r) => r.to >= r.from)
-        const effects: StateEffect<unknown>[] = [
-          setSelectionHighlights.of(clamped),
-        ]
+        const effects: StateEffect<unknown>[] = [setSelectionHighlights.of(clamped)]
         if (clamped.length > 0) {
-          effects.push(
-            EditorView.scrollIntoView(clamped[0]!.from, { y: 'nearest' }),
-          )
+          effects.push(EditorView.scrollIntoView(clamped[0]!.from, { y: 'nearest' }))
         }
         view.dispatch({ effects })
       },

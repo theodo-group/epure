@@ -84,7 +84,10 @@ export interface SearchOptions {
  * Filter the catalog by a free-text query (matched against id/name/provider/
  * category, all terms must hit) and an optional provider, capped to `limit`.
  */
-export const search = (query: string, { provider, limit = 240 }: SearchOptions = {}): IconMeta[] => {
+export const search = (
+  query: string,
+  { provider, limit = 240 }: SearchOptions = {},
+): IconMeta[] => {
   const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const out: IconMeta[] = []
   for (const m of ICON_CATALOG) {

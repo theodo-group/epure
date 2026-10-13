@@ -76,9 +76,7 @@ const humanize = (base) =>
     .split('-')
     .filter(Boolean)
     .map((w) =>
-      ACRONYMS.has(w.toLowerCase())
-        ? w.toUpperCase()
-        : w.charAt(0).toUpperCase() + w.slice(1),
+      ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1),
     )
     .join(' ')
 
@@ -87,8 +85,7 @@ async function walk(dir) {
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) out.push(...(await walk(full)))
-    else if (entry.isFile() && entry.name.toLowerCase().endsWith('.png'))
-      out.push(full)
+    else if (entry.isFile() && entry.name.toLowerCase().endsWith('.png')) out.push(full)
   }
   return out
 }
@@ -151,13 +148,7 @@ async function buildSimpleIcons(meta) {
 async function buildLobeIcons(meta) {
   const provider = 'lobe'
   const category = 'ai'
-  const srcDir = path.join(
-    ROOT,
-    'node_modules',
-    '@lobehub',
-    'icons-static-svg',
-    'icons',
-  )
+  const srcDir = path.join(ROOT, 'node_modules', '@lobehub', 'icons-static-svg', 'icons')
   const destDir = path.join(OUT_DIR, provider, category)
   await fs.mkdir(destDir, { recursive: true })
 
@@ -207,13 +198,7 @@ async function buildLobeIcons(meta) {
 async function buildFontAwesome(meta) {
   const provider = 'fontawesome'
   const styles = ['solid', 'regular', 'brands']
-  const srcRoot = path.join(
-    ROOT,
-    'node_modules',
-    '@fortawesome',
-    'fontawesome-free',
-    'svgs',
-  )
+  const srcRoot = path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs')
 
   let count = 0
   for (const style of styles) {
@@ -221,9 +206,7 @@ async function buildFontAwesome(meta) {
     const destDir = path.join(OUT_DIR, provider, style)
     await fs.mkdir(destDir, { recursive: true })
 
-    const files = (await fs.readdir(srcDir))
-      .filter((f) => f.endsWith('.svg'))
-      .sort()
+    const files = (await fs.readdir(srcDir)).filter((f) => f.endsWith('.svg')).sort()
 
     for (const f of files) {
       const slug = path.basename(f, '.svg')
@@ -249,7 +232,9 @@ async function buildFontAwesome(meta) {
 // Normalize a colour to `#rrggbb`, expanding `#rgb` shorthand and falling back
 // to a neutral slate for anything unparseable.
 const normalizeHex = (c) => {
-  const s = String(c || '').trim().toLowerCase()
+  const s = String(c || '')
+    .trim()
+    .toLowerCase()
   if (/^#[0-9a-f]{6}$/.test(s)) return s
   if (/^#[0-9a-f]{3}$/.test(s)) return `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`
   return '#607d8b'
@@ -310,11 +295,15 @@ async function buildFiletypes(meta) {
   let count = 0
   const seen = new Set()
   for (const raw of registry) {
-    const ext = String(raw.ext || '').toLowerCase().trim()
+    const ext = String(raw.ext || '')
+      .toLowerCase()
+      .trim()
     if (!/^[a-z0-9]+$/.test(ext) || seen.has(ext)) continue
     seen.add(ext)
     const category = String(raw.category || 'other').toLowerCase()
-    const label = String(raw.label || ext).toUpperCase().slice(0, 4)
+    const label = String(raw.label || ext)
+      .toUpperCase()
+      .slice(0, 4)
     const color = normalizeHex(raw.color)
     const name = raw.name || humanize(ext)
 
@@ -327,8 +316,7 @@ async function buildFiletypes(meta) {
   console.log(`File Types: wrote ${count} SVGs.`)
 }
 
-const escapeXml = (s) =>
-  String(s).replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`)
+const escapeXml = (s) => String(s).replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 // Build the mingrammer/diagrams PNG providers (cloud, on-prem, k8s, …). This
 // wipes public/icons first, so it must run before the generated SVG providers.
@@ -367,8 +355,7 @@ async function buildMingrammer(meta) {
       // everything else is <provider>/<category>/<name>.png.
       const category = segs.length >= 3 ? segs[1] : provider
       const id = rel.slice(0, -'.png'.length).split(path.sep).join('/')
-      const name =
-        segs.length >= 3 ? humanize(base) : TITLE[provider] || humanize(base)
+      const name = segs.length >= 3 ? humanize(base) : TITLE[provider] || humanize(base)
 
       const dest = path.join(OUT_DIR, rel)
       await fs.mkdir(path.dirname(dest), { recursive: true })
@@ -393,7 +380,6 @@ async function buildMingrammer(meta) {
     },
     CONCURRENCY,
   )
-
 }
 
 // Regeneratable providers — assets are generated rather than sourced from the
@@ -433,8 +419,7 @@ async function main() {
           GENERATED_PROVIDERS,
         ).join(', ')})`,
       )
-    for (const m of await readExistingCatalog())
-      if (m.provider !== only) meta.push(m)
+    for (const m of await readExistingCatalog()) if (m.provider !== only) meta.push(m)
     await build(meta)
   } else {
     await buildMingrammer(meta)

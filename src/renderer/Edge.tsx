@@ -31,54 +31,40 @@ interface EdgeProps {
 // Encode an edge id into a string safe for an SVG element id / `url(#…)` ref:
 // edge ids contain `->` and `#`, which break fragment references. Injective, so
 // distinct edge ids stay distinct (no mask collisions).
-const safeId = (id: string): string =>
-  id.replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.charCodeAt(0)}_`)
+const safeId = (id: string): string => id.replace(/[^A-Za-z0-9_-]/g, (c) => `_${c.charCodeAt(0)}_`)
 
 // Shared SVG defs for the canvas: the soft-blur used by node icon badges and
 // a diffuse drop shadow applied to every node body.
 export const EdgeDefs: FC = () => (
   <defs>
-    <filter id='ep-badge-shadow' x='-60%' y='-60%' width='220%' height='220%'>
-      <feGaussianBlur stdDeviation='1.6' />
+    <filter id="ep-badge-shadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.6" />
     </filter>
-    <filter id='ep-node-shadow' x='-20%' y='-20%' width='140%' height='160%'>
-      <feDropShadow
-        dx='0'
-        dy='2'
-        stdDeviation='4'
-        floodColor='#0f172a'
-        floodOpacity='0.14'
-      />
+    <filter id="ep-node-shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#0f172a" floodOpacity="0.14" />
     </filter>
-    <filter id='ep-icon-halo' x='-50%' y='-50%' width='200%' height='200%'>
-      <feGaussianBlur stdDeviation='5' />
+    <filter id="ep-icon-halo" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" />
     </filter>
     {/* Used as a luminance mask to fade a soft transparent gap into an edge
         where it passes under another: black core (hidden) fading out to a white
         rim (visible). Object-bounding-box units, so it scales to each gap
         circle. See the `crossings` handling in <Edge>. */}
-    <radialGradient id='ep-edge-fade'>
-      <stop offset='0' stopColor='#000' />
-      <stop offset='0.55' stopColor='#000' />
-      <stop offset='1' stopColor='#fff' />
+    <radialGradient id="ep-edge-fade">
+      <stop offset="0" stopColor="#000" />
+      <stop offset="0.55" stopColor="#000" />
+      <stop offset="1" stopColor="#fff" />
     </radialGradient>
   </defs>
 )
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
-  points.length === 0
-    ? ''
-    : points
-        .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-        .join(' ')
+  points.length === 0 ? '' : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
 
 // Size of the white label pill, centered on the edge's labelAnchor. Exported so
 // the editor's fit-to-view and the headless export frame labels with the exact
 // geometry rendered here (no divergence, no duplicated magic numbers).
-export const labelPillSize = (
-  label: string,
-  textScale = 1,
-): { w: number; h: number } => ({
+export const labelPillSize = (label: string, textScale = 1): { w: number; h: number } => ({
   w: Math.max(20 * textScale, label.length * 6 * textScale + 12 * textScale),
   h: 16 * textScale,
 })
@@ -145,10 +131,7 @@ const renderCap = (
   const left = { x: base.x + (px * size) / 2, y: base.y + (py * size) / 2 }
   const right = { x: base.x - (px * size) / 2, y: base.y - (py * size) / 2 }
   return (
-    <path
-      d={`M ${at.x} ${at.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`}
-      fill={color}
-    />
+    <path d={`M ${at.x} ${at.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`} fill={color} />
   )
 }
 
@@ -230,8 +213,7 @@ export const Edge: FC<EdgeProps> = ({
   // Defaults from parser direction; layout startCap/endCap override.
   const defaultStart: EndCap =
     marker === 'backward' || marker === 'bidirectional' ? 'arrow' : 'none'
-  const defaultEnd: EndCap =
-    marker === 'forward' || marker === 'bidirectional' ? 'arrow' : 'none'
+  const defaultEnd: EndCap = marker === 'forward' || marker === 'bidirectional' ? 'arrow' : 'none'
   const startCap: EndCap = edge.startCap ?? defaultStart
   const endCap: EndCap = edge.endCap ?? defaultEnd
 
@@ -275,7 +257,7 @@ export const Edge: FC<EdgeProps> = ({
       {maskId && maskRegion ? (
         <mask
           id={maskId}
-          maskUnits='userSpaceOnUse'
+          maskUnits="userSpaceOnUse"
           x={maskRegion.x}
           y={maskRegion.y}
           width={maskRegion.w}
@@ -286,35 +268,35 @@ export const Edge: FC<EdgeProps> = ({
             y={maskRegion.y}
             width={maskRegion.w}
             height={maskRegion.h}
-            fill='#fff'
+            fill="#fff"
           />
           {fades.map((f, i) => (
-            <circle key={i} cx={f.x} cy={f.y} r={f.r} fill='url(#ep-edge-fade)' />
+            <circle key={i} cx={f.x} cy={f.y} r={f.r} fill="url(#ep-edge-fade)" />
           ))}
         </mask>
       ) : null}
       {selected ? (
         <path
           d={path}
-          fill='none'
-          stroke='#3b82f6'
+          fill="none"
+          stroke="#3b82f6"
           strokeOpacity={0.28}
           strokeWidth={width + 6}
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          pointerEvents='none'
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pointerEvents="none"
           mask={maskRef}
         />
       ) : null}
       <path
         d={path}
-        fill='none'
+        fill="none"
         stroke={color}
         strokeWidth={width}
         strokeDasharray={dash}
-        strokeLinecap='round'
-        strokeLinejoin='round'
-        pointerEvents='none'
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="none"
         mask={maskRef}
       />
       {renderCap(startCap, startPt, startDir, color, width)}
@@ -322,12 +304,12 @@ export const Edge: FC<EdgeProps> = ({
       {onSelect ? (
         <path
           d={path}
-          fill='none'
-          stroke='transparent'
+          fill="none"
+          stroke="transparent"
           strokeWidth={Math.max(16, width * 3)}
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          pointerEvents='stroke'
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pointerEvents="stroke"
           style={{ cursor: 'pointer' }}
           onMouseDown={(event) => {
             event.stopPropagation()
@@ -335,41 +317,41 @@ export const Edge: FC<EdgeProps> = ({
           }}
         />
       ) : null}
-      {label && edge.labelAnchor ? (
-        (() => {
-          const fontSize = 11 * textScale
-          const { w: pillW, h: pillH } = labelPillSize(label, textScale)
-          const draggable = !!onMoveLabel
-          return (
-            <g
-              transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}
-              onMouseDown={draggable ? handleLabelDown : undefined}
-              style={draggable ? { cursor: 'move' } : undefined}
-            >
-              <rect
-                x={-pillW / 2}
-                y={-pillH / 2}
-                width={pillW}
-                height={pillH}
-                rx={4}
-                ry={4}
-                fill='#ffffff'
-                pointerEvents={draggable ? 'all' : 'none'}
-              />
-              <text
-                textAnchor='middle'
-                dominantBaseline='middle'
-                fontFamily={fontFamily}
-                fontSize={fontSize}
-                fill='#1f2430'
-                pointerEvents='none'
+      {label && edge.labelAnchor
+        ? (() => {
+            const fontSize = 11 * textScale
+            const { w: pillW, h: pillH } = labelPillSize(label, textScale)
+            const draggable = !!onMoveLabel
+            return (
+              <g
+                transform={`translate(${edge.labelAnchor.x}, ${edge.labelAnchor.y})`}
+                onMouseDown={draggable ? handleLabelDown : undefined}
+                style={draggable ? { cursor: 'move' } : undefined}
               >
-                {label}
-              </text>
-            </g>
-          )
-        })()
-      ) : null}
+                <rect
+                  x={-pillW / 2}
+                  y={-pillH / 2}
+                  width={pillW}
+                  height={pillH}
+                  rx={4}
+                  ry={4}
+                  fill="#ffffff"
+                  pointerEvents={draggable ? 'all' : 'none'}
+                />
+                <text
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontFamily={fontFamily}
+                  fontSize={fontSize}
+                  fill="#1f2430"
+                  pointerEvents="none"
+                >
+                  {label}
+                </text>
+              </g>
+            )
+          })()
+        : null}
     </g>
   )
 }

@@ -32,9 +32,7 @@ export interface StandaloneHandle {
   close(): Promise<void>
 }
 
-export const startStandalone = async (
-  opts: StandaloneOptions,
-): Promise<StandaloneHandle> => {
+export const startStandalone = async (opts: StandaloneOptions): Promise<StandaloneHandle> => {
   const pair = resolvePair(opts.pairInput)
   const realPath = await realpath(pair.paths.d2).catch(() => pair.paths.d2)
 
@@ -50,10 +48,7 @@ export const startStandalone = async (
   const serveIndex = async (res: ServerResponse): Promise<void> => {
     try {
       const raw = await readFile(join(opts.distDir, 'index.html'), 'utf8')
-      const titled = raw.replace(
-        /<title>.*?<\/title>/,
-        `<title>${pair.stem} — Épure</title>`,
-      )
+      const titled = raw.replace(/<title>.*?<\/title>/, `<title>${pair.stem} — Épure</title>`)
       res.setHeader('content-type', 'text/html; charset=utf-8')
       res.setHeader('cache-control', 'no-store')
       res.end(injectBridge(titled, runtime))
