@@ -38,10 +38,7 @@ export const configBody = (rt: BridgeRuntime): string =>
 const LINE_SEP = String.fromCharCode(0x2028)
 const PARA_SEP = String.fromCharCode(0x2029)
 const escapeForScript = (s: string): string =>
-  s
-    .split('<').join('\\u003c')
-    .split(LINE_SEP).join('\\u2028')
-    .split(PARA_SEP).join('\\u2029')
+  s.split('<').join('\\u003c').split(LINE_SEP).join('\\u2028').split(PARA_SEP).join('\\u2029')
 
 /** Inject the bridge global before `</head>`. Falls back to prepending if no
  *  head close tag is present (defensive — the real index.html always has one). */
@@ -54,10 +51,6 @@ export const injectBridge = (html: string, rt: BridgeRuntime): string => {
     file: rt.file,
     version: rt.version,
   }
-  const tag = `<script>window.__EPURE_BRIDGE__=${escapeForScript(
-    JSON.stringify(payload),
-  )}</script>`
-  return html.includes('</head>')
-    ? html.replace('</head>', `${tag}</head>`)
-    : tag + html
+  const tag = `<script>window.__EPURE_BRIDGE__=${escapeForScript(JSON.stringify(payload))}</script>`
+  return html.includes('</head>') ? html.replace('</head>', `${tag}</head>`) : tag + html
 }

@@ -18,10 +18,9 @@ const layoutWith = (cx: number): LayoutSidecar => ({
 
 const mount = (initial: LayoutSidecar) => {
   const setLayout = vi.fn()
-  const view = renderHook(
-    ({ layout }) => useLayoutEditorBuffer(layout, setLayout),
-    { initialProps: { layout: initial } },
-  )
+  const view = renderHook(({ layout }) => useLayoutEditorBuffer(layout, setLayout), {
+    initialProps: { layout: initial },
+  })
   return { setLayout, ...view }
 }
 

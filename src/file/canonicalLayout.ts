@@ -29,20 +29,33 @@ import type { LayoutSidecar } from '@/layout/types'
 
 // Field order within a node record: geometry first, then style.
 const NODE_FIELD_ORDER = [
-  'cx', 'cy', 'w', 'h',
-  'textSize', 'textColor', 'borderColor', 'borderStyle', 'fillColor',
-  'shape', 'icon', 'iconPosition',
+  'cx',
+  'cy',
+  'w',
+  'h',
+  'textSize',
+  'textColor',
+  'borderColor',
+  'borderStyle',
+  'fillColor',
+  'shape',
+  'icon',
+  'iconPosition',
 ] as const
 
 const EDGE_FIELD_ORDER = [
-  'sourceSide', 'targetSide',
-  'color', 'lineStyle', 'width', 'startCap', 'endCap',
-  'labelDx', 'labelDy',
+  'sourceSide',
+  'targetSide',
+  'color',
+  'lineStyle',
+  'width',
+  'startCap',
+  'endCap',
+  'labelDx',
+  'labelDy',
 ] as const
 
-const AREA_FIELD_ORDER = [
-  'borderColor', 'borderStyle', 'fillColor',
-] as const
+const AREA_FIELD_ORDER = ['borderColor', 'borderStyle', 'fillColor'] as const
 
 const isPresent = (v: unknown): boolean => v !== undefined && v !== null
 
@@ -61,15 +74,10 @@ const inlineFields = (record: object, order: readonly string[]): string => {
 }
 
 // Emit a keyed map (`nodes`/`edges`/`areas`) one record per line, ids sorted.
-const keyedMap = (
-  map: Record<string, object> | undefined,
-  order: readonly string[],
-): string => {
+const keyedMap = (map: Record<string, object> | undefined, order: readonly string[]): string => {
   const ids = Object.keys(map ?? {}).sort()
   if (ids.length === 0) return '{}'
-  const lines = ids.map(
-    (id) => `    ${JSON.stringify(id)}: ${inlineFields(map![id]!, order)}`,
-  )
+  const lines = ids.map((id) => `    ${JSON.stringify(id)}: ${inlineFields(map![id]!, order)}`)
   return `{\n${lines.join(',\n')}\n  }`
 }
 

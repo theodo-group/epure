@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { icon, providers, search, url } from '@/icons'
@@ -31,9 +25,7 @@ const Popover = ({
   onClose: () => void
 }) => {
   const [query, setQuery] = useState('')
-  const [provider, setProvider] = useState<string>(
-    value ? (icon(value)?.provider ?? '') : '',
-  )
+  const [provider, setProvider] = useState<string>(value ? (icon(value)?.provider ?? '') : '')
   const ref = useRef<HTMLDivElement>(null)
 
   const results = useMemo(
@@ -61,17 +53,10 @@ const Popover = ({
   const MAXH = 380
   // Open to the left of the panel; clamp into the viewport.
   const left = Math.max(8, anchor.left - W - 8)
-  const top = Math.min(
-    Math.max(8, anchor.top),
-    window.innerHeight - MAXH - 8,
-  )
+  const top = Math.min(Math.max(8, anchor.top), window.innerHeight - MAXH - 8)
 
   return createPortal(
-    <div
-      ref={ref}
-      className="ep-iconpop"
-      style={{ left, top, width: W, maxHeight: MAXH }}
-    >
+    <div ref={ref} className="ep-iconpop" style={{ left, top, width: W, maxHeight: MAXH }}>
       <div className="ep-iconpop-controls">
         <input
           className="ep-iconpop-search"
@@ -181,12 +166,7 @@ export const IconControl = ({ value, mixed, onChange }: IconControlProps) => {
         </button>
       ) : null}
       {open && rect ? (
-        <Popover
-          anchor={rect}
-          value={value}
-          onChange={onChange}
-          onClose={() => setOpen(false)}
-        />
+        <Popover anchor={rect} value={value} onChange={onChange} onClose={() => setOpen(false)} />
       ) : null}
     </div>
   )

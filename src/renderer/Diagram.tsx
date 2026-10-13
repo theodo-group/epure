@@ -79,7 +79,11 @@ const computeBounds = (
 
 /** The diagram, framed to its content. Purely presentational: no interactive
  *  handles render (those belong to the editor's canvas). */
-export const Diagram = ({ model, padding, background }: { model: DiagramModel } & DiagramOptions) => {
+export const Diagram = ({
+  model,
+  padding,
+  background,
+}: { model: DiagramModel } & DiagramOptions) => {
   const { routed, nodes, edges, textScale = 1 } = model
   const pad = padding ?? DEFAULT_PADDING
   const b = computeBounds(routed, edges, textScale)

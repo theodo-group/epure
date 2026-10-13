@@ -75,8 +75,6 @@ export const dashArrayFor = (style: LineStyle, width = 1.5): string | undefined 
 
 export type EndCap = 'none' | 'arrow' | 'dot' | 'diamond'
 
-export const solidOf = (color?: PaletteColor): string =>
-  PALETTE[color ?? 'black'].solid
+export const solidOf = (color?: PaletteColor): string => PALETTE[color ?? 'black'].solid
 
-export const fillOf = (color?: PaletteColor): string =>
-  PALETTE[color ?? 'gray'].fill
+export const fillOf = (color?: PaletteColor): string => PALETTE[color ?? 'gray'].fill

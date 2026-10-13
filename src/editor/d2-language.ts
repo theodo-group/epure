@@ -112,6 +112,4 @@ const d2HighlightStyle = HighlightStyle.define([
   { tag: t.variableName, color: '#e6edf3' },
 ])
 
-export const d2Support = new LanguageSupport(d2Language, [
-  syntaxHighlighting(d2HighlightStyle),
-])
+export const d2Support = new LanguageSupport(d2Language, [syntaxHighlighting(d2HighlightStyle)])

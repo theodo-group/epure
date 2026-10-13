@@ -45,9 +45,7 @@ describe('parser — nodes', () => {
 
   it('parses all supported shapes', () => {
     const shapes = ['rectangle', 'cylinder', 'person'] as const
-    const src = shapes
-      .map((s, i) => `n${i}: "${s}" { shape: ${s} }`)
-      .join('\n')
+    const src = shapes.map((s, i) => `n${i}: "${s}" { shape: ${s} }`).join('\n')
     const d = expectOk(src)
     expect(d.nodes.map((n) => n.shape)).toEqual(shapes)
   })
@@ -97,9 +95,7 @@ describe('parser — edges', () => {
 
 describe('parser — areas', () => {
   it('parses an area with two members', () => {
-    const d = expectOk(
-      ['a', 'b', 'group: "Group" {', '  a', '  b', '}'].join('\n'),
-    )
+    const d = expectOk(['a', 'b', 'group: "Group" {', '  a', '  b', '}'].join('\n'))
     expect(d.areas).toHaveLength(1)
     expect(d.areas[0]).toMatchObject({
       kind: 'area',
@@ -110,9 +106,7 @@ describe('parser — areas', () => {
   })
 
   it('does not put non-area nodes into any area', () => {
-    const d = expectOk(
-      ['a', 'b', 'lone: "Lone" { shape: rectangle }'].join('\n'),
-    )
+    const d = expectOk(['a', 'b', 'lone: "Lone" { shape: rectangle }'].join('\n'))
     expect(d.areas).toHaveLength(0)
     expect(d.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'lone'])
   })
@@ -175,9 +169,7 @@ describe('parser — errors', () => {
     const r = parse('a -> b { style.stroke.foo: 1 }')
     expect(r.ok).toBe(false)
     if (r.ok) return
-    expect(
-      r.errors.some((e) => /Unsupported dotted attribute/.test(e.message)),
-    ).toBe(true)
+    expect(r.errors.some((e) => /Unsupported dotted attribute/.test(e.message))).toBe(true)
   })
 })
 

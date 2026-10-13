@@ -43,11 +43,7 @@ interface CanvasProps {
   onSelectNode?: (id: string, additive: boolean) => void
   onSelectArea?: (id: string, additive: boolean) => void
   onSelectEdge?: (id: string, additive: boolean) => void
-  onMarqueeSelect?: (
-    nodeIds: string[],
-    areaIds: string[],
-    additive: boolean,
-  ) => void
+  onMarqueeSelect?: (nodeIds: string[], areaIds: string[], additive: boolean) => void
   onMoveNode?: (id: string, centerX: number, centerY: number, shiftKey: boolean) => void
   onResizeNode?: (id: string, side: Side, pxX: number, pxY: number) => void
   /** Drag an edge label to a new offset (grid units, relative to its anchor). */
@@ -136,9 +132,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     useImperativeHandle(ref, () => svgRef.current!, [])
 
     const [container, setContainer] = useState({ w: 800, h: 600 })
-    const [view, setView] = useState<
-      { cx: number; cy: number; zoom: number } | null
-    >(null)
+    const [view, setView] = useState<{ cx: number; cy: number; zoom: number } | null>(null)
     const [tool, setTool] = useState<Tool>('select')
     const [spaceHeld, setSpaceHeld] = useState(false)
     // Id of the node whose label is being edited inline (double-click), or null.
@@ -153,18 +147,12 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     // Soft transparent gaps where edges cross under one another. Computed once
     // over the whole edge set (a per-edge <Edge> can't see its neighbours) and
     // shared with the headless export so the two render identically.
-    const crossings = useMemo(
-      () => computeCrossings(diagram.edges),
-      [diagram.edges],
-    )
+    const crossings = useMemo(() => computeCrossings(diagram.edges), [diagram.edges])
 
     // Close the inline label editor if its node disappears (deleted in the .d2,
     // renamed, or a remote edit dropped it) so the overlay never dangles.
     useEffect(() => {
-      if (
-        editingNodeId &&
-        !diagram.nodes.some((n) => n.id === editingNodeId)
-      ) {
+      if (editingNodeId && !diagram.nodes.some((n) => n.id === editingNodeId)) {
         setEditingNodeId(null)
       }
     }, [diagram, editingNodeId])
@@ -288,9 +276,12 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     const viewBoxX = cx - viewBoxW / 2
     const viewBoxY = cy - viewBoxH / 2
 
-    const [marquee, setMarquee] = useState<
-      { x1: number; y1: number; x2: number; y2: number } | null
-    >(null)
+    const [marquee, setMarquee] = useState<{
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+    } | null>(null)
 
     const clientToSvg = (cxScreen: number, cyScreen: number) => {
       const svg = svgRef.current
@@ -349,10 +340,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       beginDrag()
 
       const onMove = (e: globalThis.MouseEvent) => {
-        if (
-          !dragged &&
-          Math.hypot(e.clientX - startScreenX, e.clientY - startScreenY) > 3
-        ) {
+        if (!dragged && Math.hypot(e.clientX - startScreenX, e.clientY - startScreenY) > 3) {
           dragged = true
         }
         const cur = clientToSvg(e.clientX, e.clientY)
@@ -378,16 +366,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
           const x2 = Math.max(m?.x1 ?? start.x, m?.x2 ?? end.x)
           const y2 = Math.max(m?.y1 ?? start.y, m?.y2 ?? end.y)
           const nodeHits = diagram.nodes
-            .filter(
-              (n) =>
-                n.x >= x1 && n.x + n.w <= x2 && n.y >= y1 && n.y + n.h <= y2,
-            )
+            .filter((n) => n.x >= x1 && n.x + n.w <= x2 && n.y >= y1 && n.y + n.h <= y2)
             .map((n) => n.id)
           const areaHits = diagram.areas
-            .filter(
-              (a) =>
-                a.x >= x1 && a.x + a.w <= x2 && a.y >= y1 && a.y + a.h <= y2,
-            )
+            .filter((a) => a.x >= x1 && a.x + a.w <= x2 && a.y >= y1 && a.y + a.h <= y2)
             .map((a) => a.id)
           onMarqueeSelect?.(nodeHits, areaHits, additive)
           return null
@@ -415,10 +397,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             const anchorX = v.cx - vbW / 2 + sx * vbW
             const anchorY = v.cy - vbH / 2 + sy * vbH
             const factor = Math.exp(-event.deltaY * 0.0015)
-            const newZoom = Math.max(
-              MIN_ZOOM,
-              Math.min(MAX_ZOOM, v.zoom * factor),
-            )
+            const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.zoom * factor))
             if (newZoom === v.zoom) return v
             const newCx = anchorX - (anchorX - v.cx) * (v.zoom / newZoom)
             const newCy = anchorY - (anchorY - v.cy) * (v.zoom / newZoom)
@@ -462,9 +441,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     // The node currently under inline label editing, resolved to its live
     // routed geometry so the overlay tracks pan/zoom and re-layout.
     const editingNode =
-      editingNodeId != null
-        ? diagram.nodes.find((n) => n.id === editingNodeId) ?? null
-        : null
+      editingNodeId != null ? (diagram.nodes.find((n) => n.id === editingNodeId) ?? null) : null
 
     return (
       <div className="pane-canvas-inner" style={{ position: 'absolute', inset: 0 }}>
@@ -576,14 +553,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
           ? (() => {
               const fillResolved = resolveFill(editingNode.fillColor)
               const background =
-                !fillResolved || fillResolved === 'transparent'
-                  ? '#ffffff'
-                  : fillResolved
-              const color = editingNode.textColor
-                ? solidOf(editingNode.textColor)
-                : '#1f2430'
-              const editorFontSize =
-                TEXT_SIZE[editingNode.textSize ?? 'M'] * textScale * z
+                !fillResolved || fillResolved === 'transparent' ? '#ffffff' : fillResolved
+              const color = editingNode.textColor ? solidOf(editingNode.textColor) : '#1f2430'
+              const editorFontSize = TEXT_SIZE[editingNode.textSize ?? 'M'] * textScale * z
               return (
                 <NodeLabelEditor
                   key={editingNode.id}
@@ -735,12 +707,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               onClick={() => zoomBy(1 / ZOOM_STEP)}
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path
-                  d="M3 8 H 13"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
+                <path d="M3 8 H 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </button>
             <button

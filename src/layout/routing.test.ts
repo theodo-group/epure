@@ -76,10 +76,7 @@ describe('edge obstacle avoidance', () => {
     // down, the last arrives at b's North face from above.
     const [p0, p1] = [edge.points[0]!, edge.points[1]!]
     expect(p1.y).toBeGreaterThan(p0.y) // leaves downward (S)
-    const [pl, pPrev] = [
-      edge.points[edge.points.length - 1]!,
-      edge.points[edge.points.length - 2]!,
-    ]
+    const [pl, pPrev] = [edge.points[edge.points.length - 1]!, edge.points[edge.points.length - 2]!]
     expect(pPrev.y).toBeLessThan(pl.y) // arrives from above (N)
   })
 
@@ -164,9 +161,7 @@ describe('edge obstacle avoidance', () => {
     // o1 and o2 are on the same row with a two-node cluster (box) stacked
     // between them — the straight o1→o2 line would pass through the area. Neither
     // endpoint is a member, so the area is an obstacle and the edge must detour.
-    const parsed = parse(
-      'o1\no2\nm1\nm2\no1 -> o2\nbox: "Box" {\n  m1\n  m2\n}\n',
-    )
+    const parsed = parse('o1\no2\nm1\nm2\no1 -> o2\nbox: "Box" {\n  m1\n  m2\n}\n')
     if (!parsed.ok) throw new Error('parse failed')
     const layout: LayoutSidecar = {
       gridSize: 40,
@@ -230,10 +225,7 @@ describe('edge obstacle avoidance', () => {
     return areaTitleRect({ x: a.x, y: a.y, w: a.w, h: a.h }, a.label!)
   }
   type Rect = { x: number; y: number; w: number; h: number }
-  const pathHitsTitle = (
-    edge: RoutedDiagram['edges'][number],
-    title: Rect,
-  ) =>
+  const pathHitsTitle = (edge: RoutedDiagram['edges'][number], title: Rect) =>
     edge.points.some((_, i) =>
       i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, title) : false,
     )
@@ -307,9 +299,7 @@ describe('edge obstacle avoidance', () => {
     // Same input must yield byte-identical points (the git-reviewable export and
     // the editor both depend on this; libavoid is deterministic and the snap /
     // distribution passes must not introduce any nondeterminism).
-    const parsed = parse(
-      'a\nb\nc\nblocker\na -> b\na -> c\nb -> c\nc -> a\n',
-    )
+    const parsed = parse('a\nb\nc\nblocker\na -> b\na -> c\nb -> c\nc -> a\n')
     if (!parsed.ok) throw new Error('parse failed')
     const layout: LayoutSidecar = {
       gridSize: 40,
@@ -350,8 +340,10 @@ describe('edge obstacle avoidance', () => {
     const cross = (h: [Pt, Pt], v: [Pt, Pt]) => {
       const e = 1
       return (
-        v[0].x > Math.min(h[0].x, h[1].x) + e && v[0].x < Math.max(h[0].x, h[1].x) - e &&
-        h[0].y > Math.min(v[0].y, v[1].y) + e && h[0].y < Math.max(v[0].y, v[1].y) - e
+        v[0].x > Math.min(h[0].x, h[1].x) + e &&
+        v[0].x < Math.max(h[0].x, h[1].x) - e &&
+        h[0].y > Math.min(v[0].y, v[1].y) + e &&
+        h[0].y < Math.max(v[0].y, v[1].y) - e
       )
     }
     const segsOf = (e: (typeof routed.edges)[number]) =>
@@ -518,7 +510,8 @@ describe('edge obstacle avoidance', () => {
     for (const e of quick.edges) {
       expect(e.points.length).toBeGreaterThanOrEqual(2)
       for (let i = 1; i < e.points.length; i += 1) {
-        const a = e.points[i - 1]!, b = e.points[i]!
+        const a = e.points[i - 1]!,
+          b = e.points[i]!
         expect(Math.abs(a.x - b.x) < 0.5 || Math.abs(a.y - b.y) < 0.5).toBe(true)
       }
     }

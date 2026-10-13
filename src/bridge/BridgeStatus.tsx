@@ -57,7 +57,12 @@ const SaveCue = ({ state }: { state: BridgeUiState }) => {
       <span style={{ ...base, color: 'var(--ep-muted, #9aa0a6)' }} title="Saving changes to disk…">
         <span
           aria-hidden
-          style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ep-warn, #d08700)' }}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'var(--ep-warn, #d08700)',
+          }}
         />
         Saving…
       </span>

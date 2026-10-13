@@ -6,7 +6,16 @@ import { parse } from '@/parser'
 
 // Incomplete states a user types THROUGH (id + colon, dangling edge, open brace,
 // unterminated string) — each errors on EOF.
-const INCOMPLETE = ['jean_claude:', 'jean_claude: ', 'a -> ', 'a ->', 'a: "', 'a: b {', 'a: label {\n', 'x: {']
+const INCOMPLETE = [
+  'jean_claude:',
+  'jean_claude: ',
+  'a -> ',
+  'a ->',
+  'a: "',
+  'a: b {',
+  'a: label {\n',
+  'x: {',
+]
 
 describe('parse errors never carry a NaN range', () => {
   for (const src of INCOMPLETE) {

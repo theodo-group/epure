@@ -1,23 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  hasRichMarkup,
-  parseRichText,
-  wrapRichText,
-} from '@/renderer/richText'
+import { hasRichMarkup, parseRichText, wrapRichText } from '@/renderer/richText'
 
 describe('parseRichText', () => {
   it('returns a single line of plain words for an unstyled label', () => {
     const lines = parseRichText('hello world')
-    expect(lines).toEqual([
-      { words: [{ text: 'hello' }, { text: 'world' }] },
-    ])
+    expect(lines).toEqual([{ words: [{ text: 'hello' }, { text: 'world' }] }])
   })
 
   it('parses <b> / <strong> as bold and respects nesting', () => {
-    expect(parseRichText('<b>Traefik</b>')).toEqual([
-      { words: [{ text: 'Traefik', bold: true }] },
-    ])
+    expect(parseRichText('<b>Traefik</b>')).toEqual([{ words: [{ text: 'Traefik', bold: true }] }])
     expect(parseRichText('<strong>x</strong> y')).toEqual([
       { words: [{ text: 'x', bold: true }, { text: 'y' }] },
     ])
@@ -58,32 +50,25 @@ describe('parseRichText', () => {
   })
 
   it('splits on literal newlines too', () => {
-    expect(parseRichText('a\nb')).toEqual([
-      { words: [{ text: 'a' }] },
-      { words: [{ text: 'b' }] },
-    ])
+    expect(parseRichText('a\nb')).toEqual([{ words: [{ text: 'a' }] }, { words: [{ text: 'b' }] }])
   })
 
   it('combines styles across a line break', () => {
-    expect(parseRichText('<b>Traefik</b><br><small>proxy prod</small>')).toEqual(
-      [
-        { words: [{ text: 'Traefik', bold: true }] },
-        {
-          words: [
-            { text: 'proxy', small: true },
-            { text: 'prod', small: true },
-          ],
-        },
-      ],
-    )
+    expect(parseRichText('<b>Traefik</b><br><small>proxy prod</small>')).toEqual([
+      { words: [{ text: 'Traefik', bold: true }] },
+      {
+        words: [
+          { text: 'proxy', small: true },
+          { text: 'prod', small: true },
+        ],
+      },
+    ])
   })
 
   it('treats an unrecognised tag as literal text', () => {
     const lines = parseRichText('<unknown>x</unknown>')
     expect(lines).toHaveLength(1)
-    expect(lines[0]!.words.map((w) => w.text).join(' ')).toBe(
-      '<unknown>x</unknown>',
-    )
+    expect(lines[0]!.words.map((w) => w.text).join(' ')).toBe('<unknown>x</unknown>')
   })
 })
 
@@ -115,19 +100,12 @@ describe('wrapRichText', () => {
   it('keeps hard line breaks as separate output lines', () => {
     const lines = parseRichText('aa bb<br>cc dd')
     const wrapped = wrapRichText(lines, 10)
-    expect(wrapped.map((l) => l.words.map((w) => w.text).join(' '))).toEqual([
-      'aa bb',
-      'cc dd',
-    ])
+    expect(wrapped.map((l) => l.words.map((w) => w.text).join(' '))).toEqual(['aa bb', 'cc dd'])
   })
 
   it('preserves empty lines from consecutive <br>', () => {
     const lines = parseRichText('a<br><br>b')
-    expect(lines).toEqual([
-      { words: [{ text: 'a' }] },
-      { words: [] },
-      { words: [{ text: 'b' }] },
-    ])
+    expect(lines).toEqual([{ words: [{ text: 'a' }] }, { words: [] }, { words: [{ text: 'b' }] }])
     expect(wrapRichText(lines, 10)).toEqual(lines)
   })
 })

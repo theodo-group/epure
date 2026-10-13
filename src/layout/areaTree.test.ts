@@ -13,12 +13,7 @@ const areasOf = (src: string) => {
 describe('buildAreaTree', () => {
   it('flattens transitive node members through nested areas', () => {
     const tree = buildAreaTree(
-      areasOf(
-        'a\nb\nc\nd\n' +
-          'Inner { a\n b }\n' +
-          'Mid { Inner\n c }\n' +
-          'Outer { Mid\n d }\n',
-      ),
+      areasOf('a\nb\nc\nd\n' + 'Inner { a\n b }\n' + 'Mid { Inner\n c }\n' + 'Outer { Mid\n d }\n'),
     )
     expect([...tree.leafNodesOf.get('Inner')!].sort()).toEqual(['a', 'b'])
     expect([...tree.leafNodesOf.get('Mid')!].sort()).toEqual(['a', 'b', 'c'])
@@ -26,9 +21,7 @@ describe('buildAreaTree', () => {
   })
 
   it('computes depths (roots at 0) and ancestor sets', () => {
-    const tree = buildAreaTree(
-      areasOf('a\nb\nInner { a }\nMid { Inner }\nOuter { Mid\n b }\n'),
-    )
+    const tree = buildAreaTree(areasOf('a\nb\nInner { a }\nMid { Inner }\nOuter { Mid\n b }\n'))
     expect(tree.depthOf.get('Outer')).toBe(0)
     expect(tree.depthOf.get('Mid')).toBe(1)
     expect(tree.depthOf.get('Inner')).toBe(2)

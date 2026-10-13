@@ -19,13 +19,7 @@ import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeCli
 import { bridge } from './config'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
-import {
-  docKeyOf,
-  readBackup,
-  writeBackup,
-  reconcile,
-  type DocBackup,
-} from './offlineBackup'
+import { docKeyOf, readBackup, writeBackup, reconcile, type DocBackup } from './offlineBackup'
 import type { FileFrame, FileKind } from './protocol'
 
 // Test-only seam: inject a fake WebSocket factory so the hook is drivable in
@@ -117,7 +111,10 @@ export const useBridge = (): BridgeUiState => {
   const [clash, setClash] = useState<ClashInfo | null>(null)
   // The full conflict payload (kept in a ref so resolveClash can act on it
   // without re-subscribing). `clash` above is the lean UI view of this.
-  const clashDataRef = useRef<{ local: DocBackup; disk: { source: string; layout: LayoutSidecar } } | null>(null)
+  const clashDataRef = useRef<{
+    local: DocBackup
+    disk: { source: string; layout: LayoutSidecar }
+  } | null>(null)
   // Whether a real document is loaded (hydrate or offline backup), gating the
   // backup writer so the empty bootstrap state can never overwrite a good backup.
   const hasDocRef = useRef(false)

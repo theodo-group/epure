@@ -23,15 +23,11 @@ describe('labelToEditorHtml', () => {
   it('escapes text so a stray < can never become live markup', () => {
     expect(labelToEditorHtml('a < b & c')).toBe('a &lt; b &amp; c')
     // An unrecognised tag is escaped rather than emitted.
-    expect(labelToEditorHtml('<script>x</script>')).toBe(
-      '&lt;script&gt;x&lt;/script&gt;',
-    )
+    expect(labelToEditorHtml('<script>x</script>')).toBe('&lt;script&gt;x&lt;/script&gt;')
   })
 
   it('keeps list markup', () => {
-    expect(labelToEditorHtml('<ul><li>a</li><li>b</li></ul>')).toBe(
-      '<ul><li>a</li><li>b</li></ul>',
-    )
+    expect(labelToEditorHtml('<ul><li>a</li><li>b</li></ul>')).toBe('<ul><li>a</li><li>b</li></ul>')
   })
 })
 
@@ -43,9 +39,7 @@ describe('editorHtmlToLabel', () => {
   })
 
   it('normalises strong/em to b/i', () => {
-    expect(editorHtmlToLabel(fromHtml('<strong>a</strong><em>b</em>'))).toBe(
-      '<b>a</b><i>b</i>',
-    )
+    expect(editorHtmlToLabel(fromHtml('<strong>a</strong><em>b</em>'))).toBe('<b>a</b><i>b</i>')
   })
 
   it('treats block elements (div/p) as line breaks', () => {
@@ -60,9 +54,9 @@ describe('editorHtmlToLabel', () => {
     // Two trailing breaks (blank line the user added) collapse away, not just one.
     expect(editorHtmlToLabel(fromHtml('Foo<br><br>'))).toBe('Foo')
     // Chrome's "exit the list" DOM leaves a trailing empty block after the <ul>.
-    expect(
-      editorHtmlToLabel(fromHtml('<ul><li>a</li><li>b</li></ul><div><br></div>')),
-    ).toBe('<ul><li>a</li><li>b</li></ul>')
+    expect(editorHtmlToLabel(fromHtml('<ul><li>a</li><li>b</li></ul><div><br></div>'))).toBe(
+      '<ul><li>a</li><li>b</li></ul>',
+    )
   })
 
   it('preserves a leading break so re-serialization stays idempotent', () => {
@@ -71,8 +65,7 @@ describe('editorHtmlToLabel', () => {
 
   it('canonicalises non-canonical stored labels (the no-op-commit guard basis)', () => {
     // App skips the write when the edit equals this canonical round-trip.
-    const canon = (l: string) =>
-      editorHtmlToLabel(fromHtml(labelToEditorHtml(l)))
+    const canon = (l: string) => editorHtmlToLabel(fromHtml(labelToEditorHtml(l)))
     expect(canon('<strong>Auth</strong>')).toBe('<b>Auth</b>')
     expect(canon('<em>x</em>')).toBe('<i>x</i>')
     expect(canon('a\nb')).toBe('a<br>b')
@@ -80,12 +73,10 @@ describe('editorHtmlToLabel', () => {
   })
 
   it('recovers bold/italic from CSS-styled spans', () => {
-    expect(
-      editorHtmlToLabel(fromHtml('<span style="font-weight: 700">x</span>')),
-    ).toBe('<b>x</b>')
-    expect(
-      editorHtmlToLabel(fromHtml('<span style="font-style: italic">y</span>')),
-    ).toBe('<i>y</i>')
+    expect(editorHtmlToLabel(fromHtml('<span style="font-weight: 700">x</span>'))).toBe('<b>x</b>')
+    expect(editorHtmlToLabel(fromHtml('<span style="font-style: italic">y</span>'))).toBe(
+      '<i>y</i>',
+    )
   })
 
   it('drops empty format wrappers', () => {
@@ -93,9 +84,9 @@ describe('editorHtmlToLabel', () => {
   })
 
   it('serializes lists, ignoring stray whitespace between items', () => {
-    expect(
-      editorHtmlToLabel(fromHtml('<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>')),
-    ).toBe('<ul><li>a</li><li>b</li></ul>')
+    expect(editorHtmlToLabel(fromHtml('<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>'))).toBe(
+      '<ul><li>a</li><li>b</li></ul>',
+    )
   })
 })
 

@@ -14,9 +14,7 @@ import { flushBurst, useDiagramStore } from './diagramStore'
 
 const st = () => useDiagramStore.getState()
 
-const SOURCE = ['a', 'b', 'c', 'a -> b', 'b -> c', 'group: "G" {', '  a', '  b', '}', ''].join(
-  '\n',
-)
+const SOURCE = ['a', 'b', 'c', 'a -> b', 'b -> c', 'group: "G" {', '  a', '  b', '}', ''].join('\n')
 
 const layout = (): LayoutSidecar => ({
   gridSize: 40,

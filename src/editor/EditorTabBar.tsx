@@ -10,12 +10,7 @@ interface EditorTabBarProps {
   onSearch?: () => void
 }
 
-export const EditorTabBar = ({
-  tabs,
-  activeTabId,
-  onSelectTab,
-  onSearch,
-}: EditorTabBarProps) => (
+export const EditorTabBar = ({ tabs, activeTabId, onSelectTab, onSearch }: EditorTabBarProps) => (
   <div className="ep-tabbar" role="tablist">
     {tabs.map((tab) => {
       const active = tab.id === activeTabId
@@ -63,12 +58,7 @@ export const EditorTabBar = ({
           />
         </svg>
       </button>
-      <button
-        className="ep-tab-action"
-        title="Search (⌘F)"
-        type="button"
-        onClick={onSearch}
-      >
+      <button className="ep-tab-action" title="Search (⌘F)" type="button" onClick={onSearch}>
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
           <path

@@ -13,13 +13,7 @@ interface AreaProps {
   onDragMove?: (areaId: string, dxPixels: number, dyPixels: number) => void
 }
 
-export const Area: FC<AreaProps> = ({
-  area,
-  selected,
-  onSelect,
-  onDragStart,
-  onDragMove,
-}) => {
+export const Area: FC<AreaProps> = ({ area, selected, onSelect, onDragStart, onDragMove }) => {
   const draggingRef = useRef(false)
   const startRef = useRef({ mx: 0, my: 0 })
 
@@ -94,11 +88,11 @@ export const Area: FC<AreaProps> = ({
           height={area.h + 8}
           rx={16}
           ry={16}
-          fill='none'
-          stroke='#3b82f6'
+          fill="none"
+          stroke="#3b82f6"
           strokeWidth={1.5}
-          strokeDasharray='4 3'
-          pointerEvents='none'
+          strokeDasharray="4 3"
+          pointerEvents="none"
         />
       ) : null}
     </g>
@@ -134,7 +128,7 @@ export const AreaLabel: FC<AreaLabelProps> = ({
   const chipX = area.x + 14
   const chipY = area.y - chipH / 2
   return (
-    <g pointerEvents='none'>
+    <g pointerEvents="none">
       <rect
         x={chipX}
         y={chipY}
@@ -142,15 +136,15 @@ export const AreaLabel: FC<AreaLabelProps> = ({
         height={chipH}
         rx={chipH / 2}
         ry={chipH / 2}
-        fill='#ffffff'
+        fill="#ffffff"
         stroke={accent}
         strokeWidth={1}
       />
       <text
         x={chipX + chipW / 2}
         y={chipY + chipH / 2 + 0.5}
-        textAnchor='middle'
-        dominantBaseline='middle'
+        textAnchor="middle"
+        dominantBaseline="middle"
         fontFamily={fontFamily}
         fontSize={LABEL_FONT * textScale}
         fontWeight={600}

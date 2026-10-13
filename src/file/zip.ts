@@ -27,9 +27,7 @@ const isLayoutSidecar = (value: unknown): value is LayoutSidecar => {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
   return (
-    typeof v.gridSize === 'number' &&
-    typeof v.nodes === 'object' &&
-    typeof v.edges === 'object'
+    typeof v.gridSize === 'number' && typeof v.nodes === 'object' && typeof v.edges === 'object'
   )
 }
 
@@ -43,10 +41,7 @@ const parseLayout = (raw: string): LayoutSidecar => {
   return emptyLayout()
 }
 
-export const readEprZip = async (
-  blob: Blob,
-  filename = 'system.epr',
-): Promise<LoadedDocument> => {
+export const readEprZip = async (blob: Blob, filename = 'system.epr'): Promise<LoadedDocument> => {
   const buf = new Uint8Array(await blob.arrayBuffer())
   const entries = unzipSync(buf)
   const d2 = entries[D2_NAME]
@@ -119,4 +114,3 @@ export const openWithFileSystemAccess = async (): Promise<LoadedDocument | null>
     input.click()
   })
 }
-

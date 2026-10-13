@@ -12,13 +12,7 @@ import {
 import type { Diagram } from '@/parser/ast'
 
 import { buildAreaTree } from './areaTree'
-import type {
-  EdgeRoute,
-  LayoutNode,
-  LayoutSidecar,
-  RoutedDiagram,
-  Side,
-} from './types'
+import type { EdgeRoute, LayoutNode, LayoutSidecar, RoutedDiagram, Side } from './types'
 
 // Where libavoid loads its wasm from. In the browser it's served at the app
 // base path — honour a non-root base (e.g. deployed under a GitHub Pages
@@ -79,11 +73,8 @@ export const areaTitleRect = (areaRect: Rect, label: string): Rect => ({
 // membership exempts it from that area.
 type AreaObstacle = { id: string; rect: Rect; members: Set<string> }
 
-const areaBlocksEdge = (
-  area: AreaObstacle,
-  srcId: string,
-  tgtId: string,
-): boolean => !area.members.has(srcId) && !area.members.has(tgtId)
+const areaBlocksEdge = (area: AreaObstacle, srcId: string, tgtId: string): boolean =>
+  !area.members.has(srcId) && !area.members.has(tgtId)
 
 const rectContains = (outer: Rect, inner: Rect): boolean =>
   inner.x >= outer.x &&
@@ -109,11 +100,9 @@ const routeOptions = (gridSize: number): LibavoidRoutingOptions => ({
   nudgeSharedPathsWithCommonEndPoint: true,
 })
 
-export const edgeKey = (sourceId: string, targetId: string) =>
-  `${sourceId}->${targetId}`
+export const edgeKey = (sourceId: string, targetId: string) => `${sourceId}->${targetId}`
 
-const snap = (v: number, gridSize: number) =>
-  Math.round(v / gridSize) * gridSize
+const snap = (v: number, gridSize: number) => Math.round(v / gridSize) * gridSize
 
 const polylineLength = (points: { x: number; y: number }[]) => {
   let total = 0
@@ -182,10 +171,7 @@ const clearanceAt = (p: Pt, nodes: Record<string, Rect>): number => {
 // so when the preferred point is too close to a node, walk the polyline and
 // take the sampled point with the most clearance instead.
 const LABEL_MIN_CLEARANCE = 12
-const chooseLabelAnchor = (
-  points: Pt[],
-  nodes: Record<string, Rect>,
-): Pt | undefined => {
+const chooseLabelAnchor = (points: Pt[], nodes: Record<string, Rect>): Pt | undefined => {
   const preferred = longestHorizontalMidpoint(points) ?? pathMidpoint(points)
   if (clearanceAt(preferred, nodes) >= LABEL_MIN_CLEARANCE) return preferred
   let best = preferred
@@ -301,7 +287,10 @@ export const route = async (
     if (stack.has(aid)) return null
     stack.add(aid)
     const area = areaTree.byId.get(aid)!
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
     for (const mid of area.members) {
       let r: Rect | null
       if (areaTree.byId.has(mid)) {
@@ -519,11 +508,24 @@ export const route = async (
     }
     const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
       const pos = pixelNodes[n.id]!
-      return { id: n.id, x: pos.x, y: pos.y, width: pos.w, height: pos.h, ports: portsByNode.get(n.id) ?? [] }
+      return {
+        id: n.id,
+        x: pos.x,
+        y: pos.y,
+        width: pos.w,
+        height: pos.h,
+        ports: portsByNode.get(n.id) ?? [],
+      }
     })
     const elkEdges: ElkEdge[] = edgeIds.map((id) => {
       const m = edgeMeta.get(id)!
-      return { id, source: m.source, target: m.target, sourcePort: srcPortId(id), targetPort: tgtPortId(id) }
+      return {
+        id,
+        source: m.source,
+        target: m.target,
+        sourcePort: srcPortId(id),
+        targetPort: tgtPortId(id),
+      }
     })
     return { elkNodes, elkEdges }
   }
@@ -633,10 +635,7 @@ export const route = async (
     return merged
   }
 
-  const routeOnce = async (
-    anchors: Map<string, EdgeRoutingHints>,
-    skipAreas = false,
-  ) => {
+  const routeOnce = async (anchors: Map<string, EdgeRoutingHints>, skipAreas = false) => {
     const { elkNodes, elkEdges } = buildGraph(anchors)
     return runLibavoid(elkNodes, elkEdges, skipAreas)
   }
@@ -743,11 +742,7 @@ export const route = async (
       const meta = edgeMeta.get(id)!
       const result = routes.get(id)
       if (!result) continue
-      const poly = cleanPolyline([
-        result.sourcePoint,
-        ...result.bendPoints,
-        result.targetPoint,
-      ])
+      const poly = cleanPolyline([result.sourcePoint, ...result.bendPoints, result.targetPoint])
       if (poly.length < 2) continue
       // Never adopt a non-orthogonal route. libavoid can emit a degenerate 2-point
       // diagonal when it fails to route a connector (e.g. a port pinned to a face
@@ -758,10 +753,7 @@ export const route = async (
       // the pinned face. If it couldn't, its face disagrees — skip adoption and
       // let the synthetic path honor the pin (perpendicular to that face).
       const libSourceSide = sideFromSegment(poly[0]!, poly[1]!)
-      const libTargetSide = sideFromSegment(
-        poly[poly.length - 1]!,
-        poly[poly.length - 2]!,
-      )
+      const libTargetSide = sideFromSegment(poly[poly.length - 1]!, poly[poly.length - 2]!)
       if (
         (meta.explicitSource && libSourceSide !== meta.sourceSide) ||
         (meta.explicitTarget && libTargetSide !== meta.targetSide)
@@ -911,8 +903,7 @@ const sideFromSegment = (from: Pt, to: Pt): Side => {
 const FACE_MARGIN = 12
 
 const faceCoord = (node: Rect, side: Side): number =>
-  side === 'E' ? node.x + node.w : side === 'W' ? node.x
-    : side === 'S' ? node.y + node.h : node.y
+  side === 'E' ? node.x + node.w : side === 'W' ? node.x : side === 'S' ? node.y + node.h : node.y
 
 const faceRange = (node: Rect, side: Side): [number, number] => {
   const horiz = isHorizontalSide(side)
@@ -1042,7 +1033,10 @@ const computeEdgeAnchors = (
     ] as [string, Side, string][]) {
       const key = `${nodeId}:${side}`
       let arr = faceGroups.get(key)
-      if (!arr) { arr = []; faceGroups.set(key, arr) }
+      if (!arr) {
+        arr = []
+        faceGroups.set(key, arr)
+      }
       arr.push({ edgeId: eid, connectedId: connId })
     }
   }
@@ -1105,15 +1099,11 @@ const computeEdgeAnchors = (
     // bend closest to the fan face; inner depths bend closer to the other
     // end. Their vertical legs are in disjoint y ranges (one above, one
     // below the fan center) so sharing a bend column doesn't cause overlap.
-    const fanCenterPerp = horiz
-      ? fanNode.y + fanNode.h / 2
-      : fanNode.x + fanNode.w / 2
+    const fanCenterPerp = horiz ? fanNode.y + fanNode.h / 2 : fanNode.x + fanNode.w / 2
     const distOf = new Map<string, number>()
     for (const item of sorted) {
       const otherNode = nodes[item.connectedId]!
-      const otherPerp = horiz
-        ? otherNode.y + otherNode.h / 2
-        : otherNode.x + otherNode.w / 2
+      const otherPerp = horiz ? otherNode.y + otherNode.h / 2 : otherNode.x + otherNode.w / 2
       distOf.set(item.edgeId, Math.abs(otherPerp - fanCenterPerp))
     }
     const uniqueDists = [...new Set(distOf.values())].sort((a, b) => b - a)
@@ -1181,8 +1171,14 @@ const computeEdgeAnchors = (
     // Obstacle avoidance. If the Z-bend's perpendicular leg would pass
     // through another node, shift it just past the obstacle. Only applies
     // when both sides are parallel and the anchors aren't already aligned.
-    if (srcHoriz === tgtHoriz && sourceAnchor.x !== targetAnchor.x && sourceAnchor.y !== targetAnchor.y) {
-      const candidate = bendCoord ?? (srcHoriz ? (sourceAnchor.x + targetAnchor.x) / 2 : (sourceAnchor.y + targetAnchor.y) / 2)
+    if (
+      srcHoriz === tgtHoriz &&
+      sourceAnchor.x !== targetAnchor.x &&
+      sourceAnchor.y !== targetAnchor.y
+    ) {
+      const candidate =
+        bendCoord ??
+        (srcHoriz ? (sourceAnchor.x + targetAnchor.x) / 2 : (sourceAnchor.y + targetAnchor.y) / 2)
       const adjusted = avoidObstacles(
         candidate,
         srcHoriz,
@@ -1223,12 +1219,8 @@ const avoidObstacles = (
   const aHi = horizontalSides ? Math.max(src.y, tgt.y) : Math.max(src.x, tgt.x)
   // The legal range for the perpendicular coord is between source and target
   // face (exclusive), so the entry/exit segments still exist.
-  const pLo = horizontalSides
-    ? Math.min(src.x, tgt.x)
-    : Math.min(src.y, tgt.y)
-  const pHi = horizontalSides
-    ? Math.max(src.x, tgt.x)
-    : Math.max(src.y, tgt.y)
+  const pLo = horizontalSides ? Math.min(src.x, tgt.x) : Math.min(src.y, tgt.y)
+  const pHi = horizontalSides ? Math.max(src.x, tgt.x) : Math.max(src.y, tgt.y)
   if (pHi - pLo <= 0) return candidate
 
   // Foreign node rects plus any area that blocks this edge — both are just rects
@@ -1264,8 +1256,11 @@ const avoidObstacles = (
   // the legal range.
   const leftCandidate = blocking[0] - OBSTACLE_PAD
   const rightCandidate = blocking[1] + OBSTACLE_PAD
-  const leftOk = leftCandidate > pLo && !obstacles.some(([lo, hi]) => leftCandidate > lo && leftCandidate < hi)
-  const rightOk = rightCandidate < pHi && !obstacles.some(([lo, hi]) => rightCandidate > lo && rightCandidate < hi)
+  const leftOk =
+    leftCandidate > pLo && !obstacles.some(([lo, hi]) => leftCandidate > lo && leftCandidate < hi)
+  const rightOk =
+    rightCandidate < pHi &&
+    !obstacles.some(([lo, hi]) => rightCandidate > lo && rightCandidate < hi)
   if (leftOk && rightOk) {
     return Math.abs(leftCandidate - candidate) <= Math.abs(rightCandidate - candidate)
       ? leftCandidate
@@ -1346,8 +1341,7 @@ const cleanPolyline = (pts: Pt[]): Pt[] => {
     if (
       prev &&
       next &&
-      ((prev.x === cur.x && cur.x === next.x) ||
-        (prev.y === cur.y && cur.y === next.y))
+      ((prev.x === cur.x && cur.x === next.x) || (prev.y === cur.y && cur.y === next.y))
     ) {
       continue // cur lies on the straight segment prev→next
     }
@@ -1363,7 +1357,8 @@ const polyOf = (r: RouteResult): Pt[] =>
 // libavoid routes before they reach the canvas.
 const isOrthogonalPath = (pts: Pt[]): boolean => {
   for (let i = 1; i < pts.length; i += 1) {
-    const a = pts[i - 1]!, b = pts[i]!
+    const a = pts[i - 1]!,
+      b = pts[i]!
     if (Math.abs(a.x - b.x) > 0.5 && Math.abs(a.y - b.y) > 0.5) return false
   }
   return true
@@ -1374,35 +1369,46 @@ const isOrthogonalPath = (pts: Pt[]): boolean => {
 const polysCross = (a: Pt[], b: Pt[]): boolean => {
   for (let i = 1; i < a.length; i += 1) {
     for (let j = 1; j < b.length; j += 1) {
-      const a1 = a[i - 1]!, a2 = a[i]!, b1 = b[j - 1]!, b2 = b[j]!
+      const a1 = a[i - 1]!,
+        a2 = a[i]!,
+        b1 = b[j - 1]!,
+        b2 = b[j]!
       const aH = Math.abs(a1.y - a2.y) < 0.5 && Math.abs(a1.x - a2.x) > 0.5
       const aV = Math.abs(a1.x - a2.x) < 0.5 && Math.abs(a1.y - a2.y) > 0.5
       const bH = Math.abs(b1.y - b2.y) < 0.5 && Math.abs(b1.x - b2.x) > 0.5
       const bV = Math.abs(b1.x - b2.x) < 0.5 && Math.abs(b1.y - b2.y) > 0.5
       let h: [Pt, Pt] | null = null
       let v: [Pt, Pt] | null = null
-      if (aH && bV) { h = [a1, a2]; v = [b1, b2] }
-      else if (aV && bH) { h = [b1, b2]; v = [a1, a2] }
+      if (aH && bV) {
+        h = [a1, a2]
+        v = [b1, b2]
+      } else if (aV && bH) {
+        h = [b1, b2]
+        v = [a1, a2]
+      }
       if (!h || !v) continue
-      const hy = h[0].y, vx = v[0].x, e = 1
+      const hy = h[0].y,
+        vx = v[0].x,
+        e = 1
       if (
-        vx > Math.min(h[0].x, h[1].x) + e && vx < Math.max(h[0].x, h[1].x) - e &&
-        hy > Math.min(v[0].y, v[1].y) + e && hy < Math.max(v[0].y, v[1].y) - e
-      ) return true
+        vx > Math.min(h[0].x, h[1].x) + e &&
+        vx < Math.max(h[0].x, h[1].x) - e &&
+        hy > Math.min(v[0].y, v[1].y) + e &&
+        hy < Math.max(v[0].y, v[1].y) - e
+      )
+        return true
     }
   }
   return false
 }
 
 // Pairs of edge ids whose routes cross. Drives the port-swap refinement.
-const crossingPairs = (
-  polys: Map<string, Pt[]>,
-  ids: string[],
-): Array<[string, string]> => {
+const crossingPairs = (polys: Map<string, Pt[]>, ids: string[]): Array<[string, string]> => {
   const out: Array<[string, string]> = []
   for (let i = 0; i < ids.length; i += 1) {
     for (let j = i + 1; j < ids.length; j += 1) {
-      const A = polys.get(ids[i]!), B = polys.get(ids[j]!)
+      const A = polys.get(ids[i]!),
+        B = polys.get(ids[j]!)
       if (A && B && polysCross(A, B)) out.push([ids[i]!, ids[j]!])
     }
   }
@@ -1419,7 +1425,8 @@ const sharedFace = (
   b: string,
   meta: Map<string, { source: string; target: string; sourceSide: Side; targetSide: Side }>,
 ): { endA: EndRef; endB: EndRef } | null => {
-  const ma = meta.get(a)!, mb = meta.get(b)!
+  const ma = meta.get(a)!,
+    mb = meta.get(b)!
   const endsA: Array<[EndRef, string, Side]> = [
     ['source', ma.source, ma.sourceSide],
     ['target', ma.target, ma.targetSide],
@@ -1520,9 +1527,7 @@ const buildOrthogonalPath = (
       out.push({ x: A.x, y: midY }, { x: C.x, y: midY })
     }
   } else {
-    const corner: Pt = srcHoriz
-      ? { x: C.x, y: A.y }
-      : { x: A.x, y: C.y }
+    const corner: Pt = srcHoriz ? { x: C.x, y: A.y } : { x: A.x, y: C.y }
     out.push(corner)
   }
 
@@ -1571,11 +1576,7 @@ const segmentsFor = (
     const b = path[i]!
     const isFirst = i === 1
     const isLast = i === path.length - 1
-    const endpoint: 'source' | 'target' | null = isFirst
-      ? 'source'
-      : isLast
-        ? 'target'
-        : null
+    const endpoint: 'source' | 'target' | null = isFirst ? 'source' : isLast ? 'target' : null
     if (a.x === b.x && a.y !== b.y) {
       segs.push({
         axis: 'V',
@@ -1606,20 +1607,27 @@ const segmentsFromPolyline = (poly: Pt[]): AxisSegment[] => {
     const a = poly[i - 1]!
     const b = poly[i]!
     if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) >= 0.5) {
-      segs.push({ axis: 'V', coord: a.x, lo: Math.min(a.y, b.y), hi: Math.max(a.y, b.y), endpoint: null })
+      segs.push({
+        axis: 'V',
+        coord: a.x,
+        lo: Math.min(a.y, b.y),
+        hi: Math.max(a.y, b.y),
+        endpoint: null,
+      })
     } else if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) >= 0.5) {
-      segs.push({ axis: 'H', coord: a.y, lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x), endpoint: null })
+      segs.push({
+        axis: 'H',
+        coord: a.y,
+        lo: Math.min(a.x, b.x),
+        hi: Math.max(a.x, b.x),
+        endpoint: null,
+      })
     }
   }
   return segs
 }
 
-const nudgeAnchorAlongFace = (
-  node: Rect,
-  side: Side,
-  current: Pt,
-  attempts: number[],
-): Pt => {
+const nudgeAnchorAlongFace = (node: Rect, side: Side, current: Pt, attempts: number[]): Pt => {
   const horiz = isHorizontalSide(side)
   const [lo, hi] = faceRange(node, side)
   const cur = horiz ? current.y : current.x
@@ -1698,9 +1706,10 @@ const resolveSegmentOverlaps = (
     const meta = edgeMeta.get(edgeId)
     if (!hints || !meta) return false
     const axis = leg.axis
-    const span = axis === 'V'
-      ? [hints.sourceAnchor.x, hints.targetAnchor.x]
-      : [hints.sourceAnchor.y, hints.targetAnchor.y]
+    const span =
+      axis === 'V'
+        ? [hints.sourceAnchor.x, hints.targetAnchor.x]
+        : [hints.sourceAnchor.y, hints.targetAnchor.y]
     const margin = Math.min(nudgeAmount, (Math.max(...span) - Math.min(...span)) / 3)
     const lo = Math.min(...span) + margin
     const hi = Math.max(...span) - margin

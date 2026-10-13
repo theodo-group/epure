@@ -36,8 +36,7 @@ import { startStandalone } from '../server/standalone'
 
 // Injected at build time via esbuild --define; falls back for ts-direct runs.
 declare const __EPURE_VERSION__: string
-const VERSION =
-  typeof __EPURE_VERSION__ === 'string' ? __EPURE_VERSION__ : '0.0.0-dev'
+const VERSION = typeof __EPURE_VERSION__ === 'string' ? __EPURE_VERSION__ : '0.0.0-dev'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = process.env.EPURE_DIST ?? resolve(HERE, '../dist')
@@ -72,20 +71,17 @@ const seedPair = async (pair: ResolvedPair): Promise<void> => {
 
 const probeHealth = (port: number): Promise<string | null> =>
   new Promise((resolvePromise) => {
-    const req = get(
-      { host: '127.0.0.1', port, path: '/__epure/health', timeout: 800 },
-      (res) => {
-        let body = ''
-        res.on('data', (c) => (body += c))
-        res.on('end', () => {
-          try {
-            resolvePromise((JSON.parse(body) as { realPath?: string }).realPath ?? null)
-          } catch {
-            resolvePromise(null)
-          }
-        })
-      },
-    )
+    const req = get({ host: '127.0.0.1', port, path: '/__epure/health', timeout: 800 }, (res) => {
+      let body = ''
+      res.on('data', (c) => (body += c))
+      res.on('end', () => {
+        try {
+          resolvePromise((JSON.parse(body) as { realPath?: string }).realPath ?? null)
+        } catch {
+          resolvePromise(null)
+        }
+      })
+    })
     req.on('error', () => resolvePromise(null))
     req.on('timeout', () => {
       req.destroy()
@@ -97,11 +93,7 @@ const probeHealth = (port: number): Promise<string | null> =>
 
 const openBrowser = (url: string): void => {
   const cmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-        ? 'cmd'
-        : 'xdg-open'
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open'
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url]
   try {
     spawn(cmd, args, { stdio: 'ignore', detached: true }).unref()
@@ -117,9 +109,7 @@ const printReady = (
   json: boolean,
 ): void => {
   process.stdout.write(
-    json
-      ? JSON.stringify(out) + '\n'
-      : `epure: ready url=${out.url} reused=${out.reused}\n`,
+    json ? JSON.stringify(out) + '\n' : `epure: ready url=${out.url} reused=${out.reused}\n`,
   )
 }
 
@@ -148,14 +138,22 @@ const serve = async (file: string, json: boolean): Promise<void> => {
     const occupantRealPath = await probeHealth(desiredPort)
     if (occupantRealPath === realPath) {
       printReady(
-        { url: `http://127.0.0.1:${desiredPort}/`, port: desiredPort, reused: true, doc: pair.stem, file: realPath },
+        {
+          url: `http://127.0.0.1:${desiredPort}/`,
+          port: desiredPort,
+          reused: true,
+          doc: pair.stem,
+          file: realPath,
+        },
         json,
       )
       log('reusing the server already serving this diagram')
       return
     }
     // Hash collision with a different diagram → OS-assigned port (URL not stable).
-    log(`port ${desiredPort} is taken by another diagram — using an ephemeral port (URL not stable across sessions)`)
+    log(
+      `port ${desiredPort} is taken by another diagram — using an ephemeral port (URL not stable across sessions)`,
+    )
     handle = await startStandalone({
       pairInput: file,
       port: 0,
@@ -320,7 +318,9 @@ const cmdSource = async (args: string[]): Promise<number> => {
     else if (!a.startsWith('-') && !file) file = a
   }
   if (!file) {
-    log('usage: epure source <file.png> [-o <name>]   # -o writes the .epr.d2/.epr.layout.json pair')
+    log(
+      'usage: epure source <file.png> [-o <name>]   # -o writes the .epr.d2/.epr.layout.json pair',
+    )
     return 1
   }
 
@@ -422,8 +422,7 @@ const cmdIcons = (args: string[], json: boolean): number => {
       process.stdout.write('no icons found\n')
       return 1
     }
-    for (const m of results)
-      process.stdout.write(`${m.id.padEnd(52)} ${m.name}\n`)
+    for (const m of results) process.stdout.write(`${m.id.padEnd(52)} ${m.name}\n`)
     if (results.length >= limit)
       process.stdout.write(`\n(limited to ${limit} — use --limit or narrow the query)\n`)
   }

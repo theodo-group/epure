@@ -42,10 +42,8 @@ const segmentsOf = (pts: { x: number; y: number }[]): Seg[] => {
   return out
 }
 
-const isHorizontal = (s: Seg) =>
-  Math.abs(s.y1 - s.y2) <= AX_EPS && Math.abs(s.x1 - s.x2) > AX_EPS
-const isVertical = (s: Seg) =>
-  Math.abs(s.x1 - s.x2) <= AX_EPS && Math.abs(s.y1 - s.y2) > AX_EPS
+const isHorizontal = (s: Seg) => Math.abs(s.y1 - s.y2) <= AX_EPS && Math.abs(s.x1 - s.x2) > AX_EPS
+const isVertical = (s: Seg) => Math.abs(s.x1 - s.x2) <= AX_EPS && Math.abs(s.y1 - s.y2) > AX_EPS
 
 // Interior intersection of a horizontal segment `h` and a vertical segment `v`,
 // or null when they only touch at (or near) an endpoint.
@@ -56,12 +54,7 @@ const intersect = (h: Seg, v: Seg): { x: number; y: number } | null => {
   const hxHi = Math.max(h.x1, h.x2)
   const vyLo = Math.min(v.y1, v.y2)
   const vyHi = Math.max(v.y1, v.y2)
-  if (
-    vx > hxLo + END_EPS &&
-    vx < hxHi - END_EPS &&
-    hy > vyLo + END_EPS &&
-    hy < vyHi - END_EPS
-  ) {
+  if (vx > hxLo + END_EPS && vx < hxHi - END_EPS && hy > vyLo + END_EPS && hy < vyHi - END_EPS) {
     return { x: vx, y: hy }
   }
   return null

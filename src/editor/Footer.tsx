@@ -15,8 +15,7 @@ export const Footer = ({ bridge }: { bridge?: BridgeUiState }) => {
   return (
     <footer className="ep-footer">
       <span>
-        {nodeCount} nodes · {edgeCount} edges · {areaCount}{' '}
-        {areaCount === 1 ? 'group' : 'groups'}
+        {nodeCount} nodes · {edgeCount} edges · {areaCount} {areaCount === 1 ? 'group' : 'groups'}
       </span>
       {errorCount > 0 ? (
         <>
@@ -30,7 +29,12 @@ export const Footer = ({ bridge }: { bridge?: BridgeUiState }) => {
                 strokeLinejoin="round"
                 fill="none"
               />
-              <path d="M6 5 V8 M6 9.5 V9.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <path
+                d="M6 5 V8 M6 9.5 V9.6"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
             </svg>
             {errorCount} {errorCount === 1 ? 'error' : 'errors'}
           </span>

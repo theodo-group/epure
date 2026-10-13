@@ -71,7 +71,11 @@ describe('advance: hello', () => {
 
 describe('advance: apply', () => {
   it('records the kinds, marks dirty and acks', () => {
-    const { state: next, replies, changed } = advance(
+    const {
+      state: next,
+      replies,
+      changed,
+    } = advance(
       state({ connected: true }),
       apply([
         { kind: 'd2', content: 'web -> api -> db' },

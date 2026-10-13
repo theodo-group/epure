@@ -42,9 +42,7 @@ describe('NodeDecl id/label source ranges', () => {
     expect(slice(src, node.idRange)).toBe('lone')
     // Inserting `: "X"` at idRange.end yields a well-formed declaration.
     const at = node.idRange.end.offset
-    expect(`${src.slice(0, at)}: "X"${src.slice(at)}`).toBe(
-      'lone: "X" { shape: person }',
-    )
+    expect(`${src.slice(0, at)}: "X"${src.slice(at)}`).toBe('lone: "X" { shape: person }')
   })
 
   it('has no labelRange for a bare node', () => {

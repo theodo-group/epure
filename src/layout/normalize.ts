@@ -31,10 +31,7 @@ const WRAP_COLS = 6
  * Placement is a pure function of (diagram node order, existing layout), so the
  * same `.d2` always yields the same canvas.
  */
-export function normalizeForRoute(
-  diagram: Diagram,
-  layout: LayoutSidecar,
-): LayoutSidecar {
+export function normalizeForRoute(diagram: Diagram, layout: LayoutSidecar): LayoutSidecar {
   const missing = diagram.nodes.filter((n) => !layout.nodes[n.id])
   if (missing.length === 0) return layout
 
@@ -43,9 +40,7 @@ export function normalizeForRoute(
   // never overlap the existing diagram. With nothing placed, start near the
   // top-left at the canonical origin.
   const startCy =
-    placed.length === 0
-      ? START_CY
-      : Math.ceil(Math.max(...placed.map((n) => n.cy + n.h / 2))) + 2
+    placed.length === 0 ? START_CY : Math.ceil(Math.max(...placed.map((n) => n.cy + n.h / 2))) + 2
 
   const nodes: Record<string, LayoutNode> = { ...layout.nodes }
   missing.forEach((node, i) => {

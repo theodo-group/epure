@@ -9,12 +9,7 @@ import { channel } from './channel'
 import type { BridgeConfig } from './config'
 import { wsEndpoint } from './config'
 import { contentKey } from './sync'
-import {
-  PROTOCOL_VERSION,
-  type FileFrame,
-  type FileKind,
-  type ServerMsg,
-} from './protocol'
+import { PROTOCOL_VERSION, type FileFrame, type FileKind, type ServerMsg } from './protocol'
 
 export type BridgeStatus = 'connecting' | 'connected' | 'disconnected'
 
@@ -33,12 +28,7 @@ export type SocketFactory = (config: BridgeConfig) => SocketLike
 export interface BridgeClientCallbacks {
   /** First load vs reconnect distinguished by `reconnect`. */
   onHydrate(files: FileFrame[], reconnect: boolean): void
-  onFileChanged(
-    kind: FileKind,
-    content: string | null,
-    valid: boolean,
-    error?: string,
-  ): void
+  onFileChanged(kind: FileKind, content: string | null, valid: boolean, error?: string): void
   onStatus(status: BridgeStatus): void
   onApplied?(kinds: FileKind[]): void
   onRejected?(reason: string, error?: string): void
@@ -207,8 +197,7 @@ export class BridgeClient {
 
   private scheduleReconnect(): void {
     if (this.closedByUs) return
-    const delay =
-      this.backoff[Math.min(this.reconnectAttempt, this.backoff.length - 1)] ?? 0
+    const delay = this.backoff[Math.min(this.reconnectAttempt, this.backoff.length - 1)] ?? 0
     this.reconnectAttempt += 1
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(() => this.open(), delay)

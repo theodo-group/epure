@@ -70,8 +70,7 @@ const serializeInline = (node: Node): string => {
   return out
 }
 
-const wrap = (tag: string, inner: string): string =>
-  inner ? `<${tag}>${inner}</${tag}>` : ''
+const wrap = (tag: string, inner: string): string => (inner ? `<${tag}>${inner}</${tag}>` : '')
 
 const isBoldStyle = (el: HTMLElement): boolean => {
   const fw = el.style.fontWeight
@@ -127,10 +126,7 @@ const serializeNode = (node: Node): string => {
 const serializeList = (ul: HTMLElement): string => {
   let out = ''
   ul.childNodes.forEach((child) => {
-    if (
-      child.nodeType === ELEMENT_NODE &&
-      (child as HTMLElement).tagName.toLowerCase() === 'li'
-    ) {
+    if (child.nodeType === ELEMENT_NODE && (child as HTMLElement).tagName.toLowerCase() === 'li') {
       out += wrap('li', serializeInline(child))
     }
   })
