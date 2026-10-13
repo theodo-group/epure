@@ -1,0 +1,3 @@
+# Mechanical reformat with Biome; skip in `git blame` (GitHub honours this file).
+# Locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+011a93ab34f3bfa341cc7562285f76128e609af1

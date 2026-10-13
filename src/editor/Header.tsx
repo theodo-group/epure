@@ -79,7 +79,7 @@ export const Header = ({
     <header className="ep-header">
       {/* The "d2" mark echoes the code pane; it goes away with it. */}
       {editorVisible ? (
-        <div className="ep-logo" aria-label="Épure">
+        <div className="ep-logo" role="img" aria-label="Épure">
           d2
         </div>
       ) : null}
@@ -163,11 +163,13 @@ export const Header = ({
         </button>
         {exportOpen ? (
           <div className="ep-menu" role="menu">
-            <button onClick={handleExportPng}>
+            <button type="button" onClick={handleExportPng}>
               Export PNG <span className="ep-menu-kbd">⌘E</span>
             </button>
             <div className="ep-menu-sep" />
-            <button onClick={handleExportHtml}>Export standalone HTML</button>
+            <button type="button" onClick={handleExportHtml}>
+              Export standalone HTML
+            </button>
             <div className="ep-menu-sep" />
             <div
               style={{
@@ -183,6 +185,7 @@ export const Header = ({
               <div style={{ display: 'flex', gap: 4 }}>
                 {SCALES.map((s) => (
                   <button
+                    type="button"
                     key={s}
                     onClick={() => setExportScale(s)}
                     style={{

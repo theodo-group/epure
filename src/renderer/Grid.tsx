@@ -17,6 +17,7 @@ export const Grid: FC<GridProps> = ({
   gridSize,
   patternId = 'epure-grid',
 }) => (
+  // biome-ignore lint/a11y/noAriaHiddenOnFocusable: a <g> is not focusable; the grid is decoration.
   <g aria-hidden="true" data-ep-grid="">
     <defs>
       <pattern id={patternId} width={gridSize} height={gridSize} patternUnits="userSpaceOnUse">

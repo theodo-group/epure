@@ -57,7 +57,7 @@ describe('echo content keys', () => {
 
   it('keys d2 by raw bytes', () => {
     expect(verdictFor('d2', D2).key).toBe(D2)
-    expect(verdictFor('d2', D2 + '\n').key).not.toBe(D2)
+    expect(verdictFor('d2', `${D2}\n`).key).not.toBe(D2)
   })
 })
 

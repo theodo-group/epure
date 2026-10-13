@@ -4,7 +4,7 @@ import { locateLayoutKeyRanges, validateLayoutJson } from '@/file/layoutSchema'
 const ok = (text: string) => {
   const r = validateLayoutJson(text)
   if (r.errors.length) {
-    throw new Error('expected no errors, got: ' + JSON.stringify(r.errors))
+    throw new Error(`expected no errors, got: ${JSON.stringify(r.errors)}`)
   }
   return r.value!
 }

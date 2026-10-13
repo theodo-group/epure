@@ -369,6 +369,7 @@ body {
 .pane-canvas svg *,
 .pane-canvas svg :focus,
 .pane-canvas svg :focus-visible {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat UA and inline focus outlines. */
   outline: none !important;
 }
 
@@ -389,6 +390,7 @@ body {
   gap: 8px;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: scoped to the floating layer; order is intentional. */
 .ep-canvas-floating > * {
   pointer-events: auto;
 }
@@ -955,9 +957,11 @@ body {
 
 body.epure-dragging,
 body.epure-dragging * {
+  /* biome-ignore-start lint/complexity/noImportantStyles: a drag must override every element's own cursor and selection. */
   user-select: none !important;
   -webkit-user-select: none !important;
   cursor: grabbing !important;
+  /* biome-ignore-end lint/complexity/noImportantStyles: end of drag overrides. */
 }
 
 /* ── Conflict (clash) prompt ─────────────────────────────────────────────── */

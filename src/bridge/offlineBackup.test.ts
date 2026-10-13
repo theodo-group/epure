@@ -53,7 +53,7 @@ describe('offlineBackup storage', () => {
     writeBackup('doc', { source: 'a\nb\n', layout: layout(2), base: 'k', savedAt: 5 })
     const got = readBackup('doc')
     expect(got?.source).toBe('a\nb\n')
-    expect(got?.layout.nodes.a!.cx).toBe(2)
+    expect(got?.layout.nodes.a?.cx).toBe(2)
     expect(got?.base).toBe('k')
   })
 

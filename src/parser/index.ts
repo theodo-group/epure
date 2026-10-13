@@ -27,7 +27,8 @@ export function parse(source: string): ParseResult {
   const cst = parserInstance.program()
 
   // End-of-input position, used as the fallback when a parser error lands on the
-  // EOF token — Chevrotain gives that token NaN for every position field.
+  // EOF token — Chevrotain gives that token no real position (NaN before v13,
+  // -1 since).
   const eof = eofPos(source)
   for (const e of parserInstance.errors) {
     errors.push(parserErrorToParseError(e, eof))
@@ -36,7 +37,7 @@ export function parse(source: string): ParseResult {
   // Always run the visitor — even with errors — so we can surface as many
   // problems as possible in one pass.
   const visitor = new D2Visitor()
-  let diagram
+  let diagram: ReturnType<D2Visitor['program']>
   try {
     diagram = visitor.visit(cst) as ReturnType<D2Visitor['program']>
   } catch (err) {

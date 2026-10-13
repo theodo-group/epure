@@ -43,7 +43,9 @@ export interface ExportFrame {
 // matches the headless CLI export rather than the live viewport.
 const applyFrame = (clone: SVGSVGElement, frame: ExportFrame) => {
   clone.setAttribute('viewBox', `${frame.x} ${frame.y} ${frame.w} ${frame.h}`)
-  clone.querySelectorAll('[data-ep-grid]').forEach((el) => el.remove())
+  clone.querySelectorAll('[data-ep-grid]').forEach((el) => {
+    el.remove()
+  })
   const bg = document.createElementNS(SVG_NS, 'rect')
   bg.setAttribute('x', String(frame.x))
   bg.setAttribute('y', String(frame.y))

@@ -369,6 +369,7 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
       onChangeRef.current = onChange
     }, [onChange])
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: we intentionally initialize once; downstream effects handle updates.
     useLayoutEffect(() => {
       if (!hostRef.current) return
       const startState = EditorState.create({
@@ -401,8 +402,6 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
         view.destroy()
         viewRef.current = null
       }
-      // We intentionally initialize once; downstream effects handle updates.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     // Sync external value -> editor without disrupting local typing.

@@ -298,6 +298,7 @@ export const App = () => {
   }, [docName])
 
   // Reparse whenever the source changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger; reparse() reads it from the store.
   useEffect(() => {
     reparse()
   }, [source, reparse])
@@ -352,6 +353,7 @@ export const App = () => {
   }, [selectedNodeIds, selectedAreaIds, selectedEdgeIds, parseResult, activeTab, layoutText])
 
   // Reroute whenever a successful parse or layout lands.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `layout` is a trigger; reroute() reads it from the store.
   useEffect(() => {
     if (parseResult.ok) {
       void reroute()
