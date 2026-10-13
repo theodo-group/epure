@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import { json as jsonLang } from '@codemirror/lang-json'
 import { Header } from '@/editor/Header'
 import { Footer } from '@/editor/Footer'
@@ -68,6 +68,27 @@ const saveEditorVisible = (visible: boolean) => {
   } catch {
     // Storage unavailable (private mode, quota): the preference just won't stick.
   }
+}
+
+// The code/canvas split persists under `react-resizable-panels:epure:panels`.
+// The library defaults to touching `localStorage` directly, which throws where
+// storage is blocked (e.g. a sandboxed or third-party embed) — guard it the same
+// way as the keys above.
+const panelLayoutStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value)
+    } catch {
+      // Storage unavailable: the split just won't stick across reloads.
+    }
+  },
 }
 
 const fallbackLayout = (): LayoutSidecar => ({
@@ -211,6 +232,8 @@ export const App = () => {
     const raf = requestAnimationFrame(() => setFitVersion((v) => v + 1))
     return () => cancelAnimationFrame(raf)
   }, [editorVisible])
+  const { defaultLayout: panelLayout, onLayoutChanged: onPanelLayoutChanged } =
+    useDefaultLayout({ id: 'epure:panels', storage: panelLayoutStorage })
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   // The live bridge (when present) hydrates the store from disk over WebSocket;
@@ -700,8 +723,19 @@ export const App = () => {
       />
       <div className="app-body">
         {editorVisible ? (
-          <PanelGroup direction="horizontal" autoSaveId="epure:panels">
-            <Panel defaultSize={36} minSize={20} className="pane pane-editor">
+          <Group
+            orientation="horizontal"
+            defaultLayout={panelLayout}
+            onLayoutChanged={onPanelLayoutChanged}
+          >
+            {/* Sizes are strings: v4 reads bare numbers as pixels. */}
+            <Panel
+              id="editor"
+              defaultSize="36%"
+              minSize="20%"
+              className="pane pane-editor"
+              style={{ overflow: 'hidden' }}
+            >
               <EditorTabBar
                 tabs={[
                   { id: 'd2', label: `${docName}.d2` },
@@ -745,11 +779,17 @@ export const App = () => {
                 )}
               </div>
             </Panel>
-            <PanelResizeHandle className="resize-handle" />
-            <Panel defaultSize={64} minSize={30} className="pane">
+            <Separator className="resize-handle" />
+            <Panel
+              id="canvas"
+              defaultSize="64%"
+              minSize="30%"
+              className="pane"
+              style={{ overflow: 'hidden' }}
+            >
               {canvasPane}
             </Panel>
-          </PanelGroup>
+          </Group>
         ) : (
           canvasPane
         )}

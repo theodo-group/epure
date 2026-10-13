@@ -140,7 +140,7 @@ pnpm install && pnpm dev      # the editor against a fixture
 pnpm test                     # vitest
 ```
 
-Requires Node 20+. See [RELEASING.md](./RELEASING.md) for publishing and the
+Requires Node 22+. See [RELEASING.md](./RELEASING.md) for publishing and the
 Pages demo.
 
 ## License

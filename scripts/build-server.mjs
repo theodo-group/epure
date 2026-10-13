@@ -19,7 +19,7 @@ await build({
   bundle: true,
   platform: 'node',
   format: 'esm',
-  target: 'node20',
+  target: 'node22',
   // The PNG export SSR-renders the React renderer; compile its JSX.
   jsx: 'automatic',
   // Keep all installed packages external; bundle only our own source.
