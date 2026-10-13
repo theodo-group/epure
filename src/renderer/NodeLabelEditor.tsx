@@ -137,6 +137,7 @@ export const NodeLabelEditor = ({
 
   // Seed the editable once, focus it, and select all so typing replaces the
   // label (the familiar rename gesture) while formatting still works per-run.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seed strictly on mount; later prop changes must not clobber the buffer.
   useEffect(() => {
     const root = editableRef.current
     if (!root) return
@@ -156,8 +157,6 @@ export const NodeLabelEditor = ({
       sel.addRange(range)
     }
     refreshFormatState()
-    // Seed strictly on mount; later prop changes must not clobber the buffer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const commit = useCallback(() => {

@@ -32,7 +32,7 @@ import { resolvePair, type ResolvedPair, EXT } from '../server/core/pair'
 import { portForPath } from '../server/core/port'
 import { validatePair, type ValidationIssue } from '../server/core/validate'
 import { png, source } from '../server/render'
-import { startStandalone } from '../server/standalone'
+import { startStandalone, type StandaloneHandle } from '../server/standalone'
 
 // Injected at build time via esbuild --define; falls back for ts-direct runs.
 declare const __EPURE_VERSION__: string
@@ -109,7 +109,7 @@ const printReady = (
   json: boolean,
 ): void => {
   process.stdout.write(
-    json ? JSON.stringify(out) + '\n' : `epure: ready url=${out.url} reused=${out.reused}\n`,
+    json ? `${JSON.stringify(out)}\n` : `epure: ready url=${out.url} reused=${out.reused}\n`,
   )
 }
 
@@ -123,7 +123,7 @@ const serve = async (file: string, json: boolean): Promise<void> => {
   const token = randomUUID()
   const desiredPort = portForPath(realPath)
 
-  let handle
+  let handle: StandaloneHandle
   try {
     handle = await startStandalone({
       pairInput: file,
@@ -199,7 +199,7 @@ const cmdValidate = async (paths: string[]): Promise<number> => {
   for (const pair of pairs) {
     const issues = await validatePair(pair)
     total += issues.length
-    for (const issue of issues) process.stdout.write(formatIssue(issue) + '\n')
+    for (const issue of issues) process.stdout.write(`${formatIssue(issue)}\n`)
   }
   if (total === 0) log(`ok — ${pairs.length} diagram(s) valid`)
   return total === 0 ? 0 : 1
@@ -260,8 +260,8 @@ const cmdExport = async (args: string[]): Promise<number> => {
   let scale = 2
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]!
-    if (a === '-o' || a === '--out') out = args[(i += 1)]
-    else if (a === '--scale') scale = Number(args[(i += 1)]) || 2
+    if (a === '-o' || a === '--out') out = args[++i]
+    else if (a === '--scale') scale = Number(args[++i]) || 2
     else if (!a.startsWith('-') && !file) file = a
   }
   if (!file) {
@@ -300,7 +300,7 @@ const cmdExport = async (args: string[]): Promise<number> => {
   const dest = resolve(out ?? join(pair.dir, `${pair.stem}.png`))
   await writeFile(dest, result)
   // One machine-readable line on stdout so CC can grab the path to view it.
-  process.stdout.write(dest + '\n')
+  process.stdout.write(`${dest}\n`)
   log(`exported ${pair.stem} → ${dest} (fit to content, ${scale}×)`)
   return 0
 }
@@ -314,7 +314,7 @@ const cmdSource = async (args: string[]): Promise<number> => {
   let outStem: string | undefined
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i]!
-    if (a === '-o' || a === '--out') outStem = args[(i += 1)]
+    if (a === '-o' || a === '--out') outStem = args[++i]
     else if (!a.startsWith('-') && !file) file = a
   }
   if (!file) {
@@ -342,13 +342,13 @@ const cmdSource = async (args: string[]): Promise<number> => {
     await writeFile(pair.paths.d2, d2)
     if (layout !== null) await writeFile(pair.paths.layout, layout)
     // Machine-readable: the .epr.d2 path, ready to hand to `epure <file>`.
-    process.stdout.write(pair.paths.d2 + '\n')
+    process.stdout.write(`${pair.paths.d2}\n`)
     log(`recovered ${pair.stem} → ${pair.paths.d2}${layout !== null ? ` (+ layout)` : ''}`)
     return 0
   }
 
   // Otherwise print the d2 topology to stdout; note the layout's availability.
-  process.stdout.write(d2.endsWith('\n') ? d2 : d2 + '\n')
+  process.stdout.write(d2.endsWith('\n') ? d2 : `${d2}\n`)
   if (layout !== null) {
     log('(layout also embedded — pass `-o <name>` to write the full .epr.* pair)')
   }
@@ -404,7 +404,7 @@ const cmdIcons = (args: string[], json: boolean): number => {
 
   if (!query && !provider) {
     if (json) {
-      process.stdout.write(JSON.stringify(providers) + '\n')
+      process.stdout.write(`${JSON.stringify(providers)}\n`)
     } else {
       process.stdout.write(`${catalog.length} icons across ${providers.length} providers:\n\n`)
       for (const p of providers)
@@ -416,7 +416,7 @@ const cmdIcons = (args: string[], json: boolean): number => {
 
   const results = search(query, { provider, limit })
   if (json) {
-    process.stdout.write(JSON.stringify(results) + '\n')
+    process.stdout.write(`${JSON.stringify(results)}\n`)
   } else {
     if (results.length === 0) {
       process.stdout.write('no icons found\n')
@@ -444,7 +444,7 @@ const main = async (): Promise<void> => {
     process.exit(first ? 0 : 1)
   }
   if (first === '--version' || first === '-v') {
-    process.stdout.write(VERSION + '\n')
+    process.stdout.write(`${VERSION}\n`)
     process.exit(0)
   }
 

@@ -646,7 +646,7 @@ export const locateLayoutKeyRanges = (
     const keys = wanted instanceof Set ? wanted : new Set(wanted)
     if (keys.size === 0) return
     const section = sections.find((e) => e.key === name)
-    if (!section || section.value.kind !== 'object') return
+    if (section?.value.kind !== 'object') return
     for (const entry of section.value.entries) {
       if (!keys.has(entry.key)) continue
       out.push({

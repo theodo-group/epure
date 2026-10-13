@@ -102,5 +102,5 @@ export const canonicalizeLayout = (layout: LayoutSidecar): string => {
   }
 
   lines.push('}')
-  return lines.join('\n') + '\n'
+  return `${lines.join('\n')}\n`
 }

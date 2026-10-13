@@ -42,7 +42,7 @@ export const resolvePair = (input: string): ResolvedPair => {
     // Bare stem only if it carries no diagram-ish extension we don't recognise.
     if (name.includes('.epr.')) {
       throw new Error(
-        `Unrecognised diagram file "${name}". Expected one of: ` + Object.values(EXT).join(', '),
+        `Unrecognised diagram file "${name}". Expected one of: ${Object.values(EXT).join(', ')}`,
       )
     }
     stem = name

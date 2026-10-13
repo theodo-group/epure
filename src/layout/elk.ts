@@ -311,7 +311,7 @@ export const route = async (
       maxY = Math.max(maxY, r.y + r.h)
     }
     stack.delete(aid)
-    if (!isFinite(minX)) return null
+    if (!Number.isFinite(minX)) return null
     const rect: Rect = {
       x: minX - AREA_PAD,
       y: minY - AREA_PAD,

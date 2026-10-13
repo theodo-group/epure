@@ -63,6 +63,7 @@ const Popover = ({
           type="text"
           placeholder="Search icons…"
           value={query}
+          // biome-ignore lint/a11y/noAutofocus: the picker opens to type a search right away.
           autoFocus
           onChange={(e) => setQuery(e.target.value)}
         />

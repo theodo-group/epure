@@ -185,20 +185,20 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     }
 
     // Initialize view to fit content the first time we have a non-empty diagram.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: diagram/container are triggers; fitNow is rebuilt every render.
     useEffect(() => {
       if (view !== null) return
       fitNow()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [diagram, container, view])
 
     // Refit on demand whenever the parent bumps fitVersion.
     const lastFitVersion = useRef<number | undefined>(undefined)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: refit only when fitVersion bumps; fitNow is rebuilt every render.
     useEffect(() => {
       if (fitVersion === undefined) return
       if (lastFitVersion.current === fitVersion) return
       lastFitVersion.current = fitVersion
       fitNow()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fitVersion])
 
     // Space-to-pan, V/H tool hotkeys.
@@ -648,7 +648,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             </select>
           ) : null}
           {onSetTextScale ? (
-            <div className="ep-zoom-pill" aria-label="Text size">
+            // biome-ignore lint/a11y/useSemanticElements: a flex pill of buttons; <fieldset> would bring UA border and padding.
+            <div className="ep-zoom-pill" role="group" aria-label="Text size">
               <button
                 className="ep-zoom-btn"
                 title="Smaller text"

@@ -148,6 +148,7 @@ const Segmented = <T extends string>({
   // or the inherited default when nothing is set.
   const effective = value ?? defaultValue
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a flex segmented control; <fieldset> would bring UA border and padding.
     <div className="ep-seg" role="group">
       {options.map((opt) => {
         const active = opt.value === effective
@@ -468,6 +469,7 @@ export const StylePanel = () => {
     : undefined
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a floating panel; <fieldset> would bring UA border and padding.
     <div
       ref={panelRef}
       className="ep-style-panel"
@@ -475,6 +477,7 @@ export const StylePanel = () => {
       aria-label="Style"
       style={panelStyle}
     >
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer-only drag handle for moving the panel. */}
       <div className="ep-style-head ep-style-drag" onMouseDown={startDrag} title="Drag to move">
         <span>{summaryParts.join(' · ')}</span>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>

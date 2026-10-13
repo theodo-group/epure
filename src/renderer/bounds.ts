@@ -51,6 +51,6 @@ export const computeContentBounds = (
     }
   }
 
-  if (!isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 }
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 800, h: 600 }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
