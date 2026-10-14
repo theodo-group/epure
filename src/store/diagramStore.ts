@@ -5,6 +5,7 @@ import { parse } from '@/parser'
 import type {
   AreaStyleSpec,
   EdgeStyleSpec,
+  LayoutEdge,
   LayoutSidecar,
   NodeStyle,
   RoutedDiagram,
@@ -150,6 +151,9 @@ export interface DiagramActions {
    *  style it also accepts `sourceSide`/`targetSide` — pinning which node face an
    *  edge attaches to (the router honors a pinned side; `undefined` = auto). */
   setEdgeStyle: (patch: Partial<EdgeStyleSpec> & { sourceSide?: Side; targetSide?: Side }) => void
+  /** Drop every routing constraint of the selected edges — pinned faces and
+   *  `via` waypoints — so the router picks their path again. Styling stays. */
+  resetEdgeRoutes: () => void
   setAreaStyle: (patch: Partial<AreaStyleSpec>) => void
   toggleGrid: () => void
   setGridSize: (n: number) => void
@@ -540,7 +544,28 @@ export const useDiagramStore = create<DiagramStore>()(
           const edges = { ...s.layout.edges }
           for (const edgeId of s.selectedEdgeIds) {
             const key = edgeKeyOfId(edgeId)
-            edges[key] = { ...edges[key], ...patch }
+            // An `undefined` in the patch clears that field (back to auto /
+            // default); an entry left with nothing in it is dropped, so the
+            // sidecar never carries empty objects or explicit undefineds.
+            const next: Record<string, unknown> = { ...edges[key], ...patch }
+            for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k]
+            if (Object.keys(next).length === 0) delete edges[key]
+            else edges[key] = next as LayoutEdge
+          }
+          return { ...s, layout: { ...s.layout, edges } }
+        }),
+
+      resetEdgeRoutes: () =>
+        set((s) => {
+          if (s.selectedEdgeIds.length === 0) return s
+          const edges = { ...s.layout.edges }
+          for (const edgeId of s.selectedEdgeIds) {
+            const key = edgeKeyOfId(edgeId)
+            const entry = edges[key]
+            if (!entry) continue
+            const { sourceSide: _s, targetSide: _t, via: _v, ...rest } = entry
+            if (Object.keys(rest).length === 0) delete edges[key]
+            else edges[key] = rest
           }
           return { ...s, layout: { ...s.layout, edges } }
         }),
