@@ -17,20 +17,33 @@
 //
 // The first syntax error stops the parse (there is no error recovery). Input
 // left over after the last statement is reported but still yields the
-// statements parsed so far, so their semantic errors surface too.
+// statements parsed so far, so their semantic errors surface too. Error
+// wording lives in `./messages`.
 
 import type { Token, TokenKind } from './lexer'
+import {
+  expectedAttrColon,
+  expectedAttrName,
+  expectedAttrValue,
+  expectedLabel,
+  expectedStatement,
+  expectedTarget,
+  isArrow,
+  type StatementEnd,
+  unclosedBlock,
+  unexpectedAfter,
+} from './messages'
 
-export interface LabelSyntax {
-  /** The StringLit, or the run of unquoted identifiers (`api: Web App`). */
-  tokens: Token[]
-  quoted: boolean
-}
+/** One or more tokens. */
+export type Tokens = [Token, ...Token[]]
+
+/** The StringLit, or the run of unquoted identifiers (`api: Web App`). */
+export type LabelSyntax = { quoted: true; tokens: [Token] } | { quoted: false; tokens: Tokens }
 
 export interface AttrSyntax {
   kind: 'attr'
   /** Dotted path segments (`style` `.` `stroke-dash`). */
-  path: Token[]
+  path: Tokens
   value: Token
 }
 
@@ -38,6 +51,8 @@ export interface MemberSyntax {
   kind: 'member'
   id: Token
 }
+
+export type BlockItemSyntax = AttrSyntax | MemberSyntax
 
 export interface BlockSyntax<Item> {
   open: Token
@@ -49,7 +64,7 @@ export interface NodeOrAreaSyntax {
   kind: 'nodeOrArea'
   id: Token
   label?: LabelSyntax
-  block?: BlockSyntax<AttrSyntax | MemberSyntax>
+  block?: BlockSyntax<BlockItemSyntax>
 }
 
 export interface EdgeSyntax {
@@ -69,19 +84,27 @@ export interface SyntaxIssue {
   token?: Token
 }
 
-export interface ProgramSyntax {
-  /** Absent when a syntax error stopped the parse. */
-  statements?: StatementSyntax[]
-  error?: SyntaxIssue
-}
-
-const ARROWS: readonly TokenKind[] = ['ArrowRight', 'ArrowLeft', 'ArrowBoth', 'DashDash']
+export type ProgramSyntax =
+  | { kind: 'complete'; statements: StatementSyntax[] }
+  /** Input left over after the last statement: the statements before it are
+   *  whole and still build. */
+  | { kind: 'partial'; statements: StatementSyntax[]; error: SyntaxIssue }
+  /** A statement broke off midway; nothing builds. */
+  | { kind: 'failed'; error: SyntaxIssue }
 
 class Failure {
   constructor(readonly error: SyntaxIssue) {}
 }
 
-const foundImage = (token: Token | undefined): string => token?.image ?? ''
+const imageOf = (tokens: Token[]): string => tokens.map((t) => t.image).join('.')
+
+/** How a complete statement ends, which shapes the message for whatever
+ *  unexpectedly follows it on the same line. */
+const endOf = (stmt: StatementSyntax): StatementEnd => {
+  if (stmt.block) return 'other'
+  if (stmt.label) return stmt.label.quoted ? 'other' : 'unquotedLabel'
+  return stmt.kind === 'edge' ? 'edgeTarget' : 'id'
+}
 
 export function parseTokens(tokens: Token[]): ProgramSyntax {
   let pos = 0
@@ -89,27 +112,20 @@ export function parseTokens(tokens: Token[]): ProgramSyntax {
   const peek = (ahead = 0): Token | undefined => tokens[pos + ahead]
   const is = (kind: TokenKind, ahead = 0): boolean => peek(ahead)?.kind === kind
 
-  const consume = (kind: TokenKind): Token => {
+  /** Stop the parse at the next token (none at the end of input). */
+  const fail = (message: (next: Token | undefined) => string): never => {
     const token = peek()
-    if (token?.kind !== kind) {
-      throw new Failure({
-        message: `Expecting token of type --> ${kind} <-- but found --> '${foundImage(token)}' <--`,
-        token,
-      })
-    }
-    pos++
-    return token
+    throw new Failure({ message: message(token), token })
   }
 
-  /** No alternative fits the next token; each entry is one accepted kind. */
-  const noViableAlt = (kinds: TokenKind[]): Failure => {
-    const token = peek()
-    const options = kinds.map((k, i) => `  ${i + 1}. [${k}]`).join('\n')
-    return new Failure({
-      message: `Expecting: one of these possible Token sequences:\n${options}\nbut found: '${foundImage(token)}'`,
-      token,
-    })
+  /** Take the next token, which must be `kind`, or fail with `message(next)`. */
+  const consume = (kind: TokenKind, message: (next: Token | undefined) => string): Token => {
+    if (!is(kind)) fail(message)
+    return tokens[pos++]!
   }
+
+  /** Take the next token, known to be there (the caller peeked it). */
+  const take = (): Token => tokens[pos++]!
 
   const skip = (...kinds: TokenKind[]): void => {
     while (kinds.some((k) => is(k))) pos++
@@ -118,45 +134,54 @@ export function parseTokens(tokens: Token[]): ProgramSyntax {
   // labelOrValue := StringLit | Identifier+
   //
   // Unquoted labels may contain spaces (e.g. `api: Web App`), so we greedily
-  // consume consecutive identifiers up to the next structural token.
-  const labelOrValue = (): LabelSyntax => {
-    if (is('StringLit')) return { tokens: [consume('StringLit')], quoted: true }
-    if (!is('Identifier')) throw noViableAlt(['StringLit', 'Identifier'])
-    const ids = [consume('Identifier')]
-    while (is('Identifier')) ids.push(consume('Identifier'))
-    return { tokens: ids, quoted: false }
+  // consume consecutive identifiers up to the next structural token. `head`
+  // names the statement for the error message (`api`, `a -> b`).
+  const labelOrValue = (head: string): LabelSyntax => {
+    if (is('StringLit')) return { quoted: true, tokens: [take()] }
+    if (!is('Identifier')) fail((next) => expectedLabel(head, next))
+    const ids: Tokens = [take()]
+    while (is('Identifier')) ids.push(take())
+    return { quoted: false, tokens: ids }
   }
 
   // attrValue := StringLit | Identifier | NumberLit
-  const attrValue = (): Token => {
-    for (const kind of ['StringLit', 'Identifier', 'NumberLit'] as const) {
-      if (is(kind)) return consume(kind)
+  const attrValue = (path: string): Token => {
+    if (!is('StringLit') && !is('Identifier') && !is('NumberLit')) {
+      fail((next) => expectedAttrValue(path, next))
     }
-    throw noViableAlt(['StringLit', 'Identifier', 'NumberLit'])
+    return take()
   }
 
-  // attr := Identifier (Dot Identifier)* Colon attrValue
-  const attr = (): AttrSyntax => {
-    const path = [consume('Identifier')]
+  // attr := Identifier (Dot Identifier)* Colon attrValue — always entered on
+  // an Identifier.
+  const attr = (inEdgeBlock: boolean): AttrSyntax => {
+    const path: Tokens = [take()]
     while (is('Dot')) {
-      consume('Dot')
-      path.push(consume('Identifier'))
+      take()
+      path.push(consume('Identifier', (next) => expectedAttrName(imageOf(path), next)))
     }
-    consume('Colon')
-    return { kind: 'attr', path, value: attrValue() }
+    const name = imageOf(path)
+    consume('Colon', (next) => expectedAttrColon(name, next, inEdgeBlock))
+    return { kind: 'attr', path, value: attrValue(name) }
   }
 
   // `{` Newline* (item (`;` | Newline)*)* `}` — items are terminated by `;` or
-  // newline; both are optional before `}` so a trailing item works.
-  const block = <Item>(item: () => Item): BlockSyntax<Item> => {
-    const open = consume('LCurly')
+  // newline; both are optional before `}` so a trailing item works. Always
+  // entered on an LCurly. `owner` names the block for the error message.
+  const block = <Item>(
+    owner: string,
+    ownsMembers: boolean,
+    item: () => Item,
+  ): BlockSyntax<Item> => {
+    const open = take()
     skip('Newline')
     const items: Item[] = []
     while (is('Identifier')) {
       items.push(item())
       skip('Semicolon', 'Newline')
     }
-    return { open, items, close: consume('RCurly') }
+    const close = consume('RCurly', (next) => unclosedBlock(owner, ownsMembers, next))
+    return { open, items, close }
   }
 
   // blockItem := attr | memberStmt
@@ -164,39 +189,38 @@ export function parseTokens(tokens: Token[]): ProgramSyntax {
   // We distinguish on the second token: `Identifier Colon` or `Identifier Dot`
   // is an attr; `Identifier` followed by anything else (`;`, newline, `}`) is
   // a member declaration.
-  const blockItem = (): AttrSyntax | MemberSyntax =>
-    is('Colon', 1) || is('Dot', 1) ? attr() : { kind: 'member', id: consume('Identifier') }
+  const blockItem = (): BlockItemSyntax =>
+    is('Colon', 1) || is('Dot', 1) ? attr(false) : { kind: 'member', id: take() }
 
-  const optionalLabel = (): LabelSyntax | undefined => {
+  const optionalLabel = (head: string): LabelSyntax | undefined => {
     if (!is('Colon')) return undefined
-    consume('Colon')
-    return labelOrValue()
+    take()
+    return labelOrValue(head)
   }
 
   // nodeOrAreaDecl := Identifier (Colon labelOrValue)? block?
   const nodeOrAreaDecl = (): NodeOrAreaSyntax => {
-    const id = consume('Identifier')
-    const label = optionalLabel()
-    const body = is('LCurly') ? block(blockItem) : undefined
+    const id = take()
+    const label = optionalLabel(id.image)
+    const body = is('LCurly') ? block(id.image, true, blockItem) : undefined
     return { kind: 'nodeOrArea', id, label, block: body }
   }
 
   // edgeDecl := Identifier arrowOp Identifier (Colon labelOrValue)? block?
+  // Entered on `Identifier arrowOp`.
   const edgeDecl = (): EdgeSyntax => {
-    const source = consume('Identifier')
-    const arrow = consume(peek()!.kind)
-    const target = consume('Identifier')
-    const label = optionalLabel()
-    const body = is('LCurly') ? block(attr) : undefined
+    const source = take()
+    const arrow = take()
+    const target = consume('Identifier', (next) => expectedTarget(arrow, next))
+    const head = `${source.image} ${arrow.image} ${target.image}`
+    const label = optionalLabel(head)
+    const body = is('LCurly') ? block(head, false, () => attr(true)) : undefined
     return { kind: 'edge', source, arrow, target, label, block: body }
   }
 
   // statement := edgeDecl | nodeOrAreaDecl — an arrow after the first
   // identifier means an edge.
-  const statement = (): StatementSyntax => {
-    const next = peek(1)
-    return next && ARROWS.includes(next.kind) ? edgeDecl() : nodeOrAreaDecl()
-  }
+  const statement = (): StatementSyntax => (isArrow(peek(1)) ? edgeDecl() : nodeOrAreaDecl())
 
   // program := Newline* (statement Newline*)*
   try {
@@ -207,15 +231,15 @@ export function parseTokens(tokens: Token[]): ProgramSyntax {
       skip('Newline')
     }
     const rest = peek()
-    if (rest) {
-      return {
-        statements,
-        error: { message: `Redundant input, expecting EOF but found: ${rest.image}`, token: rest },
-      }
-    }
-    return { statements }
+    if (!rest) return { kind: 'complete', statements }
+    // A statement ends at a newline: `rest` either starts a line (it can't
+    // start a statement) or trails the last statement on its line.
+    const last = statements[statements.length - 1]
+    const trailing = last !== undefined && tokens[pos - 1]?.kind !== 'Newline'
+    const message = trailing ? unexpectedAfter(rest, endOf(last)) : expectedStatement(rest)
+    return { kind: 'partial', statements, error: { message, token: rest } }
   } catch (e) {
-    if (e instanceof Failure) return { error: e.error }
+    if (e instanceof Failure) return { kind: 'failed', error: e.error }
     throw e
   }
 }

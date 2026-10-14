@@ -127,51 +127,7 @@ describe('parser — areas', () => {
   })
 })
 
-describe('parser — errors', () => {
-  it('reports duplicate ids', () => {
-    const r = parse('a\na')
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(r.errors.some((e) => /Duplicate id/.test(e.message))).toBe(true)
-  })
-
-  it('reports unknown shapes', () => {
-    const r = parse('a { shape: triangle }')
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(r.errors.some((e) => /Unknown shape/.test(e.message))).toBe(true)
-  })
-
-  it('reports LITERAL nested container blocks as a syntax error', () => {
-    // A member followed by `{` would have to be a literal nested container,
-    // which the grammar forbids: members are bare identifiers only. Nesting is
-    // expressed by REFERENCE instead — declare `inner` as its own area and
-    // list its id as a member of `group`.
-    const r = parse('group: G {\n  inner: I {\n    a\n  }\n}')
-    expect(r.ok).toBe(false)
-  })
-
-  it('reports an area that lists itself as a member', () => {
-    const r = parse('a\nbox: B {\n  a\n  box\n}')
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(r.errors.some((e) => /cannot contain itself/.test(e.message))).toBe(true)
-  })
-
-  it('reports a membership cycle between areas', () => {
-    const r = parse('a\nb\nx: X {\n  a\n  y\n}\ny: Y {\n  b\n  x\n}')
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(r.errors.some((e) => /Membership cycle/.test(e.message))).toBe(true)
-  })
-
-  it('rejects dotted attribute paths longer than 2', () => {
-    const r = parse('a -> b { style.stroke.foo: 1 }')
-    expect(r.ok).toBe(false)
-    if (r.ok) return
-    expect(r.errors.some((e) => /Unsupported dotted attribute/.test(e.message))).toBe(true)
-  })
-})
+// Errors (messages and ranges) are pinned in ./errors.test.ts.
 
 describe('parser — fixture smoke test', () => {
   it('parses fixtures/system.epr.d2 cleanly', () => {

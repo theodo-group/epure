@@ -11,6 +11,8 @@
 // fields point AT its last character (inclusive), like the editor ranges built
 // from them expect.
 
+import { unexpectedCharacters } from './messages'
+
 export type TokenKind =
   | 'Newline'
   | 'ArrowBoth'
@@ -129,7 +131,7 @@ export function tokenize(source: string): { tokens: Token[]; errors: LexError[] 
       while (offset < source.length && !matchAt(source, offset))
       const length = offset - start
       errors.push({
-        message: `unexpected character: ->${source.charAt(start)}<- at offset: ${start}, skipped ${length} characters.`,
+        message: unexpectedCharacters(source.slice(start, offset)),
         offset: start,
         line,
         column,
