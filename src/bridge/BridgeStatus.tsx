@@ -20,6 +20,7 @@ const label = (state: BridgeUiState): string => {
   if (state.status === 'disconnected') return 'disconnected'
   if (state.remoteError) return `${state.filename} — disk invalid`
   if (state.invalidUnsaved) return `${state.filename} — unsaved (invalid syntax)`
+  if (state.clash) return `${state.filename} — unsaved (conflict)`
   if (state.diskChanged) return `${state.filename} — disk changed`
   if (state.flash) return `${state.filename} — reloaded from disk`
   return state.filename
@@ -27,14 +28,15 @@ const label = (state: BridgeUiState): string => {
 
 // The save cue rides alongside the filename in the calm connected state. When the
 // label is already explaining something more urgent (connecting/disconnected,
-// disk invalid/changed, just-reloaded, or unsaved-invalid syntax) it's that
-// message's job to inform — so the cue stays out of the way.
+// disk invalid/changed, just-reloaded, or unsaved-invalid syntax or conflict)
+// it's that message's job to inform — so the cue stays out of the way.
 const showSaveCue = (state: BridgeUiState): boolean =>
   state.status === 'connected' &&
   !state.remoteError &&
   !state.diskChanged &&
   !state.flash &&
-  !state.invalidUnsaved
+  !state.invalidUnsaved &&
+  !state.clash
 
 const CheckIcon = () => (
   <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden>

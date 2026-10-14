@@ -7,7 +7,16 @@ import { canonicalizeLayout } from '@/file/canonicalLayout'
 import { emptyLayout } from '@/layout/defaults'
 import type { LayoutSidecar } from '@/layout/types'
 
-import { type Doc, type HydrateAction, clashInfo, planHydrate } from './hydratePlan'
+import {
+  type Doc,
+  type HeldChange,
+  type HydrateAction,
+  type SettleAction,
+  clashInfo,
+  planHydrate,
+  planSettle,
+  withDiskChange,
+} from './hydratePlan'
 import { docKeyOf, type DocBackup } from './offlineBackup'
 import type { FileFrame } from './protocol'
 
@@ -73,7 +82,9 @@ const cell = (action: HydrateAction, local: DocBackup | null): string => {
     case 'defer':
       return `defer ${action.files.map((f) => f.kind).join('+')}`
     case 'raise-clash':
-      return action.clash.local === local && isDisk(action.clash.disk)
+      return action.clash.local === local &&
+        isDisk(action.clash.disk) &&
+        action.clash.origin === 'backup'
         ? 'raise-clash'
         : 'raise-clash ?'
     default:
@@ -169,10 +180,129 @@ describe('clashInfo', () => {
       base: null,
       savedAt: 7,
     }
-    expect(clashInfo({ local, disk })).toEqual({
+    expect(clashInfo({ local, disk, origin: 'backup', kinds: ['d2', 'layout'] })).toEqual({
+      origin: 'backup',
       localSavedAt: 7,
       local: { nodes: 2, edges: 1 },
       disk: { nodes: 1, edges: 0 },
     })
+  })
+})
+
+describe('planSettle policy', () => {
+  // The user's session started from `base` (D2 at layout(2)); a disk change to
+  // one kind was held while they were busy. Settle it against the store.
+  const BASE_D2 = D2
+  const BASE_LAYOUT = canonicalizeLayout(layout(2))
+  const DISK_D2 = `${D2}disk\n`
+  const TYPED_D2 = `${D2}typed\n`
+  const d2Change = (content: string, base: string | null = BASE_D2): HeldChange => ({
+    kind: 'd2',
+    content,
+    base,
+  })
+  const layoutChange = (cx: number, base: string | null = BASE_LAYOUT): HeldChange => ({
+    kind: 'layout',
+    content: canonicalizeLayout(layout(cx)),
+    base,
+  })
+  const settle = (held: HeldChange[], local: Doc) => planSettle({ held, local, now: 5 })
+
+  /** One action as a table cell. */
+  const cells = (actions: SettleAction[]) =>
+    actions.map((a) =>
+      a.type === 'apply'
+        ? `apply ${a.kind}`
+        : a.type === 'raise-clash'
+          ? `raise-clash ${a.clash.kinds.join('+')}`
+          : a.type,
+    )
+
+  const rows: [string, HeldChange[], Doc, string[]][] = [
+    ['untouched d2 (take-disk)', [d2Change(DISK_D2)], at(2), ['apply d2']],
+    [
+      'd2 typed to match disk (take-disk)',
+      [d2Change(DISK_D2)],
+      { ...at(2), source: DISK_D2 },
+      ['apply d2'],
+    ],
+    [
+      'disk d2 back at base (keep-local)',
+      [d2Change(BASE_D2)],
+      { ...at(2), source: TYPED_D2 },
+      ['push-local'],
+    ],
+    [
+      'both changed the d2 (clash)',
+      [d2Change(DISK_D2)],
+      { ...at(2), source: TYPED_D2 },
+      ['raise-clash d2'],
+    ],
+    [
+      'an invalid d2 buffer vs a disk change (clash)',
+      [d2Change(DISK_D2)],
+      { ...at(2), source: 'a -> ' },
+      ['raise-clash d2'],
+    ],
+    [
+      'never-synced d2 that differs (clash)',
+      [d2Change(DISK_D2, null)],
+      { ...at(2), source: TYPED_D2 },
+      ['raise-clash d2'],
+    ],
+    ['d2 changed on disk, user only dragged', [d2Change(DISK_D2)], at(8), ['apply d2']],
+    [
+      'layout changed on disk, user only typed',
+      [layoutChange(9)],
+      { ...at(2), source: TYPED_D2 },
+      ['apply layout'],
+    ],
+    ['both changed the layout (clash)', [layoutChange(9)], at(8), ['raise-clash layout']],
+    [
+      'd2 clashes, layout untouched',
+      [d2Change(DISK_D2), layoutChange(9)],
+      { ...at(2), source: TYPED_D2 },
+      ['raise-clash d2', 'apply layout'],
+    ],
+    [
+      'd2 untouched, layout back at base',
+      [d2Change(DISK_D2), layoutChange(2)],
+      at(8),
+      ['apply d2', 'push-local'],
+    ],
+  ]
+
+  it.each(rows)('%s', (_name, held, local, expected) => {
+    expect(cells(settle(held, local))).toEqual(expected)
+  })
+
+  it('applies the canonical disk contents', () => {
+    expect(settle([d2Change(DISK_D2), layoutChange(9)], at(2))).toEqual([
+      { type: 'apply', kind: 'd2', content: DISK_D2 },
+      { type: 'apply', kind: 'layout', content: canonicalizeLayout(layout(9)) },
+    ])
+  })
+
+  it('summarizes a session clash with the other kind already applied on both sides', () => {
+    const [raise] = settle([d2Change(DISK_D2), layoutChange(9)], { ...at(2), source: TYPED_D2 })
+    expect(raise).toEqual({
+      type: 'raise-clash',
+      clash: {
+        origin: 'session',
+        kinds: ['d2'],
+        local: { source: TYPED_D2, layout: layout(9), base: null, savedAt: 5 },
+        disk: { source: DISK_D2, layout: layout(9) },
+      },
+    })
+  })
+
+  it("moves a clash's disk side on when disk changes again", () => {
+    const [raise] = settle([d2Change(DISK_D2)], { ...at(2), source: TYPED_D2 })
+    if (raise?.type !== 'raise-clash') throw new Error('expected a clash')
+    const moved = withDiskChange(raise.clash, 'layout', canonicalizeLayout(layout(11)))
+    expect(moved.kinds).toEqual(['d2', 'layout'])
+    expect(moved.disk).toEqual({ source: DISK_D2, layout: layout(11) })
+    expect(moved.local).toBe(raise.clash.local)
+    expect(withDiskChange(moved, 'd2', D2).kinds).toEqual(['d2', 'layout'])
   })
 })
