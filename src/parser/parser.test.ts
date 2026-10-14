@@ -38,6 +38,12 @@ describe('parser — nodes', () => {
     expect(d.nodes[0]!.label).toBe('API Gateway')
   })
 
+  it('decodes backslash escapes in a quoted label', () => {
+    const d = expectOk(String.raw`api: "Line\nTab\tQuote\"Back\\slash\q"`)
+    expect(d.nodes[0]!.label).toBe('Line\nTab\tQuote"Back\\slashq')
+    expect(expectOk(String.raw`a: 'it\'s'`).nodes[0]!.label).toBe("it's")
+  })
+
   it('parses unquoted multi-word labels', () => {
     const d = expectOk('jobs: Job Queue')
     expect(d.nodes[0]!.label).toBe('Job Queue')

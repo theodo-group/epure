@@ -57,6 +57,24 @@ describe('offlineBackup storage', () => {
     expect(got?.base).toBe('k')
   })
 
+  it('ignores a stored backup that is corrupt or not a document', () => {
+    // A truncated write, an older format or another tool's key must not be
+    // offered as the user's work (it would load a broken document).
+    const stored = (value: unknown) =>
+      localStorage.setItem('epure:backup:v1:doc', JSON.stringify(value))
+    stored({ source: 'a', layout: { gridSize: 40, nodes: null, edges: {} } })
+    expect(readBackup('doc')).toBeNull()
+    stored({ source: 'a', layout: { nodes: {}, edges: {} } })
+    expect(readBackup('doc')).toBeNull()
+    stored({ source: 42, layout: layout(1) })
+    expect(readBackup('doc')).toBeNull()
+    localStorage.setItem('epure:backup:v1:doc', '{"source": "a", "lay')
+    expect(readBackup('doc')).toBeNull()
+    // Missing optional fields read as "no base" and "saved at the epoch".
+    stored({ source: 'a', layout: layout(1) })
+    expect(readBackup('doc')).toEqual({ source: 'a', layout: layout(1), base: null, savedAt: 0 })
+  })
+
   it('docKeyOf is stable for equal content and differs for changed layout', () => {
     expect(docKeyOf('s', layout(2))).toBe(docKeyOf('s', layout(2)))
     expect(docKeyOf('s', layout(2))).not.toBe(docKeyOf('s', layout(9)))
