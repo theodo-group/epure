@@ -67,6 +67,9 @@ const installLocalStorage = () => {
 }
 
 beforeEach(() => {
+  // Fake clock: the debounce, offline fallback, reconnect backoff and the
+  // interaction guard's quiet window all advance only when a test says so.
+  vi.useFakeTimers()
   sockets = []
   interaction._reset()
   installLocalStorage()
@@ -82,6 +85,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   delete window.__EPURE_BRIDGE__
 })
@@ -222,7 +226,7 @@ describe('useBridge', () => {
 
     // Once edits go quiet, exactly one trailing write carries the FINAL state.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 350))
+      await vi.advanceTimersByTimeAsync(350)
     })
     const applies = applyMsgs()
     expect(applies).toHaveLength(2)
@@ -240,9 +244,14 @@ describe('useBridge', () => {
     writeBackup('sys', { source: D2, layout: layoutObj(7), base: null, savedAt: 1 })
     const { result } = renderBridge()
     await connect() // socket opens, but the server never sends a hydrate
-    // Wait out the offline-fallback grace period.
+    // Within the grace period a healthy connection may still hydrate: keep waiting.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 1400))
+      await vi.advanceTimersByTimeAsync(1000)
+    })
+    expect(result.current.usingLocalCopy).toBe(false)
+    // Past it, show the browser backup rather than a blank canvas.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400)
     })
     expect(result.current.usingLocalCopy).toBe(true)
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(7)
@@ -310,7 +319,7 @@ describe('useBridge', () => {
     // Reconnect: a fresh socket opens after the backoff and re-hydrates disk
     // (still cx 2). The offline edit must be pushed now — without another edit.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 600))
+      await vi.advanceTimersByTimeAsync(600)
     })
     await act(async () => lastSocket().open())
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
@@ -370,7 +379,7 @@ describe('useBridge', () => {
     })
     // Wait out the default reconnect backoff (~400ms) for the new socket.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 600))
+      await vi.advanceTimersByTimeAsync(600)
     })
     expect(sockets.length).toBe(beforeDrop + 1)
     await act(async () => lastSocket().open())
