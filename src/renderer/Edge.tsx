@@ -21,13 +21,15 @@ interface EdgeProps {
   /** Drag the label to a new offset (grid units). Absent → label is static
    *  (e.g. the headless export). */
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
-  /** Waypoint editing. On the selected edge each waypoint is a handle: drag
-   *  it (`onMoveVia`), double-click it to remove it (`onRemoveVia`). Dragging
-   *  the edge's stroke itself inserts a waypoint where it was grabbed and
-   *  drags it (`onInsertVia`, then `onMoveVia`); a plain click only selects.
-   *  All in integer grid units. Absent → no handles (the headless export). */
+  /** Waypoint editing on the selected edge. Dragging a SEGMENT of the route
+   *  shifts it sideways (grid-snapped): its two ends become waypoints — or the
+   *  waypoints already there move — so the route keeps that lane
+   *  (`onSetVia` with the whole list). Each waypoint is a handle: drag it
+   *  (`onMoveVia`), double-click it to remove it (`onRemoveVia`). A plain
+   *  click on the stroke only selects. All in integer grid units. Absent → no
+   *  handles (the headless export). */
+  onSetVia?: (id: string, via: { x: number; y: number }[]) => void
   onMoveVia?: (id: string, index: number, x: number, y: number) => void
-  onInsertVia?: (id: string, index: number, x: number, y: number) => void
   onRemoveVia?: (id: string, index: number) => void
   /** Points where this edge passes UNDER another edge. A soft transparent gap
    *  is faded into the stroke at each, so crossings read clearly. Computed once
@@ -102,9 +104,27 @@ const arcParamOf = (points: Pt[], p: Pt): number => {
 }
 
 const HANDLE_R = 7
-// A mousedown on the stroke becomes an insert-and-drag once the pointer has
-// travelled this far (screen px); under it, it is a click that only selects.
-const INSERT_DRAG_THRESHOLD = 4
+
+// The index (1-based, like `points[i-1]→points[i]`) of the segment nearest `p`.
+const nearestSegment = (points: Pt[], p: Pt): number => {
+  let best = 1
+  let bestD = Infinity
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    const vx = b.x - a.x
+    const vy = b.y - a.y
+    const len2 = vx * vx + vy * vy
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2))
+    const d = Math.hypot(p.x - (a.x + vx * t), p.y - (a.y + vy * t))
+    if (d < bestD) {
+      bestD = d
+      best = i
+    }
+  }
+  return best
+}
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
   points.length === 0 ? '' : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
@@ -200,8 +220,8 @@ export const Edge: FC<EdgeProps> = ({
   fontFamily = 'Inter, system-ui, sans-serif',
   gridSize = 40,
   onMoveLabel,
+  onSetVia,
   onMoveVia,
-  onInsertVia,
   onRemoveVia,
   crossings,
 }) => {
@@ -249,41 +269,84 @@ export const Edge: FC<EdgeProps> = ({
     [edge.id, edge.via, gridSize, onSelect, startViaDrag],
   )
 
-  // Mousedown on the stroke: select, and if the pointer then moves, insert a
-  // waypoint at the grab point (after every waypoint the route reaches first)
-  // and drag it. The insert waits for real movement so a click stays a click.
+  // Mousedown on the stroke: select, and if the pointer then moves ACROSS the
+  // segment under it, shift that segment sideways. The segment's two ends
+  // become waypoints at the new lane (an end that already is a waypoint just
+  // moves; one that is the edge's own anchor is left alone, the route bends to
+  // reach the lane); waypoints that sat on the segment are replaced. Every
+  // move rebuilds the whole list from what was there at mousedown, so a drag
+  // that comes back to the start leaves the edge exactly as it was, and a
+  // drag along the segment (or a click) changes nothing at all.
   const handleStrokeDown = useCallback(
     (event: MouseEvent<SVGElement>) => {
       event.stopPropagation()
       onSelect?.(edge.id, event.shiftKey)
-      if (!onInsertVia || !onMoveVia || event.shiftKey) return
+      if (!onSetVia || event.shiftKey) return
       const svg = (event.target as SVGElement).ownerSVGElement
       if (!svg) return
       const grab = svgPointOf(svg, event.clientX, event.clientY)
       if (!grab) return
-      const origin = { x: event.clientX, y: event.clientY }
       const grid = gridSize || 40
+      const points = edge.points
+      if (points.length < 2) return
+      const seg = nearestSegment(points, grab)
+      const P = points[seg - 1]!
+      const Q = points[seg]!
+      const horizontal = Math.abs(P.y - Q.y) <= Math.abs(P.x - Q.x)
+      const perp = (pt: Pt) => (horizontal ? pt.y : pt.x)
+      const along = (pt: Pt) => (horizontal ? pt.x : pt.y)
+      const lo = Math.min(along(P), along(Q)) - 0.5
+      const hi = Math.max(along(P), along(Q)) + 0.5
+      const toGrid = (pt: Pt) => ({ x: Math.round(pt.x / grid), y: Math.round(pt.y / grid) })
+      const originalVia = (edge.via ?? []).map(toGrid)
+      // Waypoints off this segment are kept, split by where the segment sits
+      // along the route; the ones on it are replaced by the shifted ends.
+      const onSegment = (v: Pt) =>
+        Math.abs(perp(v) - perp(P)) < 0.5 && along(v) >= lo && along(v) <= hi
+      const tP = arcParamOf(points, P)
+      const kept = (edge.via ?? [])
+        .map((v, i) => ({ v, g: originalVia[i]! }))
+        .filter((x) => !onSegment(x.v))
+      const before = kept.filter((x) => arcParamOf(points, x.v) < tP).map((x) => x.g)
+      const after = kept.filter((x) => arcParamOf(points, x.v) >= tP).map((x) => x.g)
+      const isFirst = seg === 1
+      const isLast = seg === points.length - 1
+      const laneAt = (shiftedPerp: number): Pt[] => {
+        const at = (pt: Pt): Pt =>
+          horizontal ? { x: pt.x, y: shiftedPerp } : { x: shiftedPerp, y: pt.y }
+        const ends: Pt[] = []
+        if (!isFirst) ends.push(at(P))
+        if (!isLast) ends.push(at(Q))
+        // A single straight edge has no free end: bend it at the grab point.
+        if (ends.length === 0) ends.push(at(grab))
+        return ends.map(toGrid)
+      }
+      const basePerp = Math.round(perp(P) / grid)
+      let lastDelta = 0
+      let dragging = false
       const onPointerMove = (e: globalThis.MouseEvent) => {
-        if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < INSERT_DRAG_THRESHOLD) return
-        window.removeEventListener('mousemove', onPointerMove)
-        window.removeEventListener('mouseup', onPointerUp)
-        const gx = Math.round(grab.x / grid)
-        const gy = Math.round(grab.y / grid)
-        const t = arcParamOf(edge.points, grab)
-        const index = (edge.via ?? []).filter((v) => arcParamOf(edge.points, v) < t).length
-        onInsertVia(edge.id, index, gx, gy)
-        startViaDrag(event, index, { x: gx, y: gy })
-        // Replay this move so the new waypoint follows the pointer at once.
-        window.dispatchEvent(new globalThis.MouseEvent('mousemove', e))
+        const cur = svgPointOf(svg, e.clientX, e.clientY)
+        if (!cur) return
+        const delta = Math.round((perp(cur) - perp(grab)) / grid)
+        if (delta === lastDelta) return
+        lastDelta = delta
+        if (!dragging) {
+          dragging = true
+          beginDrag()
+        }
+        const via =
+          delta === 0 ? originalVia : [...before, ...laneAt((basePerp + delta) * grid), ...after]
+        onSetVia(edge.id, via)
       }
       const onPointerUp = () => {
+        if (dragging) endDrag()
         window.removeEventListener('mousemove', onPointerMove)
         window.removeEventListener('mouseup', onPointerUp)
       }
       window.addEventListener('mousemove', onPointerMove)
       window.addEventListener('mouseup', onPointerUp)
     },
-    [edge.id, edge.points, edge.via, gridSize, onInsertVia, onMoveVia, onSelect, startViaDrag],
+    [edge.id, edge.points, edge.via, gridSize, onSetVia, onSelect],
   )
 
   // Cumulative-from-origin label drag: capture the committed offset and the
@@ -442,7 +505,7 @@ export const Edge: FC<EdgeProps> = ({
           strokeLinecap="round"
           strokeLinejoin="round"
           pointerEvents="stroke"
-          style={{ cursor: selected && onInsertVia ? 'move' : 'pointer' }}
+          style={{ cursor: selected && onSetVia ? 'move' : 'pointer' }}
           onMouseDown={handleStrokeDown}
         />
       ) : null}

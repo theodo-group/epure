@@ -141,7 +141,7 @@ Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
   non-empty list of `{ "x": int, "y": int }` waypoints in **absolute grid units**, in order — the
   route is forced through each point and still avoids obstacles between them; use it only when the
   auto-route takes a corridor you don't want, e.g. `"via": [{ "x": 90, "y": -16 }, { "x": 10, "y": 52 }]`
-  to send an edge around the outside of the diagram; in the editor, select the edge and drag its line to bend it there, drag a waypoint to move it, double-click it to remove it). Edge geometry is auto-routed; a pinned side is
+  to send an edge around the outside of the diagram; in the editor, select the edge and drag a segment sideways to shift it, drag a corner to move it, double-click a corner to remove it). Edge geometry is auto-routed; a pinned side is
   honored as-is (it is not re-evaluated when a node moves), so prefer leaving sides unset unless the
   auto-picked face is wrong.
 - **`areas`** — keyed by area id from the `.epr.d2`. **Style only**: `borderColor`, `borderStyle`,

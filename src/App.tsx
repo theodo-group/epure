@@ -677,9 +677,7 @@ export const App = () => {
           interaction.noteActivity()
           setEdgeVia(id, via)
         }}
-        onInsertVia={(id, i, x, y) => {
-          const via = [...viaOf(id)]
-          via.splice(i, 0, { x, y })
+        onSetVia={(id, via) => {
           interaction.noteActivity()
           setEdgeVia(id, via)
         }}
