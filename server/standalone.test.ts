@@ -23,10 +23,12 @@ const nextMessage = (socket: WebSocket): Promise<ServerMsg> =>
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
-const waitFor = async (check: () => Promise<boolean>, timeout: number) => {
-  for (let waited = 0; waited < timeout; waited += 100) {
-    if (await check()) return
-    await new Promise((r) => setTimeout(r, 100))
+/** Poll until `check()` is truthy; throw if `timeout` ms pass first. */
+const waitFor = async (check: () => Promise<boolean>, timeout = 3000) => {
+  const deadline = Date.now() + timeout
+  while (!(await check())) {
+    if (Date.now() > deadline) throw new Error('waitFor: condition not met in time')
+    await new Promise((r) => setTimeout(r, 5))
   }
 }
 
@@ -43,14 +45,18 @@ describe('standalone server', () => {
     // (shipped in public/) so rendering exercises real routing, not the stub.
     await copyFile(resolve(process.cwd(), 'public/libavoid.wasm'), join(distDir, 'libavoid.wasm'))
     await writeFile(join(dir, 'sys.epr.d2'), 'a\nb\na -> b\n', 'utf8')
-    handle = await startStandalone({
+    handle = await start()
+  })
+
+  const start = (opts: { pngDebounceMs?: number } = {}) =>
+    startStandalone({
       pairInput: join(dir, 'sys.epr.d2'),
       port: 0,
       token: 'secret-token',
       distDir,
       version: '9.9.9',
+      ...opts,
     })
-  })
 
   afterEach(async () => {
     await handle.close()
@@ -105,6 +111,11 @@ describe('standalone server', () => {
   })
 
   it('writes a PNG sidecar next to the pair after a WS apply', async () => {
+    // Render as soon as an apply lands, not after the 400 ms typing-burst quiet
+    // period (which only matters to a human typing). Only here: elsewhere the
+    // default debounce means an apply's render never starts before teardown.
+    await handle.close()
+    handle = await start({ pngDebounceMs: 0 })
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
     await new Promise((r) => socket.once('open', r))
     socket.send(
@@ -132,8 +143,8 @@ describe('standalone server', () => {
     await nextMessage(socket) // applied
 
     const dest = join(dir, 'sys.png')
-    // Debounced (400ms) then rasterized.
-    await waitFor(async () => (await readFile(dest).catch(() => null)) !== null, 6000)
+    // Rendered off the apply path — poll for the finished file.
+    await waitFor(async () => (await readFile(dest).catch(() => null)) !== null)
     const first = await readFile(dest)
     expect(first.subarray(0, 8)).toEqual(PNG_MAGIC)
 
@@ -149,10 +160,10 @@ describe('standalone server', () => {
       }),
     )
     await nextMessage(socket) // applied
-    await waitFor(async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime, 6000)
+    await waitFor(async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime)
     expect((await stat(dest)).mtimeMs).not.toBe(firstMtime)
     socket.close()
-  }, 12000)
+  })
 
   it('rejects a WS hello with the wrong token', async () => {
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
