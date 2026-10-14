@@ -1,5 +1,5 @@
 // Cross-file validation for a diagram pair, used by `epure validate`. Goes
-// beyond the per-file checks the bridge runs (`verdictFor`): it also confirms
+// beyond the per-file checks the bridge runs (`contentVerdict`): it also confirms
 // the layout's keys actually reference real `.d2` nodes/edges/areas, catching
 // the most common drift after a hand-edit (a node renamed in the d2 but not the
 // layout, or vice-versa).
@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises'
 
 import { parse } from '../../src/parser'
 import { validateLayoutJson } from '../../src/file/layoutSchema'
+import { edgeKey } from '../../src/layout/ids'
 
 import type { ResolvedPair } from './pair'
 
@@ -46,7 +47,7 @@ export const validatePair = async (pair: ResolvedPair): Promise<ValidationIssue[
     if (result.ok) {
       d2Ok = true
       for (const n of result.diagram.nodes) nodeIds.add(n.id)
-      for (const e of result.diagram.edges) edgeKeys.add(`${e.source}->${e.target}`)
+      for (const e of result.diagram.edges) edgeKeys.add(edgeKey(e.source, e.target))
       for (const a of result.diagram.areas) areaIds.add(a.id)
       // Area members must name a real node or area (nested containers are
       // by-reference, so either kind is legal). A dangling member is silently

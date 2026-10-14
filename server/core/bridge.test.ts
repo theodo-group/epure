@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { canonicalizeLayout } from '@/file/canonicalLayout'
 
 import { BridgeCore, InvalidApplyError } from './bridge'
-import { verdictFor } from './frames'
+import { contentVerdict } from '../../src/bridge/sync'
 import { resolvePair } from './pair'
 import { portForPath } from './port'
 import type { FileChangedMsg } from './protocol'
@@ -44,20 +44,20 @@ describe('portForPath', () => {
 
 describe('echo content keys', () => {
   it('treats reformatted layout as the same key but a real edit as different', () => {
-    const a = verdictFor('layout', LAYOUT_MESSY).key
+    const a = contentVerdict('layout', LAYOUT_MESSY).key
     const reformatted = canonicalizeLayout({
       gridSize: 40,
       nodes: { a: { cx: 1, cy: 2, w: 4, h: 2 }, b: { cx: 7, cy: 2, w: 4, h: 2 } },
       edges: {},
     })
-    expect(verdictFor('layout', reformatted).key).toBe(a)
+    expect(contentVerdict('layout', reformatted).key).toBe(a)
     const moved = LAYOUT_MESSY.replace('"cx":1', '"cx":3')
-    expect(verdictFor('layout', moved).key).not.toBe(a)
+    expect(contentVerdict('layout', moved).key).not.toBe(a)
   })
 
   it('keys d2 by raw bytes', () => {
-    expect(verdictFor('d2', D2).key).toBe(D2)
-    expect(verdictFor('d2', `${D2}\n`).key).not.toBe(D2)
+    expect(contentVerdict('d2', D2).key).toBe(D2)
+    expect(contentVerdict('d2', `${D2}\n`).key).not.toBe(D2)
   })
 })
 
@@ -91,7 +91,7 @@ describe('BridgeCore', () => {
     // Layout landed in canonical form, not the messy input bytes.
     expect(onDiskLayout).not.toBe(LAYOUT_MESSY)
     expect(onDiskLayout.endsWith('}\n')).toBe(true)
-    expect(verdictFor('layout', onDiskLayout).valid).toBe(true)
+    expect(contentVerdict('layout', onDiskLayout).valid).toBe(true)
   })
 
   it('rejects an invalid layout without touching disk', async () => {
@@ -112,7 +112,7 @@ describe('BridgeCore', () => {
   })
 
   it('suppresses echoes of a keystroke storm, not just the latest write', async () => {
-    // Regression: the client writes on every keystroke, so typing a label is a
+    // Regression: typing a label sends a stream of writes, so it is a
     // burst of applyInbound calls. chokidar's awaitWriteFinish coalesces those
     // writes on its side and can surface an EARLIER write's content as an event
     // after our recorded key has moved on. Remembering only the last key let

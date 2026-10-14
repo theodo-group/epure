@@ -6,12 +6,10 @@ import { parse } from '../../src/parser'
 import { validateLayoutJson } from '../../src/file/layoutSchema'
 import { route } from '../../src/layout/elk'
 import { normalizeForRoute } from '../../src/layout/normalize'
-import { makeEdgeId } from '../../src/layout/elk'
-import type { LayoutSidecar } from '../../src/layout/types'
+import { emptyLayout } from '../../src/layout/defaults'
+import { makeEdgeId } from '../../src/layout/ids'
 import type { EdgeMeta, NodeMeta } from '../../src/renderer/Canvas'
 import type { DiagramModel } from '../../src/renderer/Diagram'
-
-const fallbackLayout = (): LayoutSidecar => ({ gridSize: 40, nodes: {}, edges: {} })
 
 /**
  * Parse + route a pair into a drawable DiagramModel. Returns `{ error }` when
@@ -33,9 +31,7 @@ export const model = async (
   }
 
   const layout =
-    layoutText !== null
-      ? (validateLayoutJson(layoutText).value ?? fallbackLayout())
-      : fallbackLayout()
+    layoutText !== null ? (validateLayoutJson(layoutText).value ?? emptyLayout()) : emptyLayout()
 
   const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
 

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useDiagramStore } from '@/store/diagramStore'
+import { emptyLayout } from '@/layout/defaults'
 import type { LayoutSidecar } from '@/layout/types'
 import { validateLayoutJson } from '@/file/layoutSchema'
 
@@ -86,11 +87,9 @@ const OUTBOUND_DEBOUNCE_MS = 250
 // that a healthy connection hydrates first (no flash of the local copy).
 const OFFLINE_FALLBACK_MS = 1200
 
-const fallbackLayout = (): LayoutSidecar => ({ gridSize: 40, nodes: {}, edges: {} })
-
 const layoutFromFrame = (content: string | null): LayoutSidecar => {
-  if (content === null) return fallbackLayout()
-  return validateLayoutJson(content).value ?? fallbackLayout()
+  if (content === null) return emptyLayout()
+  return validateLayoutJson(content).value ?? emptyLayout()
 }
 
 export const useBridge = (): BridgeUiState => {

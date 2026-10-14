@@ -15,7 +15,8 @@ import { validateLayoutJson } from '../../src/file/layoutSchema'
 import { setLibavoidWasmPath } from '../../src/layout/elk'
 import { png as renderPng } from '../render'
 
-import { readFrame, verdictFor } from './frames'
+import { contentVerdict } from '../../src/bridge/sync'
+import { readFrame } from './frames'
 import type { ResolvedPair } from './pair'
 import {
   FILE_KINDS,
@@ -50,13 +51,15 @@ export interface BridgeCoreOptions {
 }
 
 // How many recent self-write keys to remember per kind for echo suppression.
-// The client writes on every keystroke, so a burst is many writes; this only has
-// to outlast the watcher's coalescing + read latency, not a whole session.
+// The client sends on both edges of every editing burst (useBridge's
+// OUTBOUND_DEBOUNCE_MS), so steady typing with short pauses is still a stream of
+// writes; this only has to outlast the watcher's coalescing + read latency, not
+// a whole session.
 const ECHO_HISTORY = 64
 
-// Coalesce a keystroke burst (the client applies on every keystroke) into a
-// single PNG render: long enough to outlast a typing burst, short enough that
-// the image feels live once editing settles.
+// Coalesce a typing burst (a stream of client writes) into a single PNG render:
+// long enough to outlast a typing burst, short enough that the image feels live
+// once editing settles.
 const PNG_DEBOUNCE_MS = 400
 
 // Server-side rendering routes through libavoid's wasm. When the wasm can't
@@ -95,7 +98,7 @@ export class BridgeCore {
   /** Content-keys we've written per kind, oldest→newest (capped at
    *  ECHO_HISTORY). An incoming watch event whose key matches ANY of these is
    *  our own write and is dropped. Remembering only the *latest* write is not
-   *  enough: the client writes on every keystroke, chokidar coalesces those
+   *  enough: typing sends a stream of writes, chokidar coalesces those
    *  writes on its side, and an `awaitWriteFinish` event can surface an EARLIER
    *  write's content (read async, after `applyInbound` has already recorded a
    *  newer key). Matching just the newest key lets that stale self-write look
@@ -188,7 +191,7 @@ export class BridgeCore {
     // Echo suppression: compare the *semantic* key, not raw bytes, so layout
     // formatting differences don't masquerade as a change.
     if (frame.valid && frame.content !== null) {
-      const key = verdictFor(kind, frame.content).key
+      const key = contentVerdict(kind, frame.content).key
       if (key !== null && this.isOwnEcho(kind, key)) return
     }
 
@@ -219,7 +222,7 @@ export class BridgeCore {
     // 2. Record echo keys *before* writing so the watch events they trigger are
     //    already recognised as ours by the time they arrive.
     for (const p of planned) {
-      const key = verdictFor(p.kind, p.bytes).key
+      const key = contentVerdict(p.kind, p.bytes).key
       if (key !== null) this.recordWrite(p.kind, key)
     }
 
@@ -303,7 +306,7 @@ export class BridgeCore {
       }
       return canonicalizeLayout(result.value)
     }
-    const v = verdictFor(kind, content)
+    const v = contentVerdict(kind, content)
     if (!v.valid) throw new InvalidApplyError(kind, v.error)
     return content
   }

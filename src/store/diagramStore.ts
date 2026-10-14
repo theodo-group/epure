@@ -10,13 +10,14 @@ import type {
   RoutedDiagram,
   Side,
 } from '@/layout/types'
-import { invalidateFaceCache, makeEdgeId, route } from '@/layout/elk'
+import { invalidateFaceCache, route } from '@/layout/elk'
+import { DEFAULT_NODE_H, DEFAULT_NODE_W, emptyLayout } from '@/layout/defaults'
+import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
 import { normalizeForRoute } from '@/layout/normalize'
 import { TEXT_SCALE_MAX, TEXT_SCALE_MIN } from '@/file/layoutSchema'
 
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
 // `source->target` (shared across parallel edges), so strip the ordinal.
-const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0]!
 
 // Mint the first free machine id `n{k}` (n1, n2, …) not taken by any node, area,
 // or edge endpoint. Ids created from the canvas are deliberately meaningless
@@ -168,11 +169,7 @@ export interface DiagramActions {
 export type DiagramStore = DiagramState & DiagramActions
 
 const initialSource = ''
-const initialLayout: LayoutSidecar = {
-  gridSize: 40,
-  nodes: {},
-  edges: {},
-}
+const initialLayout: LayoutSidecar = emptyLayout()
 const initialParse: ParseResult = { ok: false, errors: [] }
 
 // Undo-burst coalescing state, hoisted out of `handleSet` so the bridge's
@@ -246,7 +243,9 @@ export const useDiagramStore = create<DiagramStore>()(
           const cx = Math.round(x / grid)
           const cy = Math.round(y / grid)
           const existing = s.layout.nodes[id]
-          const nextNode = existing ? { ...existing, cx, cy } : { cx, cy, w: 4, h: 2 }
+          const nextNode = existing
+            ? { ...existing, cx, cy }
+            : { cx, cy, w: DEFAULT_NODE_W, h: DEFAULT_NODE_H }
           return {
             ...s,
             layout: { ...s.layout, nodes: { ...s.layout.nodes, [id]: nextNode } },
@@ -261,7 +260,9 @@ export const useDiagramStore = create<DiagramStore>()(
             // Upsert: move an existing node (keeping its size), or materialize a
             // not-yet-pinned member at the size it was drawn (falling back to the
             // canonical default, matching `moveNode`).
-            nextNodes[id] = ex ? { ...ex, cx, cy } : { cx, cy, w: w ?? 4, h: h ?? 2 }
+            nextNodes[id] = ex
+              ? { ...ex, cx, cy }
+              : { cx, cy, w: w ?? DEFAULT_NODE_W, h: h ?? DEFAULT_NODE_H }
           }
           return {
             ...s,
@@ -336,7 +337,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       setEdgeLabelOffset: (edgeId, labelDx, labelDy) =>
         set((s) => {
-          const key = edgeStyleKey(edgeId)
+          const key = edgeKeyOfId(edgeId)
           const edges = { ...s.layout.edges }
           const next = { ...edges[key] }
           // Drop each axis when it returns to 0 (and the whole entry if it ends
@@ -389,10 +390,10 @@ export const useDiagramStore = create<DiagramStore>()(
           // Edge styles are keyed by source->target (shared across parallel
           // edges), so selecting one edge selects every sibling that shares its
           // style key — what you select then matches what a style edit writes.
-          const key = edgeStyleKey(id)
+          const key = edgeKeyOfId(id)
           const siblings = (s.routed?.edges ?? [])
             .map((e) => e.id)
-            .filter((eid) => edgeStyleKey(eid) === key)
+            .filter((eid) => edgeKeyOfId(eid) === key)
           const group = siblings.length > 0 ? siblings : [id]
           if (!additive)
             return { ...s, selectedNodeIds: [], selectedAreaIds: [], selectedEdgeIds: group }
@@ -436,7 +437,7 @@ export const useDiagramStore = create<DiagramStore>()(
           const delAreas = new Set(s.selectedAreaIds)
           // Selection holds routed edge ids (`src->tgt#i`); the .d2 and the style
           // sidecar both key on `src->tgt`, so collapse to that shared key.
-          const delEdgeKeys = new Set(s.selectedEdgeIds.map(edgeStyleKey))
+          const delEdgeKeys = new Set(s.selectedEdgeIds.map(edgeKeyOfId))
           if (delNodes.size === 0 && delAreas.size === 0 && delEdgeKeys.size === 0) return s
 
           const { diagram } = s.parseResult
@@ -452,7 +453,7 @@ export const useDiagramStore = create<DiagramStore>()(
           // so the style sidecar is cleaned to match.
           const removedEdgeKeys = new Set<string>()
           for (const e of diagram.edges) {
-            const key = `${e.source}->${e.target}`
+            const key = edgeKey(e.source, e.target)
             if (delEdgeKeys.has(key) || delNodes.has(e.source) || delNodes.has(e.target)) {
               cut(e.range)
               removedEdgeKeys.add(key)
@@ -510,7 +511,7 @@ export const useDiagramStore = create<DiagramStore>()(
           if (s.selectedEdgeIds.length === 0) return s
           const edges = { ...s.layout.edges }
           for (const edgeId of s.selectedEdgeIds) {
-            const key = edgeStyleKey(edgeId)
+            const key = edgeKeyOfId(edgeId)
             edges[key] = { ...edges[key], ...patch }
           }
           return { ...s, layout: { ...s.layout, edges } }

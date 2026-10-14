@@ -34,6 +34,8 @@ import { layoutToText } from '@/bridge/sync'
 import { computeContentBounds } from '@/renderer/bounds'
 import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { buildAreaTree } from '@/layout/areaTree'
+import { emptyLayout } from '@/layout/defaults'
+import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
 import { normalizeForRoute } from '@/layout/normalize'
 import { useBridge } from '@/bridge/useBridge'
 import { ClashDialog } from '@/bridge/ClashDialog'
@@ -70,18 +72,12 @@ const saveEditorVisible = (visible: boolean) => {
   }
 }
 
-const fallbackLayout = (): LayoutSidecar => ({
-  gridSize: 40,
-  nodes: {},
-  edges: {},
-})
-
 const parseFixtureLayout = (raw: string): LayoutSidecar => {
   try {
     return JSON.parse(raw) as LayoutSidecar
   } catch (err) {
     console.warn('Failed to parse fixture layout', err)
-    return fallbackLayout()
+    return emptyLayout()
   }
 }
 
@@ -315,7 +311,7 @@ export const App = () => {
     if (activeTab === 'layout') {
       // Strip the `#index` ordinal so selected siblings collapse onto their
       // shared style key. Areas/nodes match their layout keys directly.
-      const edgeKeys = selectedEdgeIds.map((id) => id.split('#')[0]!)
+      const edgeKeys = selectedEdgeIds.map(edgeKeyOfId)
       handle.highlightRanges(
         locateLayoutKeyRanges(layoutText, {
           nodes: selectedNodeIds,
@@ -367,7 +363,7 @@ export const App = () => {
         n[node.id] = { shape: node.shape, label: node.label }
       }
       parseResult.diagram.edges.forEach((edge, i) => {
-        const id = `${edge.source}->${edge.target}#${i}`
+        const id = makeEdgeId(edge.source, edge.target, i)
         e[id] = { label: edge.label, style: edge.style, marker: edge.direction }
       })
     }
@@ -519,7 +515,7 @@ export const App = () => {
       const { source: src, parseResult: parsed, selectedNodeIds: sel } = useDiagramStore.getState()
       if (!parsed.ok || sel.length < 2) return
       const nodeIds = new Set(parsed.diagram.nodes.map((n) => n.id))
-      const seen = new Set(parsed.diagram.edges.map((e) => `${e.source}->${e.target}`))
+      const seen = new Set(parsed.diagram.edges.map((e) => edgeKey(e.source, e.target)))
       const lines: string[] = []
       for (let i = 0; i < sel.length - 1; i += 1) {
         const a = sel[i]!
@@ -528,7 +524,7 @@ export const App = () => {
         const to = reverse ? a : b
         if (from === to) continue
         if (!nodeIds.has(from) || !nodeIds.has(to)) continue
-        const key = `${from}->${to}`
+        const key = edgeKey(from, to)
         if (seen.has(key)) continue
         seen.add(key)
         lines.push(`${from} -> ${to}`)

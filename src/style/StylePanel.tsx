@@ -1,7 +1,7 @@
 import { useCallback, useRef, type MouseEvent, type ReactNode } from 'react'
 
 import { SHAPE_NAMES, type EdgeDirection, type ShapeName } from '@/parser/ast'
-import { makeEdgeId } from '@/layout/elk'
+import { edgeKeyOfId, makeEdgeId } from '@/layout/ids'
 import type { Side } from '@/layout/types'
 import { useDiagramStore } from '@/store/diagramStore'
 import { IconControl } from './IconPicker'
@@ -38,8 +38,6 @@ const common = <T,>(values: (T | undefined)[]): T | undefined => {
   const first = values[0]
   return values.every((v) => v === first) ? first : undefined
 }
-
-const edgeStyleKey = (edgeId: string) => edgeId.split('#')[0] ?? edgeId
 
 // The cap a given edge end shows when no explicit cap is stored — derived from
 // the parsed edge direction, matching the renderer's defaults.
@@ -423,7 +421,7 @@ export const StylePanel = () => {
   const nodeStyles = selectedNodeIds
     .map((id) => layout.nodes[id])
     .filter((n): n is NonNullable<typeof n> => Boolean(n))
-  const edgeStyles = selectedEdgeIds.map((id) => layout.edges[edgeStyleKey(id)] ?? {})
+  const edgeStyles = selectedEdgeIds.map((id) => layout.edges[edgeKeyOfId(id)] ?? {})
   const areaStyles = selectedAreaIds.map((id) => layout.areas?.[id] ?? {})
 
   // Effective default caps come from the parsed edge direction, so a default
