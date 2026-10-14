@@ -1,4 +1,3 @@
-// @vitest-environment node
 // The hydrate policy as a pure function: no DOM, no timers, no socket.
 
 import { describe, expect, it } from 'vitest'

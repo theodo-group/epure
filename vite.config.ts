@@ -23,7 +23,10 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    // Node by default: only the handful of files that touch the DOM opt into
+    // jsdom with a `// @vitest-environment jsdom` pragma on their first line
+    // (spinning jsdom up for every file was over half the suite's CPU).
+    environment: 'node',
     globals: true,
     css: false,
     setupFiles: ['./tests/setup.ts'],

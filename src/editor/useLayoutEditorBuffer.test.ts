@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // The layout JSON editor buffer is a second representation of `store.layout`.
 // These cover the load-bearing invariant: valid edits flow to the store, but a
 // store-side change (a node drag, a remote write) must never silently discard an
