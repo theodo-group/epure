@@ -25,10 +25,11 @@ import { type EdgeMeta, type FaceCache, guessFaces, settleFaces } from './faces'
 import { nodeRects, type Pt, type Rect } from './geometry'
 import { edgeKey } from './ids'
 import { labelAnchorFor } from './labels'
-import { libavoidScene, routeWithAnchors } from './libavoidGraph'
+import { libavoidScene, routeWithAnchors, shapeBuffer } from './libavoidGraph'
 import { refinePortSwaps } from './refine'
 import { adoptLibavoidRoute } from './snap'
 import { buildOrthogonalPath, resolveSegmentOverlaps, stubRoutes } from './synthetic'
+import { chipReach, unshadowFaces } from './titleShadow'
 import type { EdgeRoute, LayoutSidecar, NodeLayout, RoutedDiagram } from './types'
 
 export { setLibavoidWasmPath } from './libavoidGraph'
@@ -73,9 +74,16 @@ export const route = async (
 
   await settleFaces(scene, quick, opts.faceCache)
 
+  // Keep edge ends out from under title chips, which libavoid can't detour
+  // around from that close (see titleShadow.ts): a face a chip fully shadows
+  // gives way to a side face, and ports avoid partial shadows.
+  const chips = areas.titleObstacles.map((t) => t.rect)
+  const reach = chipReach(shapeBuffer(gridSize))
+  for (const [id, m] of unshadowFaces(edgeMeta, nodes, chips, reach)) edgeMeta.set(id, m)
+
   // Distributed, fan-ordered anchor positions per edge. Computed BEFORE routing
   // so each edge can be given its OWN libavoid port at its anchor.
-  const anchors = computeEdgeAnchors(edgeIds, edgeMeta, nodes, areas.areaObstacles)
+  const anchors = computeEdgeAnchors(edgeIds, edgeMeta, nodes, areas.areaObstacles, chips, reach)
 
   // Whether libavoid actually ran. When it did, its routed polyline already
   // avoids every obstacle, so we use it directly; only the no-wasm fallback
