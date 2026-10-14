@@ -1,5 +1,3 @@
-// @vitest-environment node
-//
 // Every error the parser reports, pinned to its exact message and range.
 //
 // Each row is `[source, ...errors]`, an error being `message @ range` with the

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // Integration test for the React glue: hydrate → store, fileChanged → store via
 // the paused chokepoint, and the interaction guard deferring inbound applies.
 

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // The floating style panel exposes source/target face buttons for a selected
 // edge; clicking one must pin that side in the layout sidecar (the router then
 // honors it), and re-clicking clears back to auto.
