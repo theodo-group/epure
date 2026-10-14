@@ -18,6 +18,7 @@ import {
   type Pt,
   type Rect,
 } from './geometry'
+import { faceUsableRange } from './titleShadow'
 import type { Side } from './types'
 
 export interface EdgeRoutingHints {
@@ -126,7 +127,22 @@ export const computeEdgeAnchors = (
   edgeMeta: Map<string, EdgeMeta>,
   nodes: Record<string, Rect>,
   areaObstacles: AreaObstacle[] = [],
+  // Title chips and how close one must be to a face to cast a shadow on it
+  // (see titleShadow.ts): ports are kept out of those shadows.
+  chips: Rect[] = [],
+  chipReach = 0,
 ): Map<string, EdgeRoutingHints> => {
+  // A face's port range, minus any chip shadow (the whole face when none).
+  const portRange = (node: Rect, side: Side): [number, number] =>
+    faceUsableRange(node, side, chips, chipReach) ?? faceRange(node, side)
+  // A single edge's port: the face centre, unless a chip shadows it — then the
+  // middle of the face's unshadowed part.
+  const singlePort = (node: Rect, side: Side): number => {
+    const centre = isHorizontalSide(side) ? node.y + node.h / 2 : node.x + node.w / 2
+    const [lo, hi] = portRange(node, side)
+    return centre >= lo && centre <= hi ? centre : (lo + hi) / 2
+  }
+
   // Group edges by face (nodeId:side)
   const faceGroups = new Map<string, Array<{ edgeId: string; connectedId: string }>>()
 
@@ -157,7 +173,7 @@ export const computeEdgeAnchors = (
     const fanSide = sideStr as Side
     const fanNode = nodes[nodeId!]!
     const horiz = isHorizontalSide(fanSide)
-    const [lo, hi] = faceRange(fanNode, fanSide)
+    const [lo, hi] = portRange(fanNode, fanSide)
     const n = group.length
 
     const fanCenter: Pt = {
@@ -253,16 +269,16 @@ export const computeEdgeAnchors = (
       tgtPerp = distributed.get(`${eid}:${m.target}`)!
     } else if (srcMulti) {
       srcPerp = distributed.get(`${eid}:${m.source}`)!
-      tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
+      tgtPerp = singlePort(tgt, m.targetSide)
     } else if (tgtMulti) {
       tgtPerp = distributed.get(`${eid}:${m.target}`)!
-      srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
+      srcPerp = singlePort(src, m.sourceSide)
     } else {
-      // Both single-edge: always exit/enter at face centers. If centers
-      // happen to be equal it's a straight line; otherwise buildOrthogonalPath
-      // inserts a Z-bend.
-      srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
-      tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
+      // Both single-edge: exit/enter at face centers (out of any chip shadow).
+      // If centers happen to be equal it's a straight line; otherwise
+      // buildOrthogonalPath inserts a Z-bend.
+      srcPerp = singlePort(src, m.sourceSide)
+      tgtPerp = singlePort(tgt, m.targetSide)
     }
 
     // A multi-edge face already placed an aligned member's port on the other

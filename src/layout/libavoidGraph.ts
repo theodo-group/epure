@@ -47,9 +47,12 @@ export const initLibavoid = () => init(wasmLocator)
 // (default 10) discourages extra bends. `idealNudgingDistance` is set to a full
 // grid cell so parallel runs sit a cell apart (matching Épure's hand-tuned
 // look), and `shapeBufferDistance` to half a cell so detours clear obstacles.
+/** How far libavoid keeps routes off every shape, in pixels. */
+export const shapeBuffer = (gridSize: number): number => Math.max(8, gridSize / 2)
+
 export const routeOptions = (gridSize: number): LibavoidRoutingOptions => ({
   routingType: 'orthogonal',
-  shapeBufferDistance: Math.max(8, gridSize / 2),
+  shapeBufferDistance: shapeBuffer(gridSize),
   idealNudgingDistance: gridSize,
   segmentPenalty: 10,
   // A crossing costs ~10 extra segments (segmentPenalty 10) — enough to detour
