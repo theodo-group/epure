@@ -13,6 +13,7 @@ import type {
 import { FaceCache, route } from '@/layout/elk'
 import { DEFAULT_NODE_H, DEFAULT_NODE_W, emptyLayout } from '@/layout/defaults'
 import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
+import { labelAnchorFor } from '@/layout/labels'
 import { normalizeForRoute } from '@/layout/normalize'
 import { TEXT_SCALE_MAX, TEXT_SCALE_MIN } from '@/file/layoutSchema'
 
@@ -204,6 +205,13 @@ export const flushBurst = (): void => {
 // (see FaceCache), so no action has to remember to invalidate it.
 // The headless export calls route() directly (always full), so committed/exported
 // geometry is unaffected by this interactive path.
+//
+// A LABEL-ONLY edit (dragging an edge's label: labelDx/labelDy and nothing
+// else) never changes the geometry, so it is not routed at all: the published
+// routes keep their points and only their label anchors are recomputed, with
+// the same function `route()` uses. Routing it would be worse than wasteful —
+// the quick pass is areas-blind and skips the port swaps, so the edge would
+// visibly jump to a cruder route under the pointer and snap back 200 ms later.
 const FULL_ROUTE_DELAY_MS = 200
 const rerouteState: {
   inFlight: boolean
@@ -211,12 +219,57 @@ const rerouteState: {
   pendingFull: boolean
   fullTimer: ReturnType<typeof setTimeout> | undefined
   faces: FaceCache
+  /** What the published `routed` was computed from (diagram + the store's
+   *  layout, pre-normalization); lets a label-only edit skip routing. */
+  routedFrom: { diagram: Diagram; layout: LayoutSidecar } | undefined
 } = {
   inFlight: false,
   pendingQuick: false,
   pendingFull: false,
   fullTimer: undefined,
   faces: new FaceCache(),
+  routedFrom: undefined,
+}
+
+const LABEL_FIELDS = new Set(['labelDx', 'labelDy'])
+
+// True when `next` differs from `prev` only in edge label offsets (if at all):
+// same grid, same node map and areas by reference (every store action that
+// touches them rebuilds the map), and every edge entry equal field by field
+// but for labelDx/labelDy. A missing entry counts as empty.
+const isLabelOnlyChange = (next: LayoutSidecar, prev: LayoutSidecar): boolean => {
+  if (next === prev) return true
+  if (next.gridSize !== prev.gridSize || next.textScale !== prev.textScale) return false
+  if (next.nodes !== prev.nodes || next.areas !== prev.areas) return false
+  const keys = new Set([...Object.keys(next.edges), ...Object.keys(prev.edges)])
+  for (const key of keys) {
+    const a = (next.edges[key] ?? {}) as Record<string, unknown>
+    const b = (prev.edges[key] ?? {}) as Record<string, unknown>
+    for (const f of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (LABEL_FIELDS.has(f)) continue
+      if (a[f] !== b[f]) return false
+    }
+  }
+  return true
+}
+
+// The published routes with their label anchors recomputed for `layout` —
+// the same `labelAnchorFor` a route would apply, on the same points.
+const relabel = (routed: RoutedDiagram, layout: LayoutSidecar): RoutedDiagram => {
+  const rects: Record<string, { x: number; y: number; w: number; h: number }> = {}
+  for (const n of routed.nodes) rects[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h }
+  return {
+    ...routed,
+    edges: routed.edges.map((e) => {
+      const spec = layout.edges[edgeKeyOfId(e.id)]
+      return {
+        ...e,
+        labelAnchor: labelAnchorFor(e.points, rects, spec, layout.gridSize),
+        labelDx: spec?.labelDx,
+        labelDy: spec?.labelDy,
+      }
+    }),
+  }
 }
 
 export const useDiagramStore = create<DiagramStore>()(
@@ -589,6 +642,21 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       reroute: async () => {
+        {
+          const { parseResult, layout, routed } = get()
+          const last = rerouteState.routedFrom
+          if (
+            routed &&
+            last &&
+            parseResult.ok &&
+            last.diagram === parseResult.diagram &&
+            isLabelOnlyChange(layout, last.layout)
+          ) {
+            rerouteState.routedFrom = { diagram: parseResult.diagram, layout }
+            set((s) => ({ ...s, routed: relabel(routed, layout) }))
+            return
+          }
+        }
         const pump = async () => {
           if (rerouteState.inFlight) return
           rerouteState.inFlight = true
@@ -616,6 +684,7 @@ export const useDiagramStore = create<DiagramStore>()(
                   normalizeForRoute(parseResult.diagram, layout),
                   { quick, faceCache: rerouteState.faces },
                 )
+                rerouteState.routedFrom = { diagram: parseResult.diagram, layout }
                 set((s) => ({ ...s, routed }))
               } catch (err) {
                 console.error('route failed', err)
