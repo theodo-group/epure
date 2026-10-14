@@ -4,13 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@mr_mint/elkjs-libavoid@0.3.0': 590f82bab5abf2984619e4bc510fb63c0d28e3ea9d79af2a643cb654e97d79d8
+
 importers:
 
   .:
     dependencies:
       '@mr_mint/elkjs-libavoid':
         specifier: ^0.3.0
-        version: 0.3.0
+        version: 0.3.0(patch_hash=590f82bab5abf2984619e4bc510fb63c0d28e3ea9d79af2a643cb654e97d79d8)
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
@@ -1696,7 +1699,7 @@ snapshots:
 
   '@marijn/find-cluster-break@1.0.4': {}
 
-  '@mr_mint/elkjs-libavoid@0.3.0':
+  '@mr_mint/elkjs-libavoid@0.3.0(patch_hash=590f82bab5abf2984619e4bc510fb63c0d28e3ea9d79af2a643cb654e97d79d8)':
     dependencies:
       libavoid-js: 0.5.0-beta.5
 

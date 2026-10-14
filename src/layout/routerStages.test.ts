@@ -9,8 +9,10 @@ import { placePorts } from './anchors'
 import { type EdgeMeta, FaceCache } from './faces'
 import type { Pt } from './geometry'
 import { labelAnchorFor } from './labels'
+import { polylinePasses } from './geometry'
 import { crossingPairs, pickPortSwaps, refinePortSwaps } from './refine'
 import { adoptLibavoidRoute, snap, snapPolylineToGrid } from './snap'
+import { buildViaPath } from './synthetic'
 import type { LayoutSidecar, Side } from './types'
 
 const meta = (
@@ -26,6 +28,7 @@ const meta = (
   targetSide,
   explicitSource: pinned.source ?? false,
   explicitTarget: pinned.target ?? false,
+  via: [],
 })
 
 const result = (points: Pt[]): RouteResult => ({
@@ -274,5 +277,76 @@ describe('face cache lineage (faces.ts)', () => {
     const cache = warmed(base())
     cache.track(base()) // equal content, but freshly parsed: open / remote write
     expect(cache.lookup('sig')).toBeUndefined()
+  })
+})
+
+describe('via waypoints (synthetic.ts / geometry.ts / snap.ts)', () => {
+  it('polylinePasses: points must lie on the path, in order', () => {
+    const poly: Pt[] = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 80 },
+      { x: 200, y: 80 },
+    ]
+    expect(
+      polylinePasses(poly, [
+        { x: 50, y: 0 },
+        { x: 100, y: 40 },
+      ]),
+    ).toBe(true)
+    expect(
+      polylinePasses(poly, [
+        { x: 100, y: 40 },
+        { x: 50, y: 0 },
+      ]),
+    ).toBe(false) // out of order
+    expect(polylinePasses(poly, [{ x: 50, y: 10 }])).toBe(false) // off the path
+    expect(polylinePasses(poly, [])).toBe(true)
+  })
+
+  it('buildViaPath threads every waypoint and keeps both ends perpendicular to their faces', () => {
+    const A: Pt = { x: 100, y: 50 } // on a's E face
+    const C: Pt = { x: 400, y: 120 } // on c's S face
+    const via: Pt[] = [
+      { x: 500, y: 50 },
+      { x: 500, y: 200 },
+    ]
+    const path = buildViaPath(A, C, 'E', 'S', via)
+    expect(polylinePasses(path, via)).toBe(true)
+    // Leaves A horizontally (E) ...
+    expect(path[1]!.y).toBe(A.y)
+    expect(path[1]!.x).toBeGreaterThan(A.x)
+    // ... and arrives at C vertically from below (S face).
+    const last = path[path.length - 1]!
+    const prev = path[path.length - 2]!
+    expect(last).toEqual(C)
+    expect(prev.x).toBe(C.x)
+    expect(prev.y).toBeGreaterThan(C.y)
+    // Orthogonal throughout.
+    for (let i = 1; i < path.length; i += 1) {
+      const a = path[i - 1]!
+      const b = path[i]!
+      expect(a.x === b.x || a.y === b.y).toBe(true)
+    }
+  })
+
+  it('adoptLibavoidRoute keeps a route only while it still passes its waypoints', () => {
+    const nodes = { a: { x: 0, y: 0, w: 160, h: 80 }, b: { x: 800, y: 0, w: 160, h: 80 } }
+    const m = { ...meta('a', 'b', 'E', 'W'), via: [{ x: 480, y: 400 }] }
+    // A route through the waypoint survives the grid snap (its legs are on grid).
+    const good = result([
+      { x: 160, y: 40 },
+      { x: 480, y: 40 },
+      { x: 480, y: 400 },
+      { x: 800, y: 400 },
+      { x: 800, y: 40 },
+    ])
+    expect(polylinePasses(adoptLibavoidRoute(good, m, 40, nodes, [])!, m.via)).toBe(true)
+    // A route that misses the waypoint is rejected (falls back to synthetic).
+    const miss = result([
+      { x: 160, y: 40 },
+      { x: 800, y: 40 },
+    ])
+    expect(adoptLibavoidRoute(miss, m, 40, nodes, [])).toBeUndefined()
   })
 })

@@ -13,7 +13,14 @@ import type { RouteResult } from '@mr_mint/elkjs-libavoid'
 
 import { type AreaObstacle, areaBlocksEdge } from './areaGeometry'
 import type { EdgeMeta } from './faces'
-import { cleanPolyline, isOrthogonalPath, type Pt, type Rect, sideFromSegment } from './geometry'
+import {
+  cleanPolyline,
+  isOrthogonalPath,
+  polylinePasses,
+  type Pt,
+  type Rect,
+  sideFromSegment,
+} from './geometry'
 import { polyOf } from './libavoidGraph'
 
 export const snap = (v: number, gridSize: number) => Math.round(v / gridSize) * gridSize
@@ -145,5 +152,13 @@ export const adoptLibavoidRoute = (
   ) {
     return undefined
   }
-  return snapPolylineToGrid(poly, gridSize, nodes, obstacles, meta.source, meta.target)
+  const snapped = snapPolylineToGrid(poly, gridSize, nodes, obstacles, meta.source, meta.target)
+  // Waypoints are mandatory: libavoid routed through them, and the grid snap
+  // may only keep the route if it still does (the points are on the grid, so
+  // it normally does — this guards the "snap declined" edge cases).
+  if (meta.via.length > 0 && !polylinePasses(snapped, meta.via)) {
+    const raw = cleanPolyline(poly)
+    return polylinePasses(raw, meta.via) ? raw : undefined
+  }
+  return snapped
 }

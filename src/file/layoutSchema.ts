@@ -314,6 +314,7 @@ const EDGE_FIELDS = new Set([
   'endCap',
   'sourceSide',
   'targetSide',
+  'via',
   'labelDx',
   'labelDy',
 ])
@@ -465,12 +466,47 @@ const validateEdge = (node: JsonNode, key: string, ctx: Ctx): void => {
         // Label nudge in grid units; integers, negative allowed.
         validateNumber(entry.value, entry.key, ctx, { integer: true })
         break
+      case 'via':
+        validateVia(entry.value, ctx)
+        break
       default:
         if (!EDGE_FIELDS.has(entry.key)) {
           push(ctx, `Unknown edge field "${entry.key}"`, entry.keyRange)
         }
     }
   }
+}
+
+// `via`: a non-empty list of `{ x, y }` waypoints in absolute grid units
+// (integers, negative allowed — the grid has no origin constraint).
+const validateVia = (node: JsonNode, ctx: Ctx): void => {
+  if (node.kind !== 'array') {
+    push(ctx, 'via must be an array of { x, y } points', node.range)
+    return
+  }
+  if (node.items.length === 0) {
+    push(ctx, 'via must list at least one point', node.range)
+    return
+  }
+  node.items.forEach((item, i) => {
+    if (item.kind !== 'object') {
+      push(ctx, `via[${i}] must be an object with "x" and "y"`, item.range)
+      return
+    }
+    const seen = new Set<string>()
+    for (const entry of item.entries) {
+      if (seen.has(entry.key)) push(ctx, `Duplicate field "${entry.key}"`, entry.keyRange)
+      seen.add(entry.key)
+      if (entry.key === 'x' || entry.key === 'y') {
+        validateNumber(entry.value, `via[${i}].${entry.key}`, ctx, { integer: true })
+      } else {
+        push(ctx, `Unknown via point field "${entry.key}"`, entry.keyRange)
+      }
+    }
+    for (const req of ['x', 'y']) {
+      if (!seen.has(req)) push(ctx, `via[${i}] is missing "${req}"`, item.range)
+    }
+  })
 }
 
 const validateArea = (node: JsonNode, key: string, ctx: Ctx): void => {

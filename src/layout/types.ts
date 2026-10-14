@@ -78,9 +78,19 @@ export interface LayoutNode extends NodeStyle {
   h: number
 }
 
+/** A point in grid units (absolute diagram coordinates). */
+export interface GridPoint {
+  x: number
+  y: number
+}
+
 export interface LayoutEdge extends EdgeStyleSpec {
   sourceSide?: Side
   targetSide?: Side
+  /** Mandatory waypoints, in order, in absolute grid units. The route passes
+   *  through each one (libavoid routing checkpoints); between them it still
+   *  avoids obstacles. Shared by every parallel edge of the same pair. */
+  via?: GridPoint[]
 }
 
 export interface LayoutSidecar {

@@ -12,7 +12,7 @@ import { routeEdges, type ElkEdge, type ElkNode } from '@mr_mint/elkjs-libavoid'
 
 import type { Diagram } from '@/parser/ast'
 
-import { type Rect, sideFromSegment } from './geometry'
+import { OPPOSITE_SIDE, type Pt, type Rect, sideFromSegment } from './geometry'
 import { edgeKey, makeEdgeId } from './ids'
 import { initLibavoid, type LibavoidScene, polyOf } from './libavoidGraph'
 import type { LayoutSidecar, Side } from './types'
@@ -29,12 +29,26 @@ export interface EdgeMeta {
   targetSide: Side
   explicitSource: boolean
   explicitTarget: boolean
+  /** The sidecar's `via` waypoints in canvas pixels, in order; empty when
+   *  the edge has none. Every libavoid call routes the edge through them. */
+  via: Pt[]
 }
+
+/** The ELK edge `properties` that make libavoid honour an edge's waypoints
+ *  (read by the patched `@mr_mint/elkjs-libavoid`, see patches/). Undefined
+ *  when the edge has none, so a plain edge is sent exactly as before. */
+export const checkpointProperties = (meta: EdgeMeta): { checkpoints: Pt[] } | undefined =>
+  meta.via.length > 0 ? { checkpoints: meta.via } : undefined
 
 type EdgeFaces = { s: Side; t: Side }
 
+// The face a node presents to a point: whichever axis separates them more.
+const faceToward = (from: Pt, to: Pt): Side => sideFromSegment(from, to)
+
 // Default sides from relative position: whichever axis (x or y) separates the
-// two nodes more dictates the side; the target gets the opposite side. A
+// two nodes more dictates the side; the target gets the opposite side. An edge
+// with `via` waypoints is guessed against its first/last waypoint instead of
+// the other node, since that is where its legs actually head. A
 // `sourceSide`/`targetSide` pinned in the layout sidecar overrides this guess
 // and is honored end-to-end. Edge ids (`src->tgt#i`) come out in diagram order,
 // which every later pass iterates in.
@@ -45,25 +59,23 @@ export const guessFaces = (
 ): { edgeIds: string[]; edgeMeta: Map<string, EdgeMeta> } => {
   const edgeMeta = new Map<string, EdgeMeta>()
   const edgeIds: string[] = []
+  const { gridSize } = layout
   diagram.edges.forEach((e, i) => {
     const src = nodes[e.source]!
     const tgt = nodes[e.target]!
-    const srcCx = src.x + src.w / 2
-    const srcCy = src.y + src.h / 2
-    const tgtCx = tgt.x + tgt.w / 2
-    const tgtCy = tgt.y + tgt.h / 2
-    const dx = tgtCx - srcCx
-    const dy = tgtCy - srcCy
+    const srcC: Pt = { x: src.x + src.w / 2, y: src.y + src.h / 2 }
+    const tgtC: Pt = { x: tgt.x + tgt.w / 2, y: tgt.y + tgt.h / 2 }
+    const stored = layout.edges[edgeKey(e.source, e.target)]
+    const via: Pt[] = (stored?.via ?? []).map((p) => ({ x: p.x * gridSize, y: p.y * gridSize }))
     let sourceSide: Side
     let targetSide: Side
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      sourceSide = dx >= 0 ? 'E' : 'W'
-      targetSide = dx >= 0 ? 'W' : 'E'
+    if (via.length > 0) {
+      sourceSide = faceToward(srcC, via[0]!)
+      targetSide = faceToward(tgtC, via[via.length - 1]!)
     } else {
-      sourceSide = dy >= 0 ? 'S' : 'N'
-      targetSide = dy >= 0 ? 'N' : 'S'
+      sourceSide = faceToward(srcC, tgtC)
+      targetSide = OPPOSITE_SIDE[sourceSide]
     }
-    const stored = layout.edges[edgeKey(e.source, e.target)]
     const explicitSource = stored?.sourceSide !== undefined
     const explicitTarget = stored?.targetSide !== undefined
     if (explicitSource) sourceSide = stored!.sourceSide!
@@ -76,6 +88,7 @@ export const guessFaces = (
       targetSide,
       explicitSource,
       explicitTarget,
+      via,
     })
     edgeIds.push(id)
   })
@@ -172,7 +185,7 @@ export const settleFaces = async (
     })
     const centerEdges: ElkEdge[] = edgeIds.map((id) => {
       const m = edgeMeta.get(id)!
-      return { id, source: m.source, target: m.target }
+      return { id, source: m.source, target: m.target, properties: checkpointProperties(m) }
     })
     const learned = await routeEdges(
       { id: 'root', children: plainNodes, edges: centerEdges },

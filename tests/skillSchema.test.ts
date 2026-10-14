@@ -46,8 +46,11 @@ describe('epure-diagram SKILL stays in sync with the validator', () => {
     }
     // The stale schema used pixel x/y on nodes and an array of areas with
     // members/x/y. Make sure neither sneaks back into the teaching material.
-    expect(SKILL).not.toMatch(/"x":\s*\d/)
-    expect(SKILL).not.toMatch(/"members"\s*:/)
+    // (An edge's `via` waypoints are legitimately `{ "x", "y" }` grid points,
+    // so those lists are blanked before the check.)
+    const withoutVia = SKILL.replace(/"via":\s*\[[^\]]*\]/g, '"via": […]')
+    expect(withoutVia).not.toMatch(/"x":\s*-?\d/)
+    expect(withoutVia).not.toMatch(/"members"\s*:/)
   })
 
   it('cites a canonical example that actually passes the validator', () => {

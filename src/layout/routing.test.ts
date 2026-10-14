@@ -528,6 +528,101 @@ describe('edge obstacle avoidance', () => {
   })
 })
 
+describe('via waypoints', () => {
+  // On a polyline, the index of the first segment passing through `p` (−1 when
+  // none does) — "in order" means these indices never decrease.
+  const segmentThrough = (pts: { x: number; y: number }[], p: { x: number; y: number }) => {
+    for (let i = 1; i < pts.length; i += 1) {
+      const a = pts[i - 1]!
+      const b = pts[i]!
+      const onH = Math.abs(a.y - b.y) < 1 && Math.abs(p.y - a.y) < 1
+      const onV = Math.abs(a.x - b.x) < 1 && Math.abs(p.x - a.x) < 1
+      const inX = p.x >= Math.min(a.x, b.x) - 1 && p.x <= Math.max(a.x, b.x) + 1
+      const inY = p.y >= Math.min(a.y, b.y) - 1 && p.y <= Math.max(a.y, b.y) + 1
+      if ((onH && inX) || (onV && inY)) return i
+    }
+    return -1
+  }
+
+  it('routes an edge through each waypoint, in order', async () => {
+    const parsed = parse('a\nb\na -> b\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    // a and b sit on one row; the straight route is a single horizontal line.
+    // Two waypoints send it on a detour: up over the top, then down below b.
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: { a: { cx: 3, cy: 10, w: 4, h: 2 }, b: { cx: 21, cy: 10, w: 4, h: 2 } },
+      edges: {
+        'a->b': {
+          via: [
+            { x: 12, y: 4 },
+            { x: 26, y: 16 },
+          ],
+        },
+      },
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('a->b'))!
+    const px = (p: { x: number; y: number }) => ({ x: p.x * 40, y: p.y * 40 })
+    const first = segmentThrough(edge.points, px({ x: 12, y: 4 }))
+    const second = segmentThrough(edge.points, px({ x: 26, y: 16 }))
+    expect(first).toBeGreaterThan(0)
+    expect(second).toBeGreaterThanOrEqual(first)
+    // The detour is real: the route climbs to the first waypoint's row and
+    // drops to the second's, instead of staying on the nodes' row.
+    const ys = edge.points.map((p) => p.y)
+    expect(Math.min(...ys)).toBeLessThanOrEqual(4 * 40 + 1)
+    expect(Math.max(...ys)).toBeGreaterThanOrEqual(16 * 40 - 1)
+    // Faces follow the waypoints: a leaves upward (N), b is entered from below (S).
+    expect(edge.source.side).toBe('N')
+    expect(edge.target.side).toBe('S')
+  })
+
+  it('keeps honouring pinned faces alongside the waypoints', async () => {
+    const parsed = parse('a\nb\na -> b\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: { a: { cx: 3, cy: 10, w: 4, h: 2 }, b: { cx: 21, cy: 10, w: 4, h: 2 } },
+      edges: { 'a->b': { sourceSide: 'E', targetSide: 'S', via: [{ x: 26, y: 16 }] } },
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('a->b'))!
+    expect(edge.source.side).toBe('E')
+    expect(edge.target.side).toBe('S')
+    expect(segmentThrough(edge.points, { x: 26 * 40, y: 16 * 40 })).toBeGreaterThan(0)
+    const [p0, p1] = [edge.points[0]!, edge.points[1]!]
+    expect(p1.x).toBeGreaterThan(p0.x) // leaves a eastward
+    const [pl, pPrev] = [edge.points[edge.points.length - 1]!, edge.points[edge.points.length - 2]!]
+    expect(pPrev.y).toBeGreaterThan(pl.y) // arrives at b from below
+  })
+
+  it('leaves an edge without waypoints exactly as before', async () => {
+    const parsed = parse('a\nb\nc\na -> b\na -> c\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    const nodes = {
+      a: { cx: 3, cy: 6, w: 4, h: 2 },
+      b: { cx: 15, cy: 3, w: 4, h: 2 },
+      c: { cx: 15, cy: 9, w: 4, h: 2 },
+    }
+    const plain: LayoutSidecar = { gridSize: 40, nodes, edges: {} }
+    const withVia: LayoutSidecar = {
+      gridSize: 40,
+      nodes,
+      edges: { 'a->c': { via: [{ x: 9, y: 12 }] } },
+    }
+    const r1 = await route(parsed.diagram, normalizeForRoute(parsed.diagram, plain))
+    const r2 = await route(parsed.diagram, normalizeForRoute(parsed.diagram, withVia))
+    const ab1 = r1.edges.find((e) => e.id.startsWith('a->b'))!
+    const ab2 = r2.edges.find((e) => e.id.startsWith('a->b'))!
+    // a→b has no waypoints in either layout: same faces and the same shape
+    // (a→c's detour may move a→b's port along the shared face, not its route).
+    expect(ab2.source.side).toBe(ab1.source.side)
+    expect(ab2.target.side).toBe(ab1.target.side)
+    expect(ab2.points.length).toBe(ab1.points.length)
+  })
+})
+
 describe('ports on a shared side', () => {
   const routeOf = async (d2: string, layout: LayoutSidecar) => {
     const parsed = parse(d2)

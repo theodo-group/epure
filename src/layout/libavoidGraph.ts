@@ -24,7 +24,7 @@ import type { Diagram } from '@/parser/ast'
 import type { EdgeRoutingHints } from './anchors'
 import { type AreaObstacle, areaBlocksEdge } from './areaGeometry'
 import type { AreaTree } from './areaTree'
-import type { EdgeMeta } from './faces'
+import { checkpointProperties, type EdgeMeta } from './faces'
 import { cleanPolyline, type Pt, type Rect, rectContains } from './geometry'
 
 // Where libavoid loads its wasm from. In the browser it's served at the app
@@ -140,6 +140,7 @@ const buildGraph = (scene: LibavoidScene, anchors: Map<string, EdgeRoutingHints>
       target: m.target,
       sourcePort: srcPortId(id),
       targetPort: tgtPortId(id),
+      properties: checkpointProperties(m),
     }
   })
   return { elkNodes, elkEdges }

@@ -19,6 +19,8 @@
 //   - fields within each record emitted in a fixed order,
 //   - absent optionals omitted entirely (never `null`); a `textScale` of 1 is
 //     the default and is omitted too,
+//   - an edge's `via` waypoints are emitted inline as `{ "x": …, "y": … }`
+//     in that key order whatever order the source used,
 //   - numbers round-trip verbatim via JSON.stringify: gridSize is an int, and
 //     cx/cy/w/h may be fractional (an odd-spanned node resized against the grid
 //     centers on a half/quarter unit) but a value like 1.5 stringifies to "1.5"
@@ -46,6 +48,7 @@ const NODE_FIELD_ORDER = [
 const EDGE_FIELD_ORDER = [
   'sourceSide',
   'targetSide',
+  'via',
   'color',
   'lineStyle',
   'width',
@@ -59,6 +62,16 @@ const AREA_FIELD_ORDER = ['borderColor', 'borderStyle', 'fillColor'] as const
 
 const isPresent = (v: unknown): boolean => v !== undefined && v !== null
 
+// A field's canonical JSON. Waypoint lists get a fixed inner key order so the
+// serializer is a fixed point regardless of how the points were written.
+const fieldJson = (key: string, value: unknown): string => {
+  if (key === 'via' && Array.isArray(value)) {
+    const pts = value as { x: number; y: number }[]
+    return `[${pts.map((p) => `{ "x": ${JSON.stringify(p.x)}, "y": ${JSON.stringify(p.y)} }`).join(', ')}]`
+  }
+  return JSON.stringify(value)
+}
+
 // Emit `{ "k": v, ... }` inline with fields in the given order, skipping
 // absent optionals. Returns `{}` when nothing is present.
 const inlineFields = (record: object, order: readonly string[]): string => {
@@ -67,7 +80,7 @@ const inlineFields = (record: object, order: readonly string[]): string => {
   for (const key of order) {
     const value = fields[key]
     if (isPresent(value)) {
-      parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`)
+      parts.push(`${JSON.stringify(key)}: ${fieldJson(key, value)}`)
     }
   }
   return parts.length === 0 ? '{}' : `{ ${parts.join(', ')} }`

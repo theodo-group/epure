@@ -8,7 +8,8 @@
 //   libavoidGraph libavoid calls, one per blocking-area group
 //   refine        port swaps that strictly lower the crossing count
 //   snap          which libavoid routes are adopted, back on the grid
-//   synthetic     the anchor-to-anchor fallback and its overlap resolver
+//   synthetic     the anchor-to-anchor fallback (through any `via`
+//                 waypoints) and its overlap resolver
 //   labels        label anchors (+ the user's grid-unit nudge)
 //
 // Every stage degrades rather than throws: with no wasm, faces stay guessed and
@@ -28,7 +29,7 @@ import { labelAnchorFor } from './labels'
 import { libavoidScene, routeWithAnchors } from './libavoidGraph'
 import { refinePortSwaps } from './refine'
 import { adoptLibavoidRoute } from './snap'
-import { buildOrthogonalPath, resolveSegmentOverlaps, stubRoutes } from './synthetic'
+import { resolveSegmentOverlaps, stubRoutes, syntheticPath } from './synthetic'
 import type { EdgeRoute, LayoutSidecar, NodeLayout, RoutedDiagram } from './types'
 
 export { setLibavoidWasmPath } from './libavoidGraph'
@@ -118,17 +119,7 @@ export const route = async (
 
   const edges = edgeIds.map((id) => {
     const meta = edgeMeta.get(id)!
-    const { sourceAnchor, targetAnchor, bendCoord } = anchors.get(id)!
-    const points =
-      libPolys.get(id) ??
-      buildOrthogonalPath(
-        sourceAnchor,
-        targetAnchor,
-        meta.sourceSide,
-        meta.targetSide,
-        gridSize,
-        bendCoord,
-      )
+    const points = libPolys.get(id) ?? syntheticPath(anchors.get(id)!, meta, gridSize)
     return edgeRoute(id, meta, points, nodes, layout)
   })
 

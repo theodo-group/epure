@@ -127,22 +127,33 @@ export const computeEdgeAnchors = (
   nodes: Record<string, Rect>,
   areaObstacles: AreaObstacle[] = [],
 ): Map<string, EdgeRoutingHints> => {
-  // Group edges by face (nodeId:side)
-  const faceGroups = new Map<string, Array<{ edgeId: string; connectedId: string }>>()
+  // Group edges by face (nodeId:side). `connectedPt` is where the edge heads
+  // from this face: the other node's centre, or — for an edge with `via`
+  // waypoints — the nearest waypoint, which is what its leg actually aims at.
+  const faceGroups = new Map<
+    string,
+    Array<{ edgeId: string; connectedId: string; connectedPt: Pt }>
+  >()
+  const centreOf = (id: string): Pt => {
+    const c = nodes[id]!
+    return { x: c.x + c.w / 2, y: c.y + c.h / 2 }
+  }
 
   for (const eid of edgeIds) {
     const m = edgeMeta.get(eid)!
-    for (const [nodeId, side, connId] of [
-      [m.source, m.sourceSide, m.target],
-      [m.target, m.targetSide, m.source],
-    ] as [string, Side, string][]) {
+    const firstVia = m.via[0]
+    const lastVia = m.via[m.via.length - 1]
+    for (const [nodeId, side, connId, connPt] of [
+      [m.source, m.sourceSide, m.target, firstVia ?? centreOf(m.target)],
+      [m.target, m.targetSide, m.source, lastVia ?? centreOf(m.source)],
+    ] as [string, Side, string, Pt][]) {
       const key = `${nodeId}:${side}`
       let arr = faceGroups.get(key)
       if (!arr) {
         arr = []
         faceGroups.set(key, arr)
       }
-      arr.push({ edgeId: eid, connectedId: connId })
+      arr.push({ edgeId: eid, connectedId: connId, connectedPt: connPt })
     }
   }
 
@@ -164,14 +175,10 @@ export const computeEdgeAnchors = (
       x: fanNode.x + fanNode.w / 2,
       y: fanNode.y + fanNode.h / 2,
     }
-    const connectedCenter = (id: string): Pt => {
-      const c = nodes[id]!
-      return { x: c.x + c.w / 2, y: c.y + c.h / 2 }
-    }
     const sorted = [...group].sort(
       (a, b) =>
-        fanOrderKey(fanCenter, connectedCenter(a.connectedId), fanSide) -
-        fanOrderKey(fanCenter, connectedCenter(b.connectedId), fanSide),
+        fanOrderKey(fanCenter, a.connectedPt, fanSide) -
+        fanOrderKey(fanCenter, b.connectedPt, fanSide),
     )
 
     // A member can be one straight segment when its other end faces this side
@@ -182,6 +189,7 @@ export const computeEdgeAnchors = (
     const straight = sorted.map(({ edgeId, connectedId }) => {
       const m = edgeMeta.get(edgeId)!
       if (m.source === m.target) return undefined
+      if (m.via.length > 0) return undefined // heads for its waypoint, not the other node
       const otherSide = m.source === nodeId ? m.targetSide : m.sourceSide
       if (otherSide !== OPPOSITE_SIDE[fanSide]) return undefined
       if ((faceGroups.get(`${connectedId}:${otherSide}`)?.length ?? 0) !== 1) return undefined
@@ -207,8 +215,7 @@ export const computeEdgeAnchors = (
     const fanCenterPerp = horiz ? fanNode.y + fanNode.h / 2 : fanNode.x + fanNode.w / 2
     const distOf = new Map<string, number>()
     for (const item of sorted) {
-      const otherNode = nodes[item.connectedId]!
-      const otherPerp = horiz ? otherNode.y + otherNode.h / 2 : otherNode.x + otherNode.w / 2
+      const otherPerp = horiz ? item.connectedPt.y : item.connectedPt.x
       distOf.set(item.edgeId, Math.abs(otherPerp - fanCenterPerp))
     }
     const uniqueDists = [...new Set(distOf.values())].sort((a, b) => b - a)
