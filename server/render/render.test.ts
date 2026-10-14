@@ -27,6 +27,39 @@ const viewBoxOf = (svg: string) => {
   return { x: x!, y: y!, w: w!, h: h! }
 }
 
+// Every rasterization costs ~150 ms (resvg loads the system fonts each time),
+// so the tests that assert on the same image share one render, made on first
+// use whatever order the tests run in.
+const once = <T>(make: () => T): (() => T) => {
+  let made: { value: T } | undefined
+  return () => {
+    made ??= { value: make() }
+    return made.value
+  }
+}
+
+/** The fixture through the raw pipeline: model → SVG → inlined icons → resvg. */
+const fixtureRaster = once(async () => {
+  const m = await model(D2, LAYOUT)
+  if ('error' in m) throw new Error(m.error)
+  return svgToPng(inlineIcons(renderSvgString(m), ICONS), { scale: 1 })
+})
+
+/** The fixture through the library's `png()` (source metadata embedded). */
+const fixturePng = once(async () => {
+  const bytes = await png(D2, LAYOUT, { icons: ICONS, scale: 1 })
+  if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+  return bytes
+})
+
+/** A `.d2`-only diagram (no layout file) through `png()`. */
+const BARE_D2 = 'a\nb\na -> b\n'
+const barePng = once(async () => {
+  const bytes = await png(BARE_D2, null, { scale: 1, icons: false })
+  if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+  return bytes
+})
+
 describe('headless diagram render', () => {
   it('builds a routed model with the fixture topology', async () => {
     const m = await model(D2, LAYOUT)
@@ -78,9 +111,7 @@ describe('headless diagram render', () => {
   })
 
   it('rasterizes to a real PNG', async () => {
-    const m = await model(D2, LAYOUT)
-    if ('error' in m) throw new Error(m.error)
-    const png = svgToPng(inlineIcons(renderSvgString(m), ICONS), { scale: 1 })
+    const png = await fixtureRaster()
     expect(Buffer.isBuffer(png)).toBe(true)
     // PNG magic number.
     expect(png.subarray(0, 8)).toEqual(
@@ -95,15 +126,14 @@ describe('headless diagram render', () => {
   })
 
   it('renders a .d2-only diagram (auto-placed, no layout file)', async () => {
-    const m = await model('a\nb\na -> b\n', null)
+    const m = await model(BARE_D2, null)
     if ('error' in m) throw new Error(m.error)
-    const png = svgToPng(renderSvgString(m), { scale: 1 })
-    expect(png.length).toBeGreaterThan(500)
+    expect(m.routed.nodes.map((n) => n.id).sort()).toEqual(['a', 'b'])
+    expect((await barePng()).length).toBeGreaterThan(500)
   })
 
   it('embeds the diagram source in the rendered PNG (round-trips, incl. layout)', async () => {
-    const bytes = await png(D2, LAYOUT, { icons: ICONS, scale: 1 })
-    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+    const bytes = await fixturePng()
     // Still a valid PNG after splicing metadata chunks.
     expect(bytes.subarray(0, 8)).toEqual(
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -119,10 +149,8 @@ describe('headless diagram render', () => {
   })
 
   it('omits the layout key when a diagram has no layout file', async () => {
-    const bytes = await png('a\nb\na -> b\n', null, { scale: 1, icons: false })
-    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
-    const meta = readPngText(bytes)
-    expect(meta[PNG_SOURCE_KEYS.d2]).toBe('a\nb\na -> b\n')
+    const meta = readPngText(await barePng())
+    expect(meta[PNG_SOURCE_KEYS.d2]).toBe(BARE_D2)
     expect(meta[PNG_SOURCE_KEYS.layout]).toBeUndefined()
   })
 })
@@ -136,19 +164,17 @@ describe('the library surface', () => {
   })
 
   it('source() recovers the pair from a rendered PNG, null otherwise', async () => {
-    const bytes = await png(D2, LAYOUT, { scale: 1, icons: false })
-    if (!Buffer.isBuffer(bytes)) throw new Error(bytes.error)
+    const bytes = await fixturePng()
     expect(source(bytes)).toEqual({ d2: D2, layout: LAYOUT })
     expect(source(Buffer.from('not a png'))).toBeNull()
   })
 })
 
 describe('PNG text metadata', () => {
-  it('round-trips UTF-8 keywords and text through iTXt chunks', () => {
-    // A minimal but valid PNG to splice into (1×1 via a tiny render).
-    const base = svgToPng('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>', {
-      scale: 1,
-    })
+  it('round-trips UTF-8 keywords and text through iTXt chunks', async () => {
+    // A valid PNG with no text chunks of its own to splice into.
+    const base = await fixtureRaster()
+    expect(readPngText(base)).toEqual({})
     const text = 'user: Utilisateur { shape: person }\napi: "Café ☕ API"\nuser -> api: héllo\n'
     const out = embedPngText(base, [{ keyword: 'epure.d2', text }])
     expect(out.subarray(0, 8)).toEqual(base.subarray(0, 8)) // signature intact
