@@ -206,12 +206,11 @@ export const flushBurst = (): void => {
 // The headless export calls route() directly (always full), so committed/exported
 // geometry is unaffected by this interactive path.
 //
-// A LABEL-ONLY edit (dragging an edge's label: labelDx/labelDy and nothing
-// else) never changes the geometry, so it is not routed at all: the published
-// routes keep their points and only their label anchors are recomputed, with
-// the same function `route()` uses. Routing it would be worse than wasteful —
-// the quick pass is areas-blind and skips the port swaps, so the edge would
-// visibly jump to a cruder route under the pointer and snap back 200 ms later.
+// Dragging an edge label only changes labelDx/labelDy. That never moves the
+// edge, so we skip routing: the edges keep their points and only the label
+// positions are recomputed (same function as in `route()`). Routing would
+// actually hurt: the quick pass ignores areas and port ordering, so the edge
+// would jump to a rougher path while dragging, then snap back 200 ms later.
 const FULL_ROUTE_DELAY_MS = 200
 const rerouteState: {
   inFlight: boolean
