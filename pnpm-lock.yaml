@@ -90,9 +90,6 @@ importers:
       simple-icons:
         specifier: ^16.35.0
         version: 16.35.0
-      svg-pan-zoom:
-        specifier: ^3.6.2
-        version: 3.6.2
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.29)(typescript@6.0.3)
@@ -1454,9 +1451,6 @@ packages:
     engines: {node: '>=16 || 14 >=14.17'}
     hasBin: true
 
-  svg-pan-zoom@3.6.2:
-    resolution: {integrity: sha512-JwnvRWfVKw/Xzfe6jriFyfey/lWJLq4bUh2jwoR5ChWQuQoOH8FEh1l/bEp46iHHKHEJWIyFJETbazraxNWECg==}
-
   thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}
     engines: {node: '>=0.8'}
@@ -2705,8 +2699,6 @@ snapshots:
       pirates: 4.0.7
       tinyglobby: 0.2.17
       ts-interface-checker: 0.1.13
-
-  svg-pan-zoom@3.6.2: {}
 
   thenify-all@1.6.0:
     dependencies:
