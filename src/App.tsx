@@ -32,7 +32,7 @@ import { embedSourceInPngBlob } from '@/export/pngText'
 import { exportStandaloneHtml } from '@/export/standalone-html'
 import { layoutToText } from '@/bridge/sync'
 import { computeContentBounds } from '@/renderer/bounds'
-import type { GridPoint, LayoutSidecar, RoutedDiagram } from '@/layout/types'
+import type { LayoutSidecar, RoutedDiagram } from '@/layout/types'
 import { buildAreaTree } from '@/layout/areaTree'
 import { emptyLayout } from '@/layout/defaults'
 import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
@@ -90,11 +90,6 @@ const appendBlock = (src: string, lines: string[]): string => {
   const sep = src.endsWith('\n') ? '' : '\n'
   return `${src}${sep}${body}\n`
 }
-
-// The committed `via` waypoints of an edge (by routed edge id), read from the
-// store so a drag's successive moves never see a stale list.
-const viaOf = (edgeId: string): GridPoint[] =>
-  useDiagramStore.getState().layout.edges[edgeKeyOfId(edgeId)]?.via ?? []
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob)
@@ -670,20 +665,7 @@ export const App = () => {
         }}
         onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
         onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
-        onMoveVia={(id, i, x, y) => {
-          const via = [...viaOf(id)]
-          if (!via[i]) return
-          via[i] = { x, y }
-          interaction.noteActivity()
-          setEdgeVia(id, via)
-        }}
         onSetVia={(id, via) => {
-          interaction.noteActivity()
-          setEdgeVia(id, via)
-        }}
-        onRemoveVia={(id, i) => {
-          const via = [...viaOf(id)]
-          via.splice(i, 1)
           interaction.noteActivity()
           setEdgeVia(id, via)
         }}

@@ -671,8 +671,9 @@ body {
     stroke-width 0.1s;
 }
 
-.ep-handle-via:hover {
-  r: 9;
+.ep-handle-seg:hover {
+  r: 8;
+  fill: #2563eb;
 }
 
 /* ── Style panel ──────────────────────────────────────── */

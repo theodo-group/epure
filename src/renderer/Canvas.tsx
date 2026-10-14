@@ -50,8 +50,6 @@ interface CanvasProps {
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
   /** Edit a selected edge's `via` waypoints (grid units); see <Edge>. */
   onSetVia?: (id: string, via: { x: number; y: number }[]) => void
-  onMoveVia?: (id: string, index: number, x: number, y: number) => void
-  onRemoveVia?: (id: string, index: number) => void
   /** Commit an inline label edit (double-click a node). `markup` is the D2
    *  label subset; an empty string clears the label. */
   onCommitNodeLabel?: (id: string, markup: string) => void
@@ -114,8 +112,6 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onResizeNode,
       onMoveLabel,
       onSetVia,
-      onMoveVia,
-      onRemoveVia,
       onCommitNodeLabel,
       onCreateNode,
       onConnectSelection,
@@ -498,8 +494,6 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   gridSize={diagram.gridSize}
                   onMoveLabel={onMoveLabel}
                   onSetVia={onSetVia}
-                  onMoveVia={onMoveVia}
-                  onRemoveVia={onRemoveVia}
                   crossings={crossings.get(edge.id)}
                 />
               )
@@ -636,12 +630,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             <span>delete</span>
             <span className="ep-kbd">Space</span>
             <span>pan</span>
-            {onMoveVia && (selectedEdgeIds?.length ?? 0) > 0 ? (
+            {onSetVia && (selectedEdgeIds?.length ?? 0) > 0 ? (
               <>
-                <span className="ep-kbd">drag segment</span>
-                <span>shift it</span>
-                <span className="ep-kbd">●</span>
-                <span>corner: drag · double-click removes</span>
+                <span className="ep-kbd">○</span>
+                <span>drag: shift segment · double-click: auto</span>
               </>
             ) : null}
           </div>
