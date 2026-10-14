@@ -82,6 +82,8 @@ describe('grid snapping (snap.ts)', () => {
 
 describe('adopting a libavoid route (snap.ts)', () => {
   const nodes = {}
+  // An adopted route is libavoid's own polyline (already on the grid here).
+  const pointsOf = (r: RouteResult) => [r.sourcePoint, ...(r.bendPoints ?? []), r.targetPoint]
 
   it('rejects a non-orthogonal (diagonal) route so the synthetic path takes over', () => {
     const diagonal = result([
@@ -96,7 +98,9 @@ describe('adopting a libavoid route (snap.ts)', () => {
       { x: 0, y: 0 },
       { x: 100, y: 0.4 },
     ])
-    expect(adoptLibavoidRoute(wobble, meta('a', 'b', 'E', 'W'), 20, nodes, [])).toBeDefined()
+    expect(adoptLibavoidRoute(wobble, meta('a', 'b', 'E', 'W'), 20, nodes, [])).toEqual(
+      pointsOf(wobble),
+    )
   })
 
   it('falls back when libavoid leaves a PINNED face from another face', () => {
@@ -111,7 +115,7 @@ describe('adopting a libavoid route (snap.ts)', () => {
     expect(adoptLibavoidRoute(viaNorth, pinned, 20, nodes, [])).toBeUndefined()
     // The same route is adopted when that end is not pinned (a learned face may differ).
     const free = meta('a', 'b', 'E', 'S')
-    expect(adoptLibavoidRoute(viaNorth, free, 20, nodes, [])).toBeDefined()
+    expect(adoptLibavoidRoute(viaNorth, free, 20, nodes, [])).toEqual(pointsOf(viaNorth))
   })
 
   it('falls back when libavoid arrives at a pinned TARGET face from another face', () => {
@@ -123,7 +127,7 @@ describe('adopting a libavoid route (snap.ts)', () => {
     const pinned = meta('a', 'b', 'E', 'W', { target: true })
     expect(adoptLibavoidRoute(intoNorth, pinned, 20, nodes, [])).toBeUndefined()
     const honoured = meta('a', 'b', 'E', 'N', { target: true })
-    expect(adoptLibavoidRoute(intoNorth, honoured, 20, nodes, [])).toBeDefined()
+    expect(adoptLibavoidRoute(intoNorth, honoured, 20, nodes, [])).toEqual(pointsOf(intoNorth))
   })
 })
 

@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MouseEvent, type ReactNode } from 'react'
+import { useCallback, useId, useRef, type MouseEvent, type ReactNode } from 'react'
 
 import { SHAPE_NAMES, type EdgeDirection, type ShapeName } from '@/parser/ast'
 import { edgeKeyOfId, makeEdgeId } from '@/layout/ids'
@@ -50,12 +50,20 @@ const defaultCapFor = (
   return dir === 'forward' || dir === 'bidirectional' ? 'arrow' : 'none'
 }
 
-const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="ep-style-row">
-    <div className="ep-style-label">{label}</div>
-    {children}
-  </div>
-)
+// Each row is a group named by its label, so assistive tech (and tests) can
+// tell the Source face's "Top" from the Target face's.
+const Row = ({ label, children }: { label: string; children: ReactNode }) => {
+  const labelId = useId()
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a flex row; <fieldset> would bring UA border and padding.
+    <div className="ep-style-row" role="group" aria-labelledby={labelId}>
+      <div id={labelId} className="ep-style-label">
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
 
 interface SwatchesProps<C extends string> {
   value?: C

@@ -45,7 +45,7 @@ describe('normalizeForRoute', () => {
     expect(out.nodes.b!.cx).toBeGreaterThan(out.nodes.a!.cx)
   })
 
-  it('returns the layout untouched when every node is already placed', () => {
+  it('returns the layout unchanged (and does not mutate it) when every node is placed', () => {
     const diagram = diagramOf('a\nb\n')
     const layout: LayoutSidecar = {
       gridSize: 40,
@@ -53,10 +53,29 @@ describe('normalizeForRoute', () => {
         a: { cx: 2, cy: 2, w: 4, h: 2 },
         b: { cx: 8, cy: 2, w: 4, h: 2 },
       },
-      edges: {},
+      edges: { 'a->b': { color: 'blue' } },
     }
-    // Identity — no synthesis needed, so the caller never re-serializes.
-    expect(normalizeForRoute(diagram, layout)).toBe(layout)
+    const before = structuredClone(layout)
+    expect(normalizeForRoute(diagram, layout)).toEqual(before)
+    expect(layout).toEqual(before)
+  })
+
+  it('never stacks auto-placed nodes on each other, across a row wrap', () => {
+    // Eight nodes: more than one row, so both strides are exercised.
+    const diagram = diagramOf('a\nb\nc\nd\ne\nf\ng\nh\n')
+    const placed = { gridSize: 40, nodes: { x: { cx: 3, cy: 3, w: 8, h: 4 } }, edges: {} }
+    for (const layout of [emptyLayout(), placed]) {
+      const out = normalizeForRoute(diagram, layout)
+      const boxes = Object.entries(out.nodes)
+      expect(boxes).toHaveLength(Object.keys(layout.nodes).length + 8)
+      for (const [i, [idA, a]] of boxes.entries()) {
+        for (const [idB, b] of boxes.slice(i + 1)) {
+          const apart =
+            Math.abs(a.cx - b.cx) >= (a.w + b.w) / 2 || Math.abs(a.cy - b.cy) >= (a.h + b.h) / 2
+          expect(apart, `${idA} overlaps ${idB}`).toBe(true)
+        }
+      }
+    }
   })
 
   it('preserves existing entries and places new nodes below the placed bounding box', () => {
@@ -84,8 +103,10 @@ describe('route() with a missing/empty layout (Phase 0 blocker)', () => {
 
   it('does not throw even when route is called with a raw empty layout', async () => {
     const diagram = diagramOf('lonely\n')
-    // Exercises the defensive fallback in geometry.ts (nodeRects) directly (no normalization).
-    await expect(route(diagram, emptyLayout())).resolves.toBeTruthy()
+    // Exercises the defensive fallback in geometry.ts (nodeRects) directly (no
+    // normalization): the node still renders, default-sized at the origin.
+    const routed = await route(diagram, emptyLayout())
+    expect(routed.nodes).toMatchObject([{ id: 'lonely', x: -80, y: -40, w: 160, h: 80 }])
   })
 
   it('produces stable geometry across reruns', async () => {
