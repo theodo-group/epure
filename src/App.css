@@ -661,6 +661,25 @@ body {
   color: var(--ep-text);
 }
 
+/* ── Edge waypoint handles (selected edge) ───────────── */
+
+.ep-handle {
+  cursor: move;
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35));
+  transition:
+    r 0.1s,
+    stroke-width 0.1s;
+}
+
+.ep-handle-mid:hover {
+  r: 8;
+  stroke-width: 2.5;
+}
+
+.ep-handle-via:hover {
+  r: 9;
+}
+
 /* ── Style panel ──────────────────────────────────────── */
 
 .ep-style-panel {

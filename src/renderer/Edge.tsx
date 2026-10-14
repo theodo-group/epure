@@ -101,10 +101,15 @@ const arcParamOf = (points: Pt[], p: Pt): number => {
   return best.t
 }
 
-// Midpoint handles are offered on segments long enough to hold one, and not
-// where a waypoint handle already sits.
+// Insertion handles are offered on segments long enough to hold one. Each
+// sits at the segment's midpoint unless that is under the label pill or a
+// waypoint handle, in which case it slides along the segment to the first
+// clear spot (30 % / 70 %, then 15 % / 85 %), and is dropped if none is clear.
 const MIDPOINT_MIN_SEGMENT = 28
-const MIDPOINT_CLEARANCE = 12
+const MIDPOINT_CLEARANCE = 14
+const MIDPOINT_SLOTS = [0.5, 0.3, 0.7, 0.15, 0.85]
+const HANDLE_R = 7
+const HANDLE_MID_R = 6
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
   points.length === 0 ? '' : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
@@ -468,14 +473,33 @@ export const Edge: FC<EdgeProps> = ({
       {selected && onMoveVia
         ? (() => {
             const via = edge.via ?? []
+            // The label pill's rect (padded), which no handle may sit under.
+            let pill: { x0: number; y0: number; x1: number; y1: number } | undefined
+            if (label && edge.labelAnchor) {
+              const { w, h } = labelPillSize(label, textScale)
+              const pad = HANDLE_MID_R + 2
+              pill = {
+                x0: edge.labelAnchor.x - w / 2 - pad,
+                y0: edge.labelAnchor.y - h / 2 - pad,
+                x1: edge.labelAnchor.x + w / 2 + pad,
+                y1: edge.labelAnchor.y + h / 2 + pad,
+              }
+            }
+            const clear = (p: Pt): boolean =>
+              !(pill && p.x > pill.x0 && p.x < pill.x1 && p.y > pill.y0 && p.y < pill.y1) &&
+              !via.some((v) => Math.hypot(v.x - p.x, v.y - p.y) < MIDPOINT_CLEARANCE)
             const mids: Pt[] = []
             for (let i = 1; i < edge.points.length; i += 1) {
               const a = edge.points[i - 1]!
               const b = edge.points[i]!
               if (Math.hypot(b.x - a.x, b.y - a.y) < MIDPOINT_MIN_SEGMENT) continue
-              const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-              if (via.some((v) => Math.hypot(v.x - m.x, v.y - m.y) < MIDPOINT_CLEARANCE)) continue
-              mids.push(m)
+              for (const t of MIDPOINT_SLOTS) {
+                const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+                if (clear(p)) {
+                  mids.push(p)
+                  break
+                }
+              }
             }
             return (
               <g data-edge-handles={edge.id}>
@@ -483,13 +507,13 @@ export const Edge: FC<EdgeProps> = ({
                   ? mids.map((m, i) => (
                       <circle
                         key={`mid-${i}`}
+                        className="ep-handle ep-handle-mid"
                         cx={m.x}
                         cy={m.y}
-                        r={4}
+                        r={HANDLE_MID_R}
                         fill="#ffffff"
-                        stroke="#3b82f6"
-                        strokeWidth={1.5}
-                        style={{ cursor: 'move' }}
+                        stroke="#2563eb"
+                        strokeWidth={2}
                         onMouseDown={(e) => handleMidpointDown(e, m)}
                       >
                         <title>Drag to add a waypoint</title>
@@ -499,13 +523,13 @@ export const Edge: FC<EdgeProps> = ({
                 {via.map((v, i) => (
                   <circle
                     key={`via-${i}`}
+                    className="ep-handle ep-handle-via"
                     cx={v.x}
                     cy={v.y}
-                    r={5.5}
-                    fill="#3b82f6"
+                    r={HANDLE_R}
+                    fill="#2563eb"
                     stroke="#ffffff"
-                    strokeWidth={1.5}
-                    style={{ cursor: 'move' }}
+                    strokeWidth={2}
                     onMouseDown={(e) => handleViaDown(e, i)}
                     onDoubleClick={(e) => {
                       e.stopPropagation()
