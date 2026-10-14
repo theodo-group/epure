@@ -1,6 +1,9 @@
-// Modal shown when the browser backup and the disk file have genuinely diverged
-// (see offlineBackup.reconcile). The user must pick which version to keep — the
-// other is discarded. Purely presentational; useBridge owns the resolution.
+// Modal shown when the local copy and the disk file have genuinely diverged
+// (see offlineBackup.reconcile, hydratePlan.planSettle). The user must pick
+// which version to keep — the other is discarded. Purely presentational;
+// useBridge owns the resolution.
+
+import { useEffect, useRef } from 'react'
 
 import type { ClashInfo } from './useBridge'
 
@@ -18,36 +21,53 @@ const ago = (epoch: number): string => {
 const count = (c: { nodes: number; edges: number }) =>
   `${c.nodes} ${c.nodes === 1 ? 'node' : 'nodes'} · ${c.edges} ${c.edges === 1 ? 'edge' : 'edges'}`
 
+const why: Record<ClashInfo['origin'], string> = {
+  backup: 'it was edited elsewhere while you were offline',
+  session: 'it was edited elsewhere while you were editing it here',
+}
+
 export const ClashDialog = ({
   clash,
   onResolve,
 }: {
   clash: ClashInfo
   onResolve: (choice: 'local' | 'disk') => void
-}) => (
-  <div className="ep-clash-backdrop" role="presentation">
-    <div className="ep-clash" role="alertdialog" aria-modal="true" aria-labelledby="ep-clash-title">
-      <h2 id="ep-clash-title" className="ep-clash-title">
-        This diagram changed in two places
-      </h2>
-      <p className="ep-clash-body">
-        Your browser has unsaved changes that differ from the file on disk (it was edited elsewhere
-        while you were offline). Keep one — the other is discarded.
-      </p>
-      <div className="ep-clash-choices">
-        <button type="button" className="ep-clash-choice" onClick={() => onResolve('local')}>
-          <span className="ep-clash-choice-label">Keep my version</span>
-          <span className="ep-clash-choice-meta">
-            this browser{clash.localSavedAt ? ` · edited ${ago(clash.localSavedAt)}` : ''}
-          </span>
-          <span className="ep-clash-choice-meta">{count(clash.local)}</span>
-        </button>
-        <button type="button" className="ep-clash-choice" onClick={() => onResolve('disk')}>
-          <span className="ep-clash-choice-label">Use the disk version</span>
-          <span className="ep-clash-choice-meta">on disk now</span>
-          <span className="ep-clash-choice-meta">{count(clash.disk)}</span>
-        </button>
+}) => {
+  // Take focus, so keystrokes meant for the editor stop landing behind the prompt.
+  const dialog = useRef<HTMLDivElement>(null)
+  useEffect(() => dialog.current?.focus(), [])
+  return (
+    <div className="ep-clash-backdrop" role="presentation">
+      <div
+        ref={dialog}
+        tabIndex={-1}
+        className="ep-clash"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="ep-clash-title"
+      >
+        <h2 id="ep-clash-title" className="ep-clash-title">
+          This diagram changed in two places
+        </h2>
+        <p className="ep-clash-body">
+          Your browser has unsaved changes that differ from the file on disk ({why[clash.origin]}).
+          Keep one — the other is discarded.
+        </p>
+        <div className="ep-clash-choices">
+          <button type="button" className="ep-clash-choice" onClick={() => onResolve('local')}>
+            <span className="ep-clash-choice-label">Keep my version</span>
+            <span className="ep-clash-choice-meta">
+              this browser{clash.localSavedAt ? ` · edited ${ago(clash.localSavedAt)}` : ''}
+            </span>
+            <span className="ep-clash-choice-meta">{count(clash.local)}</span>
+          </button>
+          <button type="button" className="ep-clash-choice" onClick={() => onResolve('disk')}>
+            <span className="ep-clash-choice-label">Use the disk version</span>
+            <span className="ep-clash-choice-meta">on disk now</span>
+            <span className="ep-clash-choice-meta">{count(clash.disk)}</span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-)
+  )
+}

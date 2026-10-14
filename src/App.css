@@ -1060,6 +1060,11 @@ body.epure-dragging * {
   padding: 20px;
 }
 
+/* Focused on open (keystrokes stop reaching the editor); no ring for that. */
+.ep-clash:focus {
+  outline: none;
+}
+
 .ep-clash-title {
   margin: 0 0 8px;
   font-size: 15px;

@@ -102,9 +102,20 @@ export class BridgeClient {
    * Record that a kind's content now matches what's on disk (the store was just
    * set from a remote hydrate/fileChanged). The next outbound for that kind will
    * dedup against this and not bounce the remote change back out.
+   *
+   * Inbound frames are NOT marked on arrival: the caller marks what it applies.
+   * A change it holds back (the user is busy) leaves the kind keyed at the
+   * content the store last synced, which is the base it later settles against
+   * and the base the browser backup records.
    */
   markRemote(kind: FileKind, content: string): void {
     this.lastKey[kind] = contentKey(kind, content)
+  }
+
+  /** The key one kind last synced with disk (sent, or marked as received), or
+   *  null if it never has. */
+  syncedKeyOf(kind: FileKind): string | null {
+    return this.lastKey[kind] ?? null
   }
 
   /** The doc identity currently in sync with disk — `lastKey.d2` joined with
@@ -212,19 +223,14 @@ export class BridgeClient {
     }
     switch (msg.type) {
       case 'hydrate': {
-        for (const f of msg.files) {
-          if (f.valid && f.content !== null) this.markRemote(f.kind, f.content)
-        }
         const reconnect = this.hydratedOnce
         this.hydratedOnce = true
         this.opts.onHydrate(msg.files, reconnect)
         break
       }
-      case 'fileChanged': {
-        if (msg.valid && msg.content !== null) this.markRemote(msg.kind, msg.content)
+      case 'fileChanged':
         this.opts.onFileChanged(msg.kind, msg.content, msg.valid, msg.error)
         break
-      }
       case 'applied':
         this.opts.onApplied?.(msg.kinds)
         break

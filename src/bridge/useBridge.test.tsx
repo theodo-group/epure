@@ -9,7 +9,7 @@ import { useDiagramStore } from '@/store/diagramStore'
 
 import { useBridge } from './useBridge'
 import { interaction } from './interaction'
-import { docKeyOf, writeBackup } from './offlineBackup'
+import { docKeyOf, readBackup, writeBackup } from './offlineBackup'
 import type { LayoutSidecar } from '@/layout/types'
 import type { SocketFactory, SocketLike } from './BridgeClient'
 import type { ServerMsg } from './protocol'
@@ -410,5 +410,226 @@ describe('useBridge', () => {
     })
     expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(2) // unchanged
     expect(result.current.remoteError).toContain('oops')
+  })
+})
+
+// ── Sync invariant: editor == disk, or an open clash prompt ─────────────────
+
+const layoutAt = (cx: number): LayoutSidecar => ({
+  gridSize: 40,
+  nodes: { a: { cx, cy: 2, w: 4, h: 2 } },
+  edges: {},
+})
+
+interface ApplyMsg {
+  type: 'apply'
+  files: { kind: 'd2' | 'layout'; content: string }[]
+}
+const appliesOn = (socket: FakeSocket): ApplyMsg[] =>
+  socket.sent.map((s) => JSON.parse(s)).filter((m) => m.type === 'apply')
+/** Every d2 content sent to disk, in order. */
+const d2Sent = (socket: FakeSocket): string[] =>
+  appliesOn(socket).flatMap((m) => m.files.filter((f) => f.kind === 'd2').map((f) => f.content))
+const wait = async (ms: number) => {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
+}
+
+describe('useBridge: first-load clash', () => {
+  // base = D2 at cx 5; local = D2 plus a node, at cx 8; disk = D2 at cx 2.
+  const LOCAL_D2 = `${D2}local\n`
+  const backup = {
+    source: LOCAL_D2,
+    layout: layoutAt(8),
+    base: docKeyOf(D2, layoutAt(5)),
+    savedAt: 99,
+  }
+  const open = async () => {
+    writeBackup('sys', backup)
+    const view = renderBridge()
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    return view
+  }
+
+  it('writes nothing to disk and keeps the backup until the user chooses', async () => {
+    const { result } = await open()
+    expect(result.current.clash).not.toBeNull()
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    await wait(5000)
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    // Closing the tab now must leave the same choice for the next visit.
+    expect(readBackup('sys')).toEqual(backup)
+  })
+
+  it('"Use the disk version" never writes the local copy', async () => {
+    const { result } = await open()
+    await act(async () => result.current.resolveClash('disk'))
+    await wait(2000)
+    expect(result.current.clash).toBeNull()
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    expect(useDiagramStore.getState().source).toBe(D2)
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(2)
+    // The backup is re-based onto disk: the next load takes disk silently.
+    expect(readBackup('sys')?.base).toBe(docKeyOf(D2, layoutAt(2)))
+  })
+
+  it('"Keep my version" sends the local copy', async () => {
+    const { result } = await open()
+    await act(async () => result.current.resolveClash('local'))
+    expect(result.current.clash).toBeNull()
+    const applies = appliesOn(lastSocket())
+    expect(applies).toHaveLength(1)
+    const sent = Object.fromEntries(applies[0]!.files.map((f) => [f.kind, f.content]))
+    expect(sent.d2).toBe(LOCAL_D2)
+    expect(JSON.parse(sent.layout!).nodes.a.cx).toBe(8)
+    expect(useDiagramStore.getState().source).toBe(LOCAL_D2)
+    expect(readBackup('sys')?.base).toBe(docKeyOf(LOCAL_D2, layoutAt(8)))
+  })
+
+  it("moves the prompt's disk side on when disk changes before the choice", async () => {
+    const { result } = await open()
+    await act(async () =>
+      lastSocket().emit({
+        type: 'fileChanged',
+        doc: 'sys',
+        kind: 'layout',
+        content: layoutText(11),
+        valid: true,
+      }),
+    )
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(8) // still the local copy
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    await act(async () => result.current.resolveClash('disk'))
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(11)
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+  })
+})
+
+describe('useBridge: a disk change while the user is editing', () => {
+  const DISK_D2 = `${D2}disk\n`
+  const fileChanged = (kind: 'd2' | 'layout', content: string): ServerMsg => ({
+    type: 'fileChanged',
+    doc: 'sys',
+    kind,
+    content,
+    valid: true,
+  })
+  // What the editor does on a keystroke: App notes activity, then sets source.
+  const type = async (source: string) => {
+    await act(async () => {
+      interaction.noteActivity()
+      useDiagramStore.getState().setSource(source)
+    })
+  }
+  const drag = async (x: number) => {
+    await act(async () => {
+      interaction.noteActivity()
+      useDiagramStore.getState().moveNode('a', x, 80)
+    })
+  }
+  const start = async () => {
+    const view = renderBridge()
+    await connect()
+    await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
+    return view
+  }
+
+  // The user types; mid-burst, the same file changes on disk; they keep typing.
+  const typeThroughDiskChange = async () => {
+    const view = await start()
+    await type(`${D2}x\n`) // leading edge: sent at once
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`])
+    await act(async () => lastSocket().emit({ type: 'applied', doc: 'sys', kinds: ['d2'] }))
+    await act(async () => lastSocket().emit(fileChanged('d2', DISK_D2)))
+    expect(view.result.current.diskChanged).toBe(true)
+    await wait(100)
+    await type(`${D2}xy\n`)
+    await wait(100)
+    await type(`${D2}xyz\n`)
+    // Past the debounce: the typed text must NOT overwrite the disk change.
+    await wait(300)
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`])
+    // Idle: both sides changed the d2 → the clash prompt; nothing overwritten.
+    await wait(1500)
+    expect(view.result.current.clash).not.toBeNull()
+    expect(view.result.current.diskChanged).toBe(false)
+    expect(useDiagramStore.getState().source).toBe(`${D2}xyz\n`)
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`])
+    expect(view.result.current.saveState).not.toBe('saved')
+    return view
+  }
+
+  it('raises a clash once idle; "Keep my version" sends the typed text', async () => {
+    const { result } = await typeThroughDiskChange()
+    await act(async () => result.current.resolveClash('local'))
+    expect(result.current.clash).toBeNull()
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`, `${D2}xyz\n`])
+    expect(useDiagramStore.getState().source).toBe(`${D2}xyz\n`)
+  })
+
+  it('raises a clash once idle; "Use the disk version" takes disk and writes nothing', async () => {
+    const { result } = await typeThroughDiskChange()
+    await act(async () => result.current.resolveClash('disk'))
+    await wait(2000)
+    expect(result.current.clash).toBeNull()
+    expect(useDiagramStore.getState().source).toBe(DISK_D2)
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`])
+    expect(result.current.saveState).toBe('saved')
+  })
+
+  it('applies a disk change to the other file once idle, without a clash', async () => {
+    const { result } = await start()
+    await drag(400) // a layout edit, sent at once
+    await act(async () => lastSocket().emit(fileChanged('d2', DISK_D2)))
+    await wait(100)
+    await drag(480)
+    await wait(300)
+    // The untouched d2 is never sent: disk's new d2 stands.
+    expect(d2Sent(lastSocket())).toEqual([])
+    await wait(1500)
+    expect(result.current.clash).toBeNull()
+    expect(useDiagramStore.getState().source).toBe(DISK_D2)
+    const layouts = appliesOn(lastSocket()).flatMap((m) =>
+      m.files.filter((f) => f.kind === 'layout').map((f) => JSON.parse(f.content).nodes.a.cx),
+    )
+    expect(layouts.at(-1)).toBe(useDiagramStore.getState().layout.nodes.a!.cx)
+    expect(d2Sent(lastSocket())).toEqual([])
+  })
+
+  it('settles a reconnect hydrate deferred mid-drag the same way, per kind', async () => {
+    const { result } = await start()
+    await act(async () => lastSocket().onclose?.())
+    await wait(600)
+    await act(async () => lastSocket().open())
+    // Mid-drag, the reconnect brings a new d2 AND a moved node: both deferred.
+    await act(async () => interaction.setPointerDown(true))
+    await act(async () => lastSocket().emit(hydrate(DISK_D2, layoutText(7))))
+    expect(result.current.diskChanged).toBe(true)
+    await drag(400) // the drag goes on: the layout is held, not sent
+    await wait(300)
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    // Pointer-up: the untouched d2 is applied; the layout, moved on both sides,
+    // is the clash. Nothing was written.
+    await act(async () => interaction.setPointerDown(false))
+    await wait(1500)
+    expect(result.current.clash).not.toBeNull()
+    expect(useDiagramStore.getState().source).toBe(DISK_D2)
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(10)
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+    await act(async () => result.current.resolveClash('disk'))
+    expect(useDiagramStore.getState().layout.nodes.a!.cx).toBe(7)
+    expect(appliesOn(lastSocket())).toHaveLength(0)
+  })
+
+  it('applies a deferred change to a file whose edits were all saved before it', async () => {
+    const { result } = await start()
+    await type(`${D2}x\n`) // sent at once; disk then moves on from it
+    await act(async () => lastSocket().emit(fileChanged('d2', `${D2}x\ndisk\n`)))
+    await wait(2000)
+    expect(result.current.clash).toBeNull()
+    expect(useDiagramStore.getState().source).toBe(`${D2}x\ndisk\n`)
+    expect(d2Sent(lastSocket())).toEqual([`${D2}x\n`])
   })
 })

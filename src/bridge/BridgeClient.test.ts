@@ -155,10 +155,14 @@ describe('BridgeClient.apply — validity gate + echo suppression', () => {
   })
 
   it('suppresses the outbound echo of a remote change (re-entrancy guard)', () => {
-    const { client, last } = makeClient()
+    const marker: { mark?: (content: string) => void } = {}
+    const { client, last } = makeClient({
+      // The caller records what it applies, before the store write.
+      onFileChanged: (_kind, content) => content !== null && marker.mark?.(content),
+    })
+    marker.mark = (content) => client.markRemote('layout', content)
     client.connect()
     last().open()
-    // Remote layout arrives → client records its key.
     last().emit({
       type: 'fileChanged',
       doc: 'sys',
@@ -177,16 +181,21 @@ describe('BridgeClient.apply — validity gate + echo suppression', () => {
     const { client, last } = makeClient()
     client.connect()
     last().open()
-    last().emit({
-      type: 'fileChanged',
-      doc: 'sys',
-      kind: 'layout',
-      content: LAYOUT_CANON,
-      valid: true,
-    })
+    client.markRemote('layout', LAYOUT_CANON)
     last().sent.length = 0
     const messy = '{ "gridSize":40, "nodes":{ "a":{"cy":2,"cx":2,"h":2,"w":4} }, "edges":{} }'
     expect(client.apply([{ kind: 'layout', content: messy }]).sent).toEqual([])
+  })
+
+  it('leaves an inbound change unrecorded until the caller marks it', () => {
+    const { client, last } = makeClient()
+    client.connect()
+    last().open()
+    client.markRemote('d2', D2)
+    last().emit({ type: 'fileChanged', doc: 'sys', kind: 'd2', content: `${D2}c\n`, valid: true })
+    // Not applied (held back while the user is busy): still keyed at the base.
+    expect(client.syncedKeyOf('d2')).toBe(D2)
+    expect(client.syncedKeyOf('layout')).toBeNull()
   })
 
   it('markRemote prevents writing a synthesized default straight back to disk', () => {
