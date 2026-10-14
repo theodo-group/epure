@@ -69,6 +69,9 @@ export interface EdgeRoute extends EdgeStyleSpec {
   target: EdgeEndpoint
   points: { x: number; y: number }[]
   labelAnchor?: { x: number; y: number }
+  /** The sidecar's `via` waypoints in canvas pixels, in order (absent when the
+   *  edge has none). The editor draws a handle at each. */
+  via?: { x: number; y: number }[]
 }
 
 export interface LayoutNode extends NodeStyle {

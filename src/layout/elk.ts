@@ -148,6 +148,7 @@ const edgeRoute = (
     target: { nodeId: meta.target, side: meta.targetSide },
     points,
     labelAnchor: labelAnchorFor(points, nodes, styleSpec, layout.gridSize),
+    via: meta.via.length > 0 ? meta.via : undefined,
     color: styleSpec?.color,
     lineStyle: styleSpec?.lineStyle,
     width: styleSpec?.width,

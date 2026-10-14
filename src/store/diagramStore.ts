@@ -9,6 +9,7 @@ import type {
   NodeStyle,
   RoutedDiagram,
   Side,
+  GridPoint,
 } from '@/layout/types'
 import { FaceCache, route } from '@/layout/elk'
 import { DEFAULT_NODE_H, DEFAULT_NODE_W, emptyLayout } from '@/layout/defaults'
@@ -124,6 +125,9 @@ export interface DiagramActions {
    *  edge id (`src->tgt#i`) — the ordinal is stripped, so the offset is shared
    *  by every parallel edge of the pair. `(0, 0)` clears the override. */
   setEdgeLabelOffset: (edgeId: string, labelDx: number, labelDy: number) => void
+  /** Replace an edge's `via` waypoints (grid units, in order); an empty list
+   *  removes them. Keyed like the other edge fields, so parallel edges share. */
+  setEdgeVia: (edgeId: string, via: GridPoint[]) => void
   setNodeSize: (id: string, w: number, h: number) => void
   selectNode: (id: string | undefined, additive?: boolean) => void
   selectArea: (id: string | undefined, additive?: boolean) => void
@@ -355,6 +359,18 @@ export const useDiagramStore = create<DiagramStore>()(
           else next.labelDx = labelDx
           if (labelDy === 0) delete next.labelDy
           else next.labelDy = labelDy
+          if (Object.keys(next).length === 0) delete edges[key]
+          else edges[key] = next
+          return { ...s, layout: { ...s.layout, edges } }
+        }),
+
+      setEdgeVia: (edgeId, via) =>
+        set((s) => {
+          const key = edgeKeyOfId(edgeId)
+          const edges = { ...s.layout.edges }
+          const next = { ...edges[key] }
+          if (via.length === 0) delete next.via
+          else next.via = via.map((p) => ({ x: p.x, y: p.y }))
           if (Object.keys(next).length === 0) delete edges[key]
           else edges[key] = next
           return { ...s, layout: { ...s.layout, edges } }

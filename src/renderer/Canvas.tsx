@@ -48,6 +48,10 @@ interface CanvasProps {
   onResizeNode?: (id: string, side: Side, pxX: number, pxY: number) => void
   /** Drag an edge label to a new offset (grid units, relative to its anchor). */
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
+  /** Edit a selected edge's `via` waypoints (grid units); see <Edge>. */
+  onMoveVia?: (id: string, index: number, x: number, y: number) => void
+  onInsertVia?: (id: string, index: number, x: number, y: number) => void
+  onRemoveVia?: (id: string, index: number) => void
   /** Commit an inline label edit (double-click a node). `markup` is the D2
    *  label subset; an empty string clears the label. */
   onCommitNodeLabel?: (id: string, markup: string) => void
@@ -109,6 +113,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
       onMoveNode,
       onResizeNode,
       onMoveLabel,
+      onMoveVia,
+      onInsertVia,
+      onRemoveVia,
       onCommitNodeLabel,
       onCreateNode,
       onConnectSelection,
@@ -490,6 +497,9 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
                   fontFamily={fontFamily}
                   gridSize={diagram.gridSize}
                   onMoveLabel={onMoveLabel}
+                  onMoveVia={onMoveVia}
+                  onInsertVia={onInsertVia}
+                  onRemoveVia={onRemoveVia}
                   crossings={crossings.get(edge.id)}
                 />
               )
@@ -626,6 +636,14 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             <span>delete</span>
             <span className="ep-kbd">Space</span>
             <span>pan</span>
+            {onMoveVia && (selectedEdgeIds?.length ?? 0) > 0 ? (
+              <>
+                <span className="ep-kbd">○</span>
+                <span>drag to add a waypoint</span>
+                <span className="ep-kbd">●</span>
+                <span>double-click to remove</span>
+              </>
+            ) : null}
           </div>
         </div>
 
