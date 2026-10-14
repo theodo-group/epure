@@ -18,7 +18,7 @@ import { setLibavoidWasmPath } from '../src/layout/elk'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-// Published: dist-lib/libavoid.wasm (copied by tsup). From source: public/.
+// Published: dist-lib/libavoid.wasm (copied by tsdown.config.ts). From source: public/.
 const WASM_CANDIDATES = [join(HERE, 'libavoid.wasm'), join(HERE, '..', 'public', 'libavoid.wasm')]
 const wasm = WASM_CANDIDATES.find(existsSync)
 if (wasm) setLibavoidWasmPath(wasm)
