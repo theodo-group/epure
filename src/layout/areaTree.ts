@@ -1,6 +1,6 @@
-// Nested-area (container) helpers, shared by routing (elk.ts), the canvas
-// drag path (App.tsx), and anything else that needs to reason about area
-// membership as a hierarchy.
+// Nested-area (container) helpers, shared by routing (areaGeometry.ts,
+// libavoidGraph.ts), the canvas drag path (App.tsx), and anything else that
+// needs to reason about area membership as a hierarchy.
 //
 // Nesting is BY REFERENCE: an area's member list may name another area's id
 // (the grammar still rejects a literal nested block). The parser's AST builder

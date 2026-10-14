@@ -10,7 +10,7 @@ import type {
   RoutedDiagram,
   Side,
 } from '@/layout/types'
-import { invalidateFaceCache, route } from '@/layout/elk'
+import { FaceCache, route } from '@/layout/elk'
 import { DEFAULT_NODE_H, DEFAULT_NODE_W, emptyLayout } from '@/layout/defaults'
 import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
 import { normalizeForRoute } from '@/layout/normalize'
@@ -195,9 +195,13 @@ export const flushBurst = (): void => {
 //      pending flag and the runner loops once more against the LATEST state, so
 //      a burst of K updates collapses to ~2 routes, never K.
 //   2. Quick-then-full — each request runs a QUICK route immediately (reuses
-//      cached faces, skips the crossing-swap pass: ~3-4× faster) for instant
-//      feedback, and schedules a FULL best-quality route once the interaction
-//      goes quiet. A pending full supersedes a pending quick.
+//      the faces the last full route learned, skips the crossing-swap pass:
+//      ~3-4× faster) for instant feedback, and schedules a FULL best-quality
+//      route once the interaction goes quiet. A pending full supersedes a
+//      pending quick.
+// The face cache is this scheduler's: it is shown every layout before it is
+// routed and drops its faces by itself when the layout was replaced wholesale
+// (see FaceCache), so no action has to remember to invalidate it.
 // The headless export calls route() directly (always full), so committed/exported
 // geometry is unaffected by this interactive path.
 const FULL_ROUTE_DELAY_MS = 200
@@ -206,7 +210,14 @@ const rerouteState: {
   pendingQuick: boolean
   pendingFull: boolean
   fullTimer: ReturnType<typeof setTimeout> | undefined
-} = { inFlight: false, pendingQuick: false, pendingFull: false, fullTimer: undefined }
+  faces: FaceCache
+} = {
+  inFlight: false,
+  pendingQuick: false,
+  pendingFull: false,
+  fullTimer: undefined,
+  faces: new FaceCache(),
+}
 
 export const useDiagramStore = create<DiagramStore>()(
   temporal(
@@ -227,9 +238,6 @@ export const useDiagramStore = create<DiagramStore>()(
       setSource: (source) => set((s) => ({ ...s, source })),
 
       setLayout: (layout) => {
-        // Wholesale layout replacement (layout-JSON editor) — positions change
-        // for everything, so stale faces must not be reused by a quick route.
-        invalidateFaceCache()
         set((s) => ({
           ...s,
           layout,
@@ -596,6 +604,7 @@ export const useDiagramStore = create<DiagramStore>()(
                 set((s) => ({ ...s, routed: null }))
                 continue
               }
+              rerouteState.faces.track(layout)
               try {
                 // Synthesize layout entries for any `.d2` node missing from the
                 // sidecar (e.g. CC appended a node without touching the layout)
@@ -605,7 +614,7 @@ export const useDiagramStore = create<DiagramStore>()(
                 const routed = await route(
                   parseResult.diagram,
                   normalizeForRoute(parseResult.diagram, layout),
-                  { quick },
+                  { quick, faceCache: rerouteState.faces },
                 )
                 set((s) => ({ ...s, routed }))
               } catch (err) {
@@ -634,7 +643,6 @@ export const useDiagramStore = create<DiagramStore>()(
         // Loading a document (bootstrap / open) is a fresh baseline, not an
         // undoable edit: pause tracking around the swap and clear history so
         // the user can't undo back into the previous (or empty) document.
-        invalidateFaceCache()
         const temporal = useDiagramStore.temporal.getState()
         temporal.pause()
         set((s) => ({
@@ -653,7 +661,6 @@ export const useDiagramStore = create<DiagramStore>()(
       openDocument: (source, layout) => {
         // Close any edit burst first so the open isn't folded into it, and
         // after, so the next edit starts its own undo step.
-        invalidateFaceCache()
         flushBurst()
         set((s) => ({
           ...s,
@@ -668,9 +675,6 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       applyRemote: (patch) => {
-        // A remote layout write (bridge: disk/CC edit, pasted layout) replaces
-        // positions wholesale — drop stale faces so the next quick route relearns.
-        if (patch.layout !== undefined) invalidateFaceCache()
         // Apply with temporal PAUSED so the remote write creates no undo entry
         // and doesn't clear history (a transient reconnect must never wipe the
         // user's stack); then reset the burst window so the user's next local
