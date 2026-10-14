@@ -1,5 +1,12 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react'
-import { EditorState, StateEffect, StateField } from '@codemirror/state'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import { Compartment, EditorState, StateEffect, StateField } from '@codemirror/state'
 import {
   EditorView,
   lineNumbers,
@@ -29,7 +36,11 @@ export interface CodeMirrorPaneProps {
   onChange: (value: string) => void
   errors?: ParseError[]
   language?: LanguageSupport
+  /** Soft-wrap long lines instead of scrolling horizontally. */
+  wrap?: boolean
 }
+
+const wrapExtension = (wrap: boolean) => (wrap ? EditorView.lineWrapping : [])
 
 /**
  * Narrow an external value update to just the span that actually changed, by
@@ -360,10 +371,11 @@ const baseTheme = EditorView.theme(
 )
 
 export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPaneProps>(
-  function CodeMirrorPane({ value, onChange, errors, language }, ref) {
+  function CodeMirrorPane({ value, onChange, errors, language, wrap = false }, ref) {
     const hostRef = useRef<HTMLDivElement | null>(null)
     const viewRef = useRef<EditorView | null>(null)
     const onChangeRef = useRef(onChange)
+    const [wrapCompartment] = useState(() => new Compartment())
 
     useEffect(() => {
       onChangeRef.current = onChange
@@ -387,6 +399,7 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
           keymap.of([...defaultKeymap, ...searchKeymap, indentWithTab]),
           language ?? d2Support,
           baseTheme,
+          wrapCompartment.of(wrapExtension(wrap)),
           selectionField,
           errorField,
           EditorView.updateListener.of((u) => {
@@ -412,6 +425,13 @@ export const CodeMirrorPane = forwardRef<CodeMirrorPaneHandle, CodeMirrorPanePro
       if (current === value) return
       view.dispatch({ changes: minimalDocChange(current, value) })
     }, [value])
+
+    // Toggle soft wrapping in place (no editor rebuild, so undo/caret survive).
+    useEffect(() => {
+      const view = viewRef.current
+      if (!view) return
+      view.dispatch({ effects: wrapCompartment.reconfigure(wrapExtension(wrap)) })
+    }, [wrap, wrapCompartment])
 
     // Project parse errors into the editor (line highlight + underline + message).
     useEffect(() => {

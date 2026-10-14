@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { canonicalizeLayout } from '@/file/canonicalLayout'
 import { validateLayoutJson } from '@/file/layoutSchema'
 import type { ParseError } from '@/parser/ast'
 import type { LayoutSidecar } from '@/layout/types'
@@ -15,6 +16,12 @@ export interface LayoutEditorBuffer {
    *  re-baselines the editor. Call when a whole new document is loaded/opened,
    *  where discarding the current buffer is the intent. */
   reset: () => void
+  /** Rewrite the buffer as the canonical layout text — the bytes the bridge
+   *  writes to disk. The store already holds this layout (a valid buffer has
+   *  been pushed to it), so only the text changes: no store write, no undo
+   *  entry. Returns false, doing nothing, when the text is invalid or already
+   *  canonical. */
+  format: () => boolean
 }
 
 /**
@@ -38,7 +45,8 @@ export const useLayoutEditorBuffer = (
   layout: LayoutSidecar,
   setLayout: (layout: LayoutSidecar) => void,
 ): LayoutEditorBuffer => {
-  const formatted = useMemo(() => JSON.stringify(layout, null, 2), [layout])
+  // The store's layout shown as the canonical text the bridge writes to disk.
+  const formatted = useMemo(() => canonicalizeLayout(layout), [layout])
   const [text, setText] = useState(formatted)
   const textRef = useRef(text)
   useEffect(() => {
@@ -69,6 +77,8 @@ export const useLayoutEditorBuffer = (
 
   const edit = useCallback(
     (raw: string) => {
+      // The pane re-emitting the text the buffer already holds is no edit.
+      if (raw === textRef.current) return
       setText(raw)
       const result = validateLayoutJson(raw)
       dirtyRef.current = result.value === null
@@ -81,5 +91,18 @@ export const useLayoutEditorBuffer = (
     dirtyRef.current = false
   }, [])
 
-  return { text, errors, edit, reset }
+  const format = useCallback((): boolean => {
+    const current = textRef.current
+    const { value } = validateLayoutJson(current)
+    if (!value) return false
+    const canonical = canonicalizeLayout(value)
+    if (canonical === current) return false
+    // Set the ref now, not after render: the pane echoes the new value back
+    // through `edit`, which must see it as the text it already holds.
+    textRef.current = canonical
+    setText(canonical)
+    return true
+  }, [])
+
+  return { text, errors, edit, reset, format }
 }
