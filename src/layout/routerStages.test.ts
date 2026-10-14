@@ -166,6 +166,14 @@ describe('port-swap refinement (refine.ts)', () => {
     ])
   })
 
+  it('leaves the ports of an edge with waypoints alone', () => {
+    const withVia = new Map([
+      [ids[0]!, { ...edgeMeta.get(ids[0]!)!, via: [{ x: 50, y: 10 }] }],
+      [ids[1]!, edgeMeta.get(ids[1]!)!],
+    ])
+    expect(pickPortSwaps(crossed, ids, withVia)).toEqual([])
+  })
+
   it('does not trigger for crossing edges that share no face', () => {
     const apart = new Map([
       [ids[0]!, meta('hub', 'low', 'E', 'W')],

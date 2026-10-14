@@ -2,6 +2,7 @@ import { useCallback, useRef, type FC, type MouseEvent } from 'react'
 
 import type { EdgeDirection, EdgeStyle } from '@/parser/ast'
 import type { Crossing } from '@/layout/crossings'
+import { faceRange, type Rect } from '@/layout/geometry'
 import type { EdgeRoute } from '@/layout/types'
 import type { EndCap, LineStyle, Size } from '@/style/palette'
 import { dashArrayFor, solidOf, STROKE_WIDTH } from '@/style/palette'
@@ -30,6 +31,11 @@ interface EdgeProps {
    *  units. A plain click on the stroke only selects. Absent → no handles (the
    *  headless export). */
   onSetVia?: (id: string, via: { x: number; y: number }[]) => void
+  /** The two end nodes' boxes (canvas pixels). With them, shifting the first
+   *  or last segment stops at the face it is attached to, so the attachment
+   *  slides along the box instead of the route bending behind it. */
+  sourceRect?: Rect
+  targetRect?: Rect
   /** Points where this edge passes UNDER another edge. A soft transparent gap
    *  is faded into the stroke at each, so crossings read clearly. Computed once
    *  per diagram by `computeCrossings` and shared by the canvas and the export
@@ -220,6 +226,8 @@ export const Edge: FC<EdgeProps> = ({
   gridSize = 40,
   onMoveLabel,
   onSetVia,
+  sourceRect,
+  targetRect,
   crossings,
 }) => {
   // The geometry of one segment of the route (1-based index `seg`, i.e.
@@ -268,6 +276,18 @@ export const Edge: FC<EdgeProps> = ({
       const { grid, P, Q, horizontal, perp, toGrid, originalVia, before, after } = segmentOf(seg)
       const isFirst = seg === 1
       const isLast = seg === points.length - 1
+      // The grid rows (or columns) a segment attached to a box may sit on:
+      // those inside the face it leaves from. Shifting it further would only
+      // bend the route behind the box, so the drag stops at the last one.
+      const lanesOf = (rect: Rect | undefined): [number, number] | undefined => {
+        if (!rect) return undefined
+        const [lo, hi] = faceRange(rect, horizontal ? 'E' : 'N')
+        return [Math.ceil(lo / grid), Math.floor(hi / grid)]
+      }
+      const bounds =
+        isFirst && isLast
+          ? undefined
+          : lanesOf(isFirst ? sourceRect : isLast ? targetRect : undefined)
       const laneAt = (shiftedPerp: number): Pt[] => {
         const at = (pt: Pt): Pt =>
           horizontal ? { x: pt.x, y: shiftedPerp } : { x: shiftedPerp, y: pt.y }
@@ -284,7 +304,12 @@ export const Edge: FC<EdgeProps> = ({
       const onPointerMove = (e: globalThis.MouseEvent) => {
         const cur = svgPointOf(svg, e.clientX, e.clientY)
         if (!cur) return
-        const delta = Math.round((perp(cur) - perp(grab)) / grid)
+        let delta = Math.round((perp(cur) - perp(grab)) / grid)
+        if (bounds) {
+          const [lo, hi] = bounds
+          const lane = basePerp + delta
+          delta = lo > hi ? 0 : Math.max(lo, Math.min(hi, lane)) - basePerp
+        }
         if (delta === lastDelta) return
         lastDelta = delta
         if (!dragging) {
@@ -303,7 +328,7 @@ export const Edge: FC<EdgeProps> = ({
       window.addEventListener('mousemove', onPointerMove)
       window.addEventListener('mouseup', onPointerUp)
     },
-    [edge.id, edge.points, onSetVia, segmentOf],
+    [edge.id, edge.points, onSetVia, segmentOf, sourceRect, targetRect],
   )
 
   // Mousedown on the stroke: select, then shift the segment under the pointer.

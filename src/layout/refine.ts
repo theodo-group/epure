@@ -112,6 +112,9 @@ export const pickPortSwaps = (
   const swaps: PortSwap[] = []
   for (const [a, b] of crossingPairs(polys, edgeIds)) {
     if (used.has(a) || used.has(b)) continue
+    // An edge with waypoints keeps its ports: they were placed to line up
+    // with its first and last waypoint, and a swap would undo that lane.
+    if (edgeMeta.get(a)!.via.length > 0 || edgeMeta.get(b)!.via.length > 0) continue
     const f = sharedFace(a, b, edgeMeta)
     if (!f) continue
     used.add(a)

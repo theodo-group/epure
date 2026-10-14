@@ -597,6 +597,24 @@ describe('via waypoints', () => {
     expect(pPrev.y).toBeGreaterThan(pl.y) // arrives at b from below
   })
 
+  it('slides the attachment along the face to line up with a waypoint in front of it', async () => {
+    const parsed = parse('a\nb\na -> b\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    // a (4×4) and b sit on one row. The first waypoint sits in front of a's
+    // east face, one cell above a's centre line: the edge leaves a at that
+    // height in one straight segment, instead of from the face centre.
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: { a: { cx: 3, cy: 10, w: 4, h: 4 }, b: { cx: 21, cy: 10, w: 4, h: 2 } },
+      edges: { 'a->b': { via: [{ x: 12, y: 9 }] } },
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const edge = routed.edges.find((e) => e.id.startsWith('a->b'))!
+    expect(edge.source.side).toBe('E')
+    expect(edge.points[0]!.y).toBeCloseTo(9 * 40, 5)
+    expect(segmentThrough(edge.points, { x: 12 * 40, y: 9 * 40 })).toBe(1)
+  })
+
   it('leaves an edge without waypoints exactly as before', async () => {
     const parsed = parse('a\nb\nc\na -> b\na -> c\n')
     if (!parsed.ok) throw new Error('parse failed')

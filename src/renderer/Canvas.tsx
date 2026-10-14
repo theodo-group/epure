@@ -151,6 +151,11 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
     // over the whole edge set (a per-edge <Edge> can't see its neighbours) and
     // shared with the headless export so the two render identically.
     const crossings = useMemo(() => computeCrossings(diagram.edges), [diagram.edges])
+    // Each node's box, for the edges' segment-shift bounds (see <Edge>).
+    const nodeRectById = useMemo(
+      () => new Map(diagram.nodes.map((n) => [n.id, { x: n.x, y: n.y, w: n.w, h: n.h }])),
+      [diagram.nodes],
+    )
 
     // Close the inline label editor if its node disappears (deleted in the .d2,
     // renamed, or a remote edit dropped it) so the overlay never dangles.
@@ -482,6 +487,8 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
               const meta = edges[edge.id] ?? {}
               return (
                 <Edge
+                  sourceRect={nodeRectById.get(edge.source.nodeId)}
+                  targetRect={nodeRectById.get(edge.target.nodeId)}
                   key={edge.id}
                   edge={edge}
                   label={meta.label}

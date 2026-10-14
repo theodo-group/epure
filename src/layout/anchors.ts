@@ -56,6 +56,22 @@ const fanOrderKey = (fanCenter: Pt, connectedCenter: Pt, side: Side): number => 
 // spread is already tighter than this keeps that spread.
 const MIN_PORT_GAP = 8
 
+// Where on a face an edge should attach to reach its nearest waypoint in one
+// straight segment: the waypoint's coordinate along the face, when the
+// waypoint lies in front of that face and inside its port range. Undefined
+// when the leg has to bend anyway. This is what lets the editor shift an
+// edge's first or last segment: the waypoint moves, and the attachment slides
+// along the face to stay in line with it.
+const alignedWithVia = (node: Rect, side: Side, via: Pt): number | undefined => {
+  const horiz = isHorizontalSide(side)
+  const outward = side === 'E' || side === 'S' ? 1 : -1
+  const ahead = (horiz ? via.x : via.y) - faceCoord(node, side)
+  if (ahead * outward <= 0) return undefined
+  const coord = horiz ? via.y : via.x
+  const [lo, hi] = faceRange(node, side)
+  return coord >= lo && coord <= hi ? coord : undefined
+}
+
 // Ports of a multi-edge face, in fan order. `straight[i]` is the coordinate at
 // which member i would be one straight segment (undefined when it cannot be).
 // Those members get their coordinate; the others share the gaps between them,
@@ -186,10 +202,11 @@ export const computeEdgeAnchors = (
     // and that centre falls inside this face's port range.
     const fanFC = faceCoord(fanNode, fanSide)
     const outward = fanSide === 'E' || fanSide === 'S' ? 1 : -1
-    const straight = sorted.map(({ edgeId, connectedId }) => {
+    const straight = sorted.map(({ edgeId, connectedId, connectedPt }) => {
       const m = edgeMeta.get(edgeId)!
       if (m.source === m.target) return undefined
-      if (m.via.length > 0) return undefined // heads for its waypoint, not the other node
+      // An edge with waypoints heads for its nearest one, not the other node.
+      if (m.via.length > 0) return alignedWithVia(fanNode, fanSide, connectedPt)
       const otherSide = m.source === nodeId ? m.targetSide : m.sourceSide
       if (otherSide !== OPPOSITE_SIDE[fanSide]) return undefined
       if ((faceGroups.get(`${connectedId}:${otherSide}`)?.length ?? 0) !== 1) return undefined
@@ -252,25 +269,20 @@ export const computeEdgeAnchors = (
     const srcFC = faceCoord(src, m.sourceSide)
     const tgtFC = faceCoord(tgt, m.targetSide)
 
-    let srcPerp: number
-    let tgtPerp: number
-
-    if (srcMulti && tgtMulti) {
-      srcPerp = distributed.get(`${eid}:${m.source}`)!
-      tgtPerp = distributed.get(`${eid}:${m.target}`)!
-    } else if (srcMulti) {
-      srcPerp = distributed.get(`${eid}:${m.source}`)!
-      tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
-    } else if (tgtMulti) {
-      tgtPerp = distributed.get(`${eid}:${m.target}`)!
-      srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
-    } else {
-      // Both single-edge: always exit/enter at face centers. If centers
-      // happen to be equal it's a straight line; otherwise buildOrthogonalPath
-      // inserts a Z-bend.
-      srcPerp = srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2
-      tgtPerp = tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2
-    }
+    // A single-edge face exits/enters at its centre, unless the edge has
+    // waypoints and its nearest one sits in front of the face: then the port
+    // lines up with it. (Two centred single-edge ends that happen to be equal
+    // give a straight line; otherwise buildOrthogonalPath inserts a Z-bend.)
+    const firstVia = m.via[0]
+    const lastVia = m.via[m.via.length - 1]
+    const srcPerp = srcMulti
+      ? distributed.get(`${eid}:${m.source}`)!
+      : ((firstVia && alignedWithVia(src, m.sourceSide, firstVia)) ??
+        (srcHoriz ? src.y + src.h / 2 : src.x + src.w / 2))
+    const tgtPerp = tgtMulti
+      ? distributed.get(`${eid}:${m.target}`)!
+      : ((lastVia && alignedWithVia(tgt, m.targetSide, lastVia)) ??
+        (tgtHoriz ? tgt.y + tgt.h / 2 : tgt.x + tgt.w / 2))
 
     // A multi-edge face already placed an aligned member's port on the other
     // end's centre (placePorts, which keeps ports apart), so that member is
