@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Format on the layout tab: the buffer shows the canonical text (the bytes the
 // bridge writes). The store already holds that layout, so nothing is written.
 
