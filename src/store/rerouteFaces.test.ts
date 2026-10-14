@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { validateLayoutJson } from '@/file/layoutSchema'
 import { FaceCache, route } from '@/layout/elk'
@@ -37,16 +37,22 @@ const mirrored = (layout: LayoutSidecar): LayoutSidecar => {
   return copy
 }
 
+// The store defers the full route by a quiet-period timer; the suite fakes the
+// clock so each settle fires it at once instead of sleeping through it. The
+// give-up guard below runs on the real clock, captured before faking.
+const realSetTimeout = globalThis.setTimeout
+const realClearTimeout = globalThis.clearTimeout
+
 // Resolve with the next `routed` the store publishes.
 const nextRouted = () =>
   new Promise<RoutedDiagram>((done, fail) => {
-    const timer = setTimeout(() => {
+    const timer = realSetTimeout(() => {
       unsub()
       fail(new Error('no route published'))
     }, 5000)
     const unsub = useDiagramStore.subscribe((s, prev) => {
       if (s.routed && s.routed !== prev.routed) {
-        clearTimeout(timer)
+        realClearTimeout(timer)
         unsub()
         done(s.routed)
       }
@@ -72,7 +78,11 @@ const settle = async (oracleWasEmpty: boolean) => {
     expect(quick).toEqual(await route(parsed.diagram, routeInput, { quick: true }))
   }
 
-  const full = await nextRouted()
+  const nextFull = nextRouted()
+  // Fire the store's deferred full route now (the quiet period has no meaning
+  // under test; what's checked is the route it publishes).
+  await vi.runOnlyPendingTimersAsync()
+  const full = await nextFull
   expect(full).toEqual(await route(parsed.diagram, routeInput, { faceCache: oracle }))
   expect(full).toEqual(await route(parsed.diagram, routeInput))
   flushBurst() // the next action is its own undo step
@@ -81,7 +91,12 @@ const settle = async (oracleWasEmpty: boolean) => {
 
 describe('store rerouting with the scheduler-owned face cache', () => {
   beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     flushBurst()
+  })
+
+  afterAll(() => {
+    vi.useRealTimers()
   })
 
   it('matches the explicit-invalidation behaviour across an editing session', async () => {
