@@ -95,9 +95,10 @@ const RULES: Rule[] = [
 ]
 
 // What counts as one line break inside a matched image: `\n`, `\r\n` or a lone
-// `\r`. Lines are counted per break, so a CRLF file's `\r` (in whitespace) and
-// `\n` (the Newline token) each advance the line — kept as-is so positions
-// match what the editor has always received.
+// `\r` — the breaks an editor shows as new lines. A CRLF is split across two
+// matches (the `\r` is whitespace, the `\n` a Newline token), so a `\r` that
+// ends a whitespace match right before a `\n` is left for the Newline to
+// count: a CRLF advances the line once.
 const LINE_BREAK = /\n|\r\n?/g
 
 // All rules as one sticky alternation, one capture group per rule. Regex
@@ -113,7 +114,15 @@ const matchAt = (source: string, offset: number): { rule: Rule; image: string } 
   return { rule: RULES[i - 1]!, image: m[0] }
 }
 
-export function tokenize(source: string): { tokens: Token[]; errors: LexError[] } {
+export interface LexResult {
+  tokens: Token[]
+  errors: LexError[]
+  /** Position just past the last character, where an error found at the end
+   *  of input is anchored. */
+  end: { line: number; column: number; offset: number }
+}
+
+export function tokenize(source: string): LexResult {
   const tokens: Token[] = []
   const errors: LexError[] = []
   let offset = 0
@@ -162,8 +171,10 @@ export function tokenize(source: string): { tokens: Token[]; errors: LexError[] 
     if (r.lineBreaks) {
       let breaks = 0
       let lastBreakEnd = -1
+      const counted =
+        image.endsWith('\r') && source.charAt(offset) === '\n' ? image.slice(0, -1) : image
       LINE_BREAK.lastIndex = 0
-      while (LINE_BREAK.exec(image)) {
+      while (LINE_BREAK.exec(counted)) {
         breaks++
         lastBreakEnd = LINE_BREAK.lastIndex - 1
       }
@@ -181,5 +192,5 @@ export function tokenize(source: string): { tokens: Token[]; errors: LexError[] 
     }
   }
 
-  return { tokens, errors }
+  return { tokens, errors, end: { line, column, offset } }
 }
