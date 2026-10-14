@@ -8,9 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { parse } from '@/parser'
 import { AreaLabel } from '@/renderer/Area'
 
+import { computeAreaGeometry } from './areaGeometry'
+import { buildAreaTree } from './areaTree'
 import { FaceCache, route } from './elk'
 import { normalizeForRoute } from './normalize'
-import type { LayoutSidecar, RoutedDiagram } from './types'
+import type { AreaLayout, LayoutSidecar, RoutedDiagram } from './types'
 
 const segHitsRect = (
   a: { x: number; y: number },
@@ -228,13 +230,14 @@ describe('edge obstacle avoidance', () => {
   // off its markup — not the router's own obstacle geometry — so the obstacle
   // drifting away from what the user sees fails here.
   type Rect = { x: number; y: number; w: number; h: number }
-  const titleOf = (routed: RoutedDiagram, id: string): Rect => {
-    const area = routed.areas.find((x) => x.id === id)!
+  const chipOf = (area: AreaLayout): Rect => {
     const svg = renderToStaticMarkup(createElement('svg', null, createElement(AreaLabel, { area })))
     const attr = (name: string) =>
       Number(new RegExp(`<rect[^>]* ${name}="([-\\d.]+)"`).exec(svg)![1])
     return { x: attr('x'), y: attr('y'), w: attr('width'), h: attr('height') }
   }
+  const titleOf = (routed: RoutedDiagram, id: string): Rect =>
+    chipOf(routed.areas.find((x) => x.id === id)!)
   const pathHitsTitle = (edge: RoutedDiagram['edges'][number], title: Rect) =>
     edge.points.some((_, i) =>
       i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, title) : false,
@@ -303,6 +306,34 @@ describe('edge obstacle avoidance', () => {
     expect(segHitsRect(a, b, title)).toBe(true) // guard: straight leg hits the tab
     expect(pathHitsTitle(edge, title)).toBe(false)
     expect(edge.points.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('blocks exactly the chip the renderer draws, for short and long titles', () => {
+    // The obstacle the router avoids must be the rendered chip itself: a chip
+    // obstacle drifting off the drawn one lets edges cross the title text.
+    const parsed = parse(
+      'a\nb\nS: "Hi" {\n  a\n}\nL: "A Very Long Overhanging Group Title Here" {\n  b\n}\n',
+    )
+    if (!parsed.ok) throw new Error('parse failed')
+    const nodes = {
+      a: { x: 120, y: 120, w: 160, h: 80 },
+      b: { x: 600, y: 400, w: 120, h: 40 },
+    }
+    const { titleObstacles, rects } = computeAreaGeometry(
+      parsed.diagram,
+      buildAreaTree(parsed.diagram.areas),
+      nodes,
+    )
+    expect(titleObstacles.map((t) => t.id)).toEqual(['S', 'L'])
+    for (const t of titleObstacles) {
+      const area = {
+        id: t.id,
+        label: parsed.diagram.areas.find((a) => a.id === t.id)!.label,
+        members: [],
+        ...rects.get(t.id)!,
+      }
+      expect(t.rect, t.id).toEqual(chipOf(area))
+    }
   })
 
   it('is deterministic — identical geometry across repeated routes', async () => {

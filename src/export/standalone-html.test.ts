@@ -74,9 +74,11 @@ afterEach(() => vi.restoreAllMocks())
 
 describe('buildStandaloneHtml', () => {
   it('embeds the diagram under an escaped title, with no external script', () => {
-    const { doc, svg } = openExport('a <b> & c')
-    expect(doc.title).toBe('a <b> & c')
-    expect(doc.head.querySelector('b')).toBeNull()
+    // The title is the diagram's name — user text that must not close <title>.
+    const title = 'a </title><script src="x.js"></script><b> & c'
+    const { doc, svg } = openExport(title)
+    expect(doc.title).toBe(title)
+    expect(doc.querySelector('b')).toBeNull()
     expect(svg.querySelector('rect[x="10"][y="20"]')).not.toBeNull()
     expect(doc.querySelectorAll('script')).toHaveLength(1)
     expect(doc.querySelectorAll('script[src], link[rel="stylesheet"]')).toHaveLength(0)
