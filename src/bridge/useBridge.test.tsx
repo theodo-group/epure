@@ -7,11 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { canonicalizeLayout } from '@/file/canonicalLayout'
 import { useDiagramStore } from '@/store/diagramStore'
 
-import { __setTestSocketFactory, useBridge } from './useBridge'
+import { useBridge } from './useBridge'
 import { interaction } from './interaction'
 import { docKeyOf, writeBackup } from './offlineBackup'
 import type { LayoutSidecar } from '@/layout/types'
-import type { SocketLike } from './BridgeClient'
+import type { SocketFactory, SocketLike } from './BridgeClient'
 import type { ServerMsg } from './protocol'
 
 class FakeSocket implements SocketLike {
@@ -34,6 +34,12 @@ class FakeSocket implements SocketLike {
 
 let sockets: FakeSocket[] = []
 const lastSocket = () => sockets[sockets.length - 1]!
+const socketFactory: SocketFactory = () => {
+  const s = new FakeSocket()
+  sockets.push(s)
+  return s
+}
+const renderBridge = () => renderHook(() => useBridge({ socketFactory }))
 
 const D2 = 'a\nb\na -> b\n'
 const layoutText = (cx: number) =>
@@ -73,15 +79,9 @@ beforeEach(() => {
     file: '/x',
     version: '1',
   }
-  __setTestSocketFactory(() => {
-    const s = new FakeSocket()
-    sockets.push(s)
-    return s
-  })
 })
 
 afterEach(() => {
-  __setTestSocketFactory(undefined)
   vi.unstubAllGlobals()
   delete window.__EPURE_BRIDGE__
 })
@@ -99,7 +99,7 @@ const connect = async () => {
 
 describe('useBridge', () => {
   it('hydrates the store on first load and reports connected', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => {
       lastSocket().emit(hydrate(D2, layoutText(2)))
@@ -112,7 +112,7 @@ describe('useBridge', () => {
   })
 
   it('applies a remote fileChanged when the user is idle', async () => {
-    renderHook(() => useBridge())
+    renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
@@ -129,7 +129,7 @@ describe('useBridge', () => {
   })
 
   it('defers an inbound apply while the user is interacting, then reconciles', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
@@ -157,7 +157,7 @@ describe('useBridge', () => {
   })
 
   it('does NOT write back a synthesized default when the layout file is absent', async () => {
-    renderHook(() => useBridge())
+    renderBridge()
     await connect()
     await act(async () => {
       lastSocket().emit({
@@ -179,7 +179,7 @@ describe('useBridge', () => {
   })
 
   it('reports saveState saving → saved across an edit and its ack', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     // Nothing pending right after hydrate.
@@ -199,7 +199,7 @@ describe('useBridge', () => {
   })
 
   it('coalesces a burst of edits into a leading + single trailing write', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     const applyMsgs = () =>
@@ -238,7 +238,7 @@ describe('useBridge', () => {
 
   it('falls back to the browser backup when no hydrate arrives (server down)', async () => {
     writeBackup('sys', { source: D2, layout: layoutObj(7), base: null, savedAt: 1 })
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect() // socket opens, but the server never sends a hydrate
     // Wait out the offline-fallback grace period.
     await act(async () => {
@@ -256,7 +256,7 @@ describe('useBridge', () => {
       base: docKeyOf(D2, layoutObj(5)),
       savedAt: 99,
     })
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     expect(result.current.clash).not.toBeNull()
@@ -275,7 +275,7 @@ describe('useBridge', () => {
       base: docKeyOf(D2, layoutObj(2)),
       savedAt: 7,
     })
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     expect(result.current.clash).toBeNull()
@@ -289,7 +289,7 @@ describe('useBridge', () => {
   })
 
   it('flushes edits made while offline to disk on reconnect (not just on the next edit)', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     expect(result.current.saveState).toBe('saved')
@@ -326,7 +326,7 @@ describe('useBridge', () => {
   })
 
   it('reports saveState offline when the socket drops', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
     expect(result.current.saveState).toBe('saved')
@@ -335,7 +335,7 @@ describe('useBridge', () => {
   })
 
   it('does NOT write to disk before the first hydrate (no clobber on slow reconnect)', async () => {
-    renderHook(() => useBridge())
+    renderBridge()
     await connect()
     // Connected, but the authoritative disk state has NOT arrived yet. The store
     // still holds its empty bootstrap baseline; a local edit here must be
@@ -358,7 +358,7 @@ describe('useBridge', () => {
   })
 
   it('defers a reconnect re-hydrate while the user is interacting', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 
@@ -385,7 +385,7 @@ describe('useBridge', () => {
   })
 
   it('keeps last-good content and flags an error when disk is invalid', async () => {
-    const { result } = renderHook(() => useBridge())
+    const { result } = renderBridge()
     await connect()
     await act(async () => lastSocket().emit(hydrate(D2, layoutText(2))))
 

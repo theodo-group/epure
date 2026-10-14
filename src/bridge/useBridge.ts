@@ -1,8 +1,9 @@
 // React adapter: wires a BridgeClient to the diagram store and App lifecycle.
 //
 // Inbound (disk → UI):
-//   - first hydrate → loadDocument (fresh baseline, clears undo),
-//   - reconnect hydrate / fileChanged → applyRemote (paused, keeps undo),
+//   - hydrate → whatever `planHydrate` decides (load, apply, defer, push the
+//     local copy, or raise a clash); this hook only runs the plan,
+//   - fileChanged → applyRemote (paused, keeps undo),
 //   - both deferred behind the interaction guard so a remote write never yanks
 //     a node mid-drag or clobbers mid-keystroke editor text.
 // Outbound (UI → disk):
@@ -12,23 +13,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useDiagramStore } from '@/store/diagramStore'
-import { emptyLayout } from '@/layout/defaults'
-import type { LayoutSidecar } from '@/layout/types'
 import { validateLayoutJson } from '@/file/layoutSchema'
 
 import { BridgeClient, type BridgeStatus, type SocketFactory } from './BridgeClient'
 import { bridge } from './config'
+import { type Clash, type ClashInfo, clashInfo, planHydrate } from './hydratePlan'
 import { interaction } from './interaction'
 import { layoutToText } from './sync'
-import { docKeyOf, readBackup, writeBackup, reconcile, type DocBackup } from './offlineBackup'
+import { readBackup, writeBackup } from './offlineBackup'
 import type { FileFrame, FileKind } from './protocol'
 
-// Test-only seam: inject a fake WebSocket factory so the hook is drivable in
-// jsdom (which has no WebSocket). Unset in production → BridgeClient's default.
-let testSocketFactory: SocketFactory | undefined
-export const __setTestSocketFactory = (f: SocketFactory | undefined): void => {
-  testSocketFactory = f
-}
+export type { ClashInfo } from './hydratePlan'
 
 export type BridgeUiStatus = 'standalone' | BridgeStatus
 
@@ -38,15 +33,6 @@ export type BridgeUiStatus = 'standalone' | BridgeStatus
  *  - `unsaved` the buffer is invalid and was withheld from disk,
  *  - `offline` not connected — nothing is reaching disk. */
 export type BridgeSaveState = 'saved' | 'saving' | 'unsaved' | 'offline'
-
-/** A genuine conflict: the browser backup and the disk file BOTH changed since
- *  they were last in sync, so the user must pick which to keep. */
-export interface ClashInfo {
-  /** When the local copy was last saved in the browser (epoch ms). */
-  localSavedAt: number
-  local: { nodes: number; edges: number }
-  disk: { nodes: number; edges: number }
-}
 
 export interface BridgeUiState {
   /** True when a live bridge was detected (vs standalone/localStorage mode). */
@@ -73,6 +59,12 @@ export interface BridgeUiState {
   remoteError: string | null
 }
 
+export interface BridgeOptions {
+  /** Opens the transport. Defaults to the one the bridge config names
+   *  (WebSocket or postMessage); tests pass a fake. Read once, on mount. */
+  socketFactory?: SocketFactory
+}
+
 const FLASH_MS = 1200
 const RECONCILE_POLL_MS = 400
 // Coalesce outbound disk writes. The editor drives `setSource` on every keystroke
@@ -87,12 +79,17 @@ const OUTBOUND_DEBOUNCE_MS = 250
 // that a healthy connection hydrates first (no flash of the local copy).
 const OFFLINE_FALLBACK_MS = 1200
 
-const layoutFromFrame = (content: string | null): LayoutSidecar => {
-  if (content === null) return emptyLayout()
-  return validateLayoutJson(content).value ?? emptyLayout()
+/** Offer the store's current content to the client, which sends the kinds that
+ *  are valid and changed (see `BridgeClient.apply`). */
+const sendStore = (client: BridgeClient) => {
+  const state = useDiagramStore.getState()
+  return client.apply([
+    { kind: 'd2', content: state.source },
+    { kind: 'layout', content: layoutToText(state.layout) },
+  ])
 }
 
-export const useBridge = (): BridgeUiState => {
+export const useBridge = ({ socketFactory }: BridgeOptions = {}): BridgeUiState => {
   const [active, setActive] = useState(false)
   const [status, setStatus] = useState<BridgeUiStatus>('standalone')
   const [filename, setFilename] = useState('')
@@ -110,15 +107,13 @@ export const useBridge = (): BridgeUiState => {
   const [clash, setClash] = useState<ClashInfo | null>(null)
   // The full conflict payload (kept in a ref so resolveClash can act on it
   // without re-subscribing). `clash` above is the lean UI view of this.
-  const clashDataRef = useRef<{
-    local: DocBackup
-    disk: { source: string; layout: LayoutSidecar }
-  } | null>(null)
+  const clashDataRef = useRef<Clash | null>(null)
   // Whether a real document is loaded (hydrate or offline backup), gating the
   // backup writer so the empty bootstrap state can never overwrite a good backup.
   const hasDocRef = useRef(false)
   // Per-document backup key (bridge doc stem, falling back to file path).
   const docIdRef = useRef('')
+  const socketFactoryRef = useRef(socketFactory)
 
   const clientRef = useRef<BridgeClient | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -130,13 +125,33 @@ export const useBridge = (): BridgeUiState => {
   // for the hydrate to land.
   const hydratedRef = useRef(false)
 
+  // Pointer state feeds the interaction guard: a pointer held down may be a drag.
   useEffect(() => {
-    const { applyRemote } = useDiagramStore.getState()
-    const loadDocument = useDiagramStore.getState().loadDocument
-    let disposed = false
-    let offlineTimer: ReturnType<typeof setTimeout> | undefined
-    // Latest deferred remote frame per kind, awaiting a quiet window. Scoped to
-    // this effect run (not a ref), so a StrictMode remount can never replay a
+    const onPointerDown = () => interaction.setPointerDown(true)
+    const onPointerUp = () => interaction.setPointerDown(false)
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
+    }
+  }, [])
+
+  // Connection + inbound: the client's lifecycle and everything disk → store.
+  useEffect(() => {
+    const config = bridge()
+    if (!config) return // standalone: the initial state already says so
+    setActive(true)
+    setFilename(config.doc)
+    // Per-document backup key: the doc stem, then the disk path (ws only).
+    const docId = config.doc || (config.transport === 'ws' ? config.file : '') || 'default'
+    docIdRef.current = docId
+
+    const { applyRemote, loadDocument } = useDiagramStore.getState()
+    // Latest deferred remote content per kind, awaiting a quiet window. Scoped
+    // to this effect run (not a ref), so a StrictMode remount can never replay a
     // previous mount's stale "disk changed".
     const pending = new Map<FileKind, string>()
 
@@ -151,36 +166,21 @@ export const useBridge = (): BridgeUiState => {
     // outbound subscriber synchronously, so lastKey must already be recorded or
     // the just-applied remote change echoes straight back to disk.
     const applyKind = (kind: FileKind, content: string) => {
-      const client = clientRef.current
       if (kind === 'd2') {
-        client?.markRemote('d2', content)
+        client.markRemote('d2', content)
         applyRemote({ source: content })
       } else if (kind === 'layout') {
         const value = validateLayoutJson(content).value
         if (!value) return
-        client?.markRemote('layout', content)
+        client.markRemote('layout', content)
         applyRemote({ layout: value })
       }
       triggerFlash()
     }
 
-    // Apply now if the user is idle, else stash for the next quiet window.
-    const receive = (kind: FileKind, content: string | null, valid: boolean, error?: string) => {
-      if (!valid) {
-        setRemoteError(error ?? 'disk file is invalid')
-        return
-      }
-      setRemoteError(null)
-      if (content === null) {
-        // File deleted — keep the last good buffer in the store.
-        return
-      }
-      if (interaction.isBusy()) {
-        pending.set(kind, content)
-        setDiskChanged(true)
-        return
-      }
-      applyKind(kind, content)
+    const defer = (kind: FileKind, content: string) => {
+      pending.set(kind, content)
+      setDiskChanged(true)
     }
 
     const flushPending = () => {
@@ -190,172 +190,125 @@ export const useBridge = (): BridgeUiState => {
       setDiskChanged(false)
     }
 
-    // Push the store's current state to disk, mirroring the outbound subscriber's
-    // send + save-cue bookkeeping. Used on reconnect when the local copy holds
-    // edits that never reached the socket (they were made while it was down): the
-    // store won't change, so nothing re-fires the subscriber — without this the
-    // work would sit unsaved on disk until the next edit.
-    const flushLocal = () => {
-      const client = clientRef.current
-      if (!client) return
-      const state = useDiagramStore.getState()
-      const { sent, invalid } = client.apply([
-        { kind: 'd2', content: state.source },
-        { kind: 'layout', content: layoutToText(state.layout) },
-      ])
-      if (sent.length > 0) setPendingWrites((n) => n + 1)
-      setInvalidUnsaved(invalid.includes('d2'))
+    // Apply now if the user is idle, else stash for the next quiet window.
+    const onFileChanged = (
+      kind: FileKind,
+      content: string | null,
+      valid: boolean,
+      error?: string,
+    ) => {
+      if (!valid) {
+        setRemoteError(error ?? 'disk file is invalid')
+        return
+      }
+      setRemoteError(null)
+      if (content === null) return // file deleted: keep the last good buffer
+      if (interaction.isBusy()) defer(kind, content)
+      else applyKind(kind, content)
     }
 
-    const config = bridge()
-    if (!config) {
-      setStatus('standalone')
-    } else {
-      setActive(true)
-      setFilename(config.doc)
-      // Per-document backup key: the doc stem, then the disk path (ws only).
-      const docId = config.doc || (config.transport === 'ws' ? config.file : '') || 'default'
-      docIdRef.current = docId
-
-      const client = new BridgeClient({
-        config,
-        ...(testSocketFactory ? { socketFactory: testSocketFactory } : {}),
-        onStatus: (s) => {
-          setStatus(s)
-          if (s === 'disconnected') {
-            // In-flight writes are unknowable once the socket drops; the badge
-            // shows "offline" until reconnect, so clear the pending count.
-            setPendingWrites(0)
-          }
-        },
-        onApplied: () => {
-          setInvalidUnsaved(false)
-          // One envelope confirmed written to disk.
-          setPendingWrites((n) => Math.max(0, n - 1))
-        },
-        onRejected: (reason, err) => {
-          // A rejected envelope is no longer in flight (it errored, not saved).
-          setPendingWrites((n) => Math.max(0, n - 1))
-          if (reason === 'unauthorized') setStatus('disconnected')
-          else if (reason === 'invalid') setRemoteError(err ?? 'rejected')
-        },
-        onHydrate: (files: FileFrame[], reconnect: boolean) => {
-          const byKind = Object.fromEntries(files.map((f) => [f.kind, f]))
-          const source = byKind.d2?.content ?? ''
-          const layout = layoutFromFrame(byKind.layout?.content ?? null)
-          // Key against the *store-resulting* content BEFORE the store write, so
-          // the synchronous outbound subscriber dedups. Critical for an absent
-          // layout file, where the store holds a synthesized default that must
-          // NOT be written straight back to disk (it would create a spurious
-          // layout.json the user never asked for).
-          client.markRemote('d2', source)
-          client.markRemote('layout', layoutToText(layout))
-          // The disk baseline is now in hand — outbound writes are safe.
-          hydratedRef.current = true
-          hasDocRef.current = true
-          setUsingLocalCopy(false)
-
-          // 3-way reconcile against the browser backup (see offlineBackup).
-          const diskKey = docKeyOf(source, layout)
-          const backup = readBackup(docId)
-          const localKey = backup ? docKeyOf(backup.source, backup.layout) : null
-          const action = reconcile(diskKey, localKey, backup?.base ?? null)
-
-          if (action === 'clash' && backup) {
-            // Genuine conflict — show the user's own copy and prompt for a choice.
-            clashDataRef.current = { local: backup, disk: { source, layout } }
-            setClash({
-              localSavedAt: backup.savedAt,
-              local: {
-                nodes: Object.keys(backup.layout.nodes).length,
-                edges: Object.keys(backup.layout.edges).length,
-              },
-              disk: {
-                nodes: Object.keys(layout.nodes).length,
-                edges: Object.keys(layout.edges).length,
-              },
-            })
-            if (!reconnect) loadDocument(backup.source, backup.layout)
-            // reconnect: the store already holds the local edits — leave them.
-            return
-          }
-
-          setClash(null)
-          clashDataRef.current = null
-
-          if (action === 'keep-local' && backup) {
-            // Disk unchanged since sync; the local copy has the only edits.
-            if (!reconnect) {
-              // First load: restore the local copy — the store write fires the
-              // outbound subscriber, which pushes it to disk.
-              loadDocument(backup.source, backup.layout)
-            } else {
-              // Reconnect: the store already holds these edits, so no store write
-              // fires — and they were never sent (the socket was down when they
-              // were made). Push the current state now, or a brief disconnect
-              // would strand unsaved work until the next edit.
-              flushLocal()
-            }
-            return
-          }
-
-          // take-disk: disk wins (identical, or local had no edits beyond base).
-          if (!reconnect) {
-            loadDocument(source, layout) // first load: fresh baseline
-            return
-          }
-          // Reconnect applies disk via the paused path (never wipes history) — but
-          // honors the interaction guard so a socket blip mid-drag doesn't yank
-          // the canvas. Defer to the next quiet window.
-          if (interaction.isBusy()) {
-            if (byKind.d2?.content != null) pending.set('d2', source)
-            pending.set('layout', layoutToText(layout))
-            setDiskChanged(true)
-            return
-          }
-          applyRemote({ source, layout })
-          triggerFlash()
-        },
-        onFileChanged: receive,
+    const onHydrate = (files: FileFrame[], reconnect: boolean) => {
+      const plan = planHydrate({
+        files,
+        reconnect,
+        backup: readBackup(docId),
+        busy: interaction.isBusy(),
       })
-      clientRef.current = client
-      client.connect()
+      // Key against the *store-resulting* content BEFORE any store write, so
+      // the synchronous outbound subscriber dedups. Critical for an absent
+      // layout file, where the store holds a synthesized default that must
+      // NOT be written straight back to disk (it would create a spurious
+      // layout.json the user never asked for).
+      client.markRemote('d2', plan.disk.source)
+      client.markRemote('layout', layoutToText(plan.disk.layout))
+      // The disk baseline is now in hand — outbound writes are safe.
+      hydratedRef.current = true
+      hasDocRef.current = true
+      setUsingLocalCopy(false)
 
-      // Offline fallback: if no hydrate arrives (server down), show the browser
-      // backup instead of a blank canvas. Edits are held locally (the outbound
-      // guard blocks disk writes until hydrate) and reconciled on reconnect.
-      offlineTimer = setTimeout(() => {
-        if (disposed || hydratedRef.current) return
-        const backup = readBackup(docId)
-        if (!backup) return
-        hasDocRef.current = true
-        setUsingLocalCopy(true)
-        loadDocument(backup.source, backup.layout)
-      }, OFFLINE_FALLBACK_MS)
+      for (const action of plan.actions) {
+        switch (action.type) {
+          case 'raise-clash':
+            clashDataRef.current = action.clash
+            setClash(clashInfo(action.clash))
+            break
+          case 'clear-clash':
+            clashDataRef.current = null
+            setClash(null)
+            break
+          case 'load':
+            // A fresh baseline; the store write fires the outbound subscriber,
+            // which sends it to disk if it differs from the disk just recorded.
+            loadDocument(action.doc.source, action.doc.layout)
+            break
+          case 'apply':
+            applyRemote(action.doc)
+            triggerFlash()
+            break
+          case 'defer':
+            for (const file of action.files) defer(file.kind, file.content)
+            break
+          case 'push-local': {
+            const { sent, invalid } = sendStore(client)
+            if (sent.length > 0) setPendingWrites((n) => n + 1)
+            setInvalidUnsaved(invalid.includes('d2'))
+            break
+          }
+        }
+      }
     }
 
-    // Pointer + reconcile wiring.
-    const onPointerDown = () => interaction.setPointerDown(true)
-    const onPointerUp = () => interaction.setPointerDown(false)
-    window.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('pointerup', onPointerUp)
-    window.addEventListener('pointercancel', onPointerUp)
+    const client = new BridgeClient({
+      config,
+      ...(socketFactoryRef.current ? { socketFactory: socketFactoryRef.current } : {}),
+      onStatus: (s) => {
+        setStatus(s)
+        // In-flight writes are unknowable once the socket drops; the badge
+        // shows "offline" until reconnect, so clear the pending count.
+        if (s === 'disconnected') setPendingWrites(0)
+      },
+      onApplied: () => {
+        setInvalidUnsaved(false)
+        // One envelope confirmed written to disk.
+        setPendingWrites((n) => Math.max(0, n - 1))
+      },
+      onRejected: (reason, err) => {
+        // A rejected envelope is no longer in flight (it errored, not saved).
+        setPendingWrites((n) => Math.max(0, n - 1))
+        if (reason === 'unauthorized') setStatus('disconnected')
+        else if (reason === 'invalid') setRemoteError(err ?? 'rejected')
+      },
+      onHydrate,
+      onFileChanged,
+    })
+    clientRef.current = client
+    client.connect()
+
+    // Offline fallback: if no hydrate arrives (server down), show the browser
+    // backup instead of a blank canvas. Edits are held locally (the outbound
+    // guard blocks disk writes until hydrate) and reconciled on reconnect.
+    const offlineTimer = setTimeout(() => {
+      if (hydratedRef.current) return
+      const backup = readBackup(docId)
+      if (!backup) return
+      hasDocRef.current = true
+      setUsingLocalCopy(true)
+      loadDocument(backup.source, backup.layout)
+    }, OFFLINE_FALLBACK_MS)
+
+    // Deferred changes land on pointer-up, or on the poll once typing goes quiet.
     const unsubReconcile = interaction.subscribe(flushPending)
     const pollTimer = setInterval(flushPending, RECONCILE_POLL_MS)
 
     return () => {
-      disposed = true
-      clientRef.current?.close()
+      client.close()
       clientRef.current = null
       // `pending` is scoped to this effect run, so it's discarded with the
       // closure — nothing to clear. Just reset the pill the next mount re-derives.
       setDiskChanged(false)
-      window.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('pointerup', onPointerUp)
-      window.removeEventListener('pointercancel', onPointerUp)
       unsubReconcile()
       clearInterval(pollTimer)
-      if (offlineTimer) clearTimeout(offlineTimer)
+      clearTimeout(offlineTimer)
       if (flashTimer.current) clearTimeout(flashTimer.current)
     }
   }, [])
@@ -375,11 +328,7 @@ export const useBridge = (): BridgeUiState => {
     const flush = (): boolean => {
       const client = clientRef.current
       if (!client) return false
-      const state = useDiagramStore.getState()
-      const { sent, invalid } = client.apply([
-        { kind: 'd2', content: state.source },
-        { kind: 'layout', content: layoutToText(state.layout) },
-      ])
+      const { sent, invalid } = sendStore(client)
       const real = sent.length > 0 || invalid.length > 0
       // Only a real edit counts as "user activity" (an echo must not mark busy).
       if (real) interaction.noteActivity()
