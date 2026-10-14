@@ -1,15 +1,14 @@
 // Standalone host: a plain Node http server that serves the built SPA (`dist/`)
-// via sirv and carries the bridge WebSocket. This is what `npx @theodo-group/epure` runs.
+// (see ./static) and carries the bridge WebSocket. This is what `npx @theodo-group/epure` runs.
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import sirv from 'sirv'
-
 import { BridgeCore } from './core/bridge'
 import { resolvePair } from './core/pair'
 import { configBody, injectBridge, type BridgeRuntime } from './inject'
+import { serveStatic as staticFiles } from './static'
 import { attachBridgeWs, isLocalRequest } from './ws'
 
 export interface StandaloneOptions {
@@ -43,7 +42,7 @@ export const startStandalone = async (opts: StandaloneOptions): Promise<Standalo
     version: opts.version,
   }
 
-  const serveStatic = sirv(opts.distDir, { dev: false, etag: true, single: false })
+  const serveStatic = staticFiles(opts.distDir)
 
   const serveIndex = async (res: ServerResponse): Promise<void> => {
     try {
@@ -78,7 +77,7 @@ export const startStandalone = async (opts: StandaloneOptions): Promise<Standalo
       return
     }
 
-    serveStatic(req, res, () => {
+    void serveStatic(req, res, () => {
       // SPA fallback: unknown non-asset routes get index.html.
       if (req.method === 'GET' && !path.includes('.')) {
         void serveIndex(res)

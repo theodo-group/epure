@@ -78,7 +78,6 @@
     "@resvg/resvg-js": "^2.6.2",
     "chevrotain": "^13.2.0",
     "chokidar": "^5.0.0",
-    "sirv": "^3.0.2",
     "ws": "^8.22.0"
   },
   "peerDependencies": {
