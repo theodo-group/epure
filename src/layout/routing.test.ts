@@ -1,11 +1,13 @@
 // Edges must route AROUND a node sitting between their endpoints, not through
 // it. (Setup loads libavoid's real wasm, so this exercises production routing.)
 
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
+import { AreaLabel } from '@/renderer/Area'
 
-import { areaTitleRect, NESTED_AREA_PAD } from './areaGeometry'
 import { FaceCache, route } from './elk'
 import { normalizeForRoute } from './normalize'
 import type { LayoutSidecar, RoutedDiagram } from './types'
@@ -221,11 +223,18 @@ describe('edge obstacle avoidance', () => {
   // does not — so if the geometry ever drifts (e.g. AREA_PAD changes) the guard
   // fails loudly instead of the test silently passing while no longer exercising
   // the bug.
-  const titleOf = (routed: RoutedDiagram, id: string) => {
-    const a = routed.areas.find((x) => x.id === id)!
-    return areaTitleRect({ x: a.x, y: a.y, w: a.w, h: a.h }, a.label!)
-  }
+  //
+  // The oracle is the chip the RENDERER draws (AreaLabel at text scale 1), read
+  // off its markup — not the router's own obstacle geometry — so the obstacle
+  // drifting away from what the user sees fails here.
   type Rect = { x: number; y: number; w: number; h: number }
+  const titleOf = (routed: RoutedDiagram, id: string): Rect => {
+    const area = routed.areas.find((x) => x.id === id)!
+    const svg = renderToStaticMarkup(createElement('svg', null, createElement(AreaLabel, { area })))
+    const attr = (name: string) =>
+      Number(new RegExp(`<rect[^>]* ${name}="([-\\d.]+)"`).exec(svg)![1])
+    return { x: attr('x'), y: attr('y'), w: attr('width'), h: attr('height') }
+  }
   const pathHitsTitle = (edge: RoutedDiagram['edges'][number], title: Rect) =>
     edge.points.some((_, i) =>
       i > 0 ? segHitsRect(edge.points[i - 1]!, edge.points[i]!, title) : false,
@@ -365,11 +374,11 @@ describe('edge obstacle avoidance', () => {
     expect(crossings).toBe(0)
   })
 
-  it('wraps a nested area inside its parent with a NESTED_AREA_PAD ring', async () => {
+  it('wraps a nested area inside its parent with a 48px ring', async () => {
     // Inner { a b } is itself a member of Outer { Inner c }: the parent's box
-    // must contain the child's PADDED rect plus a full NESTED_AREA_PAD ring on
-    // every side (wider than the AREA_PAD used for plain nodes, so the title
-    // chips straddling the two borders never crowd each other).
+    // must contain the child's PADDED rect plus a full 48px ring on every side
+    // (twice the 24px pad around plain nodes, so the title chips straddling the
+    // two borders keep a clear lane between them).
     const parsed = parse(
       'a\nb\nc\nInner: "Inner" {\n  a\n  b\n}\nOuter: "Outer" {\n  Inner\n  c\n}\n',
     )
@@ -386,10 +395,17 @@ describe('edge obstacle avoidance', () => {
     const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
     const inner = routed.areas.find((x) => x.id === 'Inner')!
     const outer = routed.areas.find((x) => x.id === 'Outer')!
-    expect(outer.x).toBeLessThanOrEqual(inner.x - NESTED_AREA_PAD)
-    expect(outer.y).toBeLessThanOrEqual(inner.y - NESTED_AREA_PAD)
-    expect(outer.x + outer.w).toBeGreaterThanOrEqual(inner.x + inner.w + NESTED_AREA_PAD)
-    expect(outer.y + outer.h).toBeGreaterThanOrEqual(inner.y + inner.h + NESTED_AREA_PAD)
+    // Inner (a, b) is the leftmost/topmost content: its border sits 24px off its
+    // nodes (a's left = 120, top = 160), and Outer's sits 48px further out.
+    expect(inner).toMatchObject({ x: 96, y: 136 })
+    expect(outer).toMatchObject({ x: 48, y: 88 })
+    expect(outer.x + outer.w).toBeGreaterThanOrEqual(inner.x + inner.w + 48)
+    expect(outer.y + outer.h).toBeGreaterThanOrEqual(inner.y + inner.h + 48)
+    // The two title chips (both 22px tall, straddling their borders) keep at
+    // least a chip's height of clear space between them.
+    const outerChip = titleOf(routed, 'Outer')
+    const innerChip = titleOf(routed, 'Inner')
+    expect(innerChip.y - (outerChip.y + outerChip.h)).toBeGreaterThanOrEqual(22)
     // Parent-first paint order: Outer must be emitted before Inner so the
     // nested box draws on top.
     const order = routed.areas.map((x) => x.id)

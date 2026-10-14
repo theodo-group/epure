@@ -3,7 +3,7 @@
 // The floating style panel exposes source/target face buttons for a selected
 // edge; clicking one must pin that side in the layout sidecar (the router then
 // honors it), and re-clicking clears back to auto.
-import { fireEvent, render, screen, cleanup } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
@@ -29,37 +29,39 @@ const selectOneEdge = () => {
   })
 }
 
+const edgeEntry = () => useDiagramStore.getState().layout.edges['a->b']
+const faceButton = (row: 'Source face' | 'Target face', side: string) =>
+  within(screen.getByRole('group', { name: row })).getByRole('button', { name: side })
+
 afterEach(cleanup)
 
 describe('StylePanel edge faces', () => {
-  it('shows Source/Target face controls for a selected edge', () => {
+  it('shows Source/Target face controls with the four sides each', () => {
     selectOneEdge()
     render(<StylePanel />)
-    expect(screen.getByText('Source face')).toBeTruthy()
-    expect(screen.getByText('Target face')).toBeTruthy()
+    for (const row of ['Source face', 'Target face'] as const) {
+      const sides = within(screen.getByRole('group', { name: row })).getAllByRole('button')
+      expect(sides.map((b) => b.getAttribute('title'))).toEqual(['Top', 'Right', 'Bottom', 'Left'])
+    }
   })
 
   it('pins the source face on click and clears it on re-click', () => {
     selectOneEdge()
     render(<StylePanel />)
-    // Each face control renders four buttons titled by direction; the Source row
-    // is the first such group. Grab its "Top" (N) button.
-    const tops = screen.getAllByTitle('Top')
-    fireEvent.click(tops[0]!)
-    expect(useDiagramStore.getState().layout.edges['a->b']?.sourceSide).toBe('N')
+    fireEvent.click(faceButton('Source face', 'Top'))
+    expect(edgeEntry()?.sourceSide).toBe('N')
+    expect(edgeEntry()?.targetSide).toBeUndefined()
 
     // Re-click the now-explicit button → back to auto (undefined).
-    fireEvent.click(screen.getAllByTitle('Top (click to reset)')[0]!)
-    expect(useDiagramStore.getState().layout.edges['a->b']?.sourceSide).toBeUndefined()
+    fireEvent.click(faceButton('Source face', 'Top (click to reset)'))
+    expect(edgeEntry()?.sourceSide).toBeUndefined()
   })
 
   it('pins the target face independently of the source face', () => {
     selectOneEdge()
     render(<StylePanel />)
-    // Target row is the second face group → its "Right" (E) button is index 1.
-    const rights = screen.getAllByTitle('Right')
-    fireEvent.click(rights[1]!)
-    expect(useDiagramStore.getState().layout.edges['a->b']?.targetSide).toBe('E')
-    expect(useDiagramStore.getState().layout.edges['a->b']?.sourceSide).toBeUndefined()
+    fireEvent.click(faceButton('Target face', 'Right'))
+    expect(edgeEntry()?.targetSide).toBe('E')
+    expect(edgeEntry()?.sourceSide).toBeUndefined()
   })
 })

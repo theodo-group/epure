@@ -177,9 +177,16 @@ describe('embed', () => {
     expect(params.get('bridge')).toBe('pm')
     expect(params.get('doc')).toBe('sys')
     expect(params.get('origin')).toBe(window.location.origin)
-    expect(params.get('token')).toBeTruthy()
+    // A fresh unguessable token per session.
+    const token = params.get('token')
+    expect(token).toMatch(/^[0-9a-f-]{36}$/)
     expect(session.dirty()).toBe(false)
     session.close()
+    const other = makeEditor()
+    embed(other.iframe, { app: APP, doc: 'sys', files: { d2: 'a' } }).close()
+    expect(new URLSearchParams(new URL(other.iframe.src).hash.slice(1)).get('token')).not.toBe(
+      token,
+    )
   })
 
   it('handshake and edits round-trip; files()/dirty() track the session', () => {
