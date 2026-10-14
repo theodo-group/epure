@@ -6,6 +6,7 @@ import { EditorTabBar } from '@/editor/EditorTabBar'
 import { SplitPane } from '@/editor/SplitPane'
 import { CodeMirrorPane, type CodeMirrorPaneHandle } from '@/editor/CodeMirrorPane'
 import { useLayoutEditorBuffer } from '@/editor/useLayoutEditorBuffer'
+import { useEditorWrap } from '@/editor/wrapPreference'
 import { Canvas, type EdgeMeta, type NodeMeta } from '@/renderer/Canvas'
 import { StylePanel } from '@/style/StylePanel'
 import {
@@ -140,6 +141,7 @@ export const App = () => {
   const moveNodes = useDiagramStore((s) => s.moveNodes)
   const setEdgeLabelOffset = useDiagramStore((s) => s.setEdgeLabelOffset)
   const resizeNode = useDiagramStore((s) => s.resizeNode)
+  const formatSource = useDiagramStore((s) => s.formatSource)
   const areaDragStartRef = useRef<Record<string, { cx: number; cy: number; w: number; h: number }>>(
     {},
   )
@@ -155,6 +157,7 @@ export const App = () => {
     errors: layoutErrors,
     edit: editLayout,
     reset: resetLayoutBuffer,
+    format: formatLayoutBuffer,
   } = useLayoutEditorBuffer(layout, setLayout)
 
   // Loading a whole new document is the one case where discarding the editor
@@ -231,6 +234,25 @@ export const App = () => {
     const raf = requestAnimationFrame(() => setFitVersion((v) => v + 1))
     return () => cancelAnimationFrame(raf)
   }, [editorVisible])
+
+  // Soft line wrapping in the code pane (the tab bar's Wrap toggle), both tabs.
+  const [editorWrap, toggleEditorWrap] = useEditorWrap()
+
+  // Format the active tab (the tab bar's Format button, or ⇧⌥F). The .d2 is
+  // rewritten through the store as one undo step; the layout tab just shows
+  // its canonical text, which is what the store already holds and the bridge
+  // writes. Unavailable while the text doesn't parse.
+  const formatDisabledReason = (activeTab === 'd2' ? parseResult.ok : layoutErrors.length === 0)
+    ? undefined
+    : 'Fix the errors to format'
+  const handleFormat = useCallback(() => {
+    if (activeTab === 'layout') {
+      formatLayoutBuffer()
+      return
+    }
+    interaction.noteActivity()
+    formatSource()
+  }, [activeTab, formatLayoutBuffer, formatSource])
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   // The live bridge (when present) hydrates the store from disk over WebSocket;
@@ -412,6 +434,15 @@ export const App = () => {
         return
       }
       const mod = ev.metaKey || ev.ctrlKey
+
+      // ⇧⌥F formats the code pane's active tab. Matched on the physical key:
+      // with ⌥ held, macOS turns `key` into a symbol (`Ï`).
+      if (ev.code === 'KeyF' && ev.shiftKey && ev.altKey && !mod) {
+        ev.preventDefault()
+        if (editorVisible) handleFormat()
+        return
+      }
+
       if (!mod) return
       const key = ev.key.toLowerCase()
 
@@ -451,7 +482,7 @@ export const App = () => {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canOpen, handleOpen, onExportPng, toggleEditor])
+  }, [canOpen, handleOpen, onExportPng, toggleEditor, editorVisible, handleFormat])
 
   // Commit an inline label edit from the canvas: rewrite the node's label in
   // the .d2 source in place (or insert one after the id when the node has none).
@@ -749,6 +780,10 @@ export const App = () => {
                   activeTabId={activeTab}
                   onSelectTab={(id) => setActiveTab(id as 'd2' | 'layout')}
                   onSearch={() => editorRef.current?.openSearch()}
+                  wrap={editorWrap}
+                  onToggleWrap={toggleEditorWrap}
+                  onFormat={handleFormat}
+                  formatDisabledReason={formatDisabledReason}
                 />
                 <div className="ep-cm-wrap">
                   {activeTab === 'd2' ? (
@@ -764,6 +799,7 @@ export const App = () => {
                         setSource(text)
                       }}
                       errors={parseResult.ok ? [] : parseResult.errors}
+                      wrap={editorWrap}
                     />
                   ) : (
                     <CodeMirrorPane
@@ -779,6 +815,7 @@ export const App = () => {
                         editLayout(text)
                       }}
                       errors={layoutErrors}
+                      wrap={editorWrap}
                       language={jsonLang()}
                     />
                   )}

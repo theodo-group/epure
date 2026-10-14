@@ -311,6 +311,18 @@ body {
   background: #1f1f23;
 }
 
+.ep-tab-action[aria-pressed="true"] {
+  color: oklch(0.7 0.14 250);
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.ep-tab-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--ep-editor-line-muted);
+}
+
 .ep-cm-wrap {
   flex: 1;
   min-height: 0;

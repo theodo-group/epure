@@ -16,6 +16,8 @@ import { edgeKey, edgeKeyOfId, makeEdgeId } from '@/layout/ids'
 import { labelAnchorFor } from '@/layout/labels'
 import { normalizeForRoute } from '@/layout/normalize'
 import { TEXT_SCALE_MAX, TEXT_SCALE_MIN } from '@/file/layoutSchema'
+import { formatD2 } from '@/parser/format'
+import { asOneUndoStep, flushBurst, recordInBurst } from './undoBurst'
 
 // A routed edge id is `source->target#index`; the style sidecar keys edges by
 // `source->target` (shared across parallel edges), so strip the ordinal.
@@ -162,6 +164,10 @@ export interface DiagramActions {
   /** Open a file over the current document as ONE undoable step: unlike
    *  `loadDocument` it keeps history, so undo brings the previous diagram back. */
   openDocument: (source: string, layout: LayoutSidecar) => void
+  /** Rewrite the .d2 source in canonical form (see `formatD2`) as ONE undoable
+   *  step. A no-op — no undo entry, no write — when the source doesn't parse or
+   *  is already formatted. Returns whether the source changed. */
+  formatSource: () => boolean
   /** Inbound bridge chokepoint: apply a remote (CC/disk) edit without creating
    *  an undo entry or clearing history. See `flushBurst`. */
   applyRemote: (patch: { source?: string; layout?: LayoutSidecar }) => void
@@ -173,21 +179,9 @@ const initialSource = ''
 const initialLayout: LayoutSidecar = emptyLayout()
 const initialParse: ParseResult = { ok: false, errors: [] }
 
-// Undo-burst coalescing state, hoisted out of `handleSet` so the bridge's
-// remote-apply path can reset it. Without this reset, a local edit landing
-// <350ms after a remote apply would fuse into the *pre-remote* undo step.
-const burstState: {
-  timeout: ReturnType<typeof setTimeout> | undefined
-  active: boolean
-} = { timeout: undefined, active: false }
-
-/** Reset the in-flight undo-burst window so the next tracked change opens a
- *  fresh snapshot. Called by `applyRemote` after a bridge write. */
-export const flushBurst = (): void => {
-  if (burstState.timeout) clearTimeout(burstState.timeout)
-  burstState.timeout = undefined
-  burstState.active = false
-}
+// Undo-burst coalescing lives in `./undoBurst`, outside `handleSet`, so the
+// edits that must stand alone (open, format, a remote apply) can close it.
+export { asOneUndoStep, flushBurst } from './undoBurst'
 
 // Reroute scheduling. `route()` is async (it awaits libavoid's WASM router) and
 // a drag fires a layout change — hence a reroute — on every grid step. Two
@@ -727,19 +721,29 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       openDocument: (source, layout) => {
-        // Close any edit burst first so the open isn't folded into it, and
-        // after, so the next edit starts its own undo step.
-        flushBurst()
-        set((s) => ({
-          ...s,
-          source,
-          layout,
-          gridSize: layout.gridSize,
-          selectedNodeIds: [],
-          selectedAreaIds: [],
-          selectedEdgeIds: [],
-        }))
-        flushBurst()
+        // Its own undo step: an edit burst in progress isn't folded into the
+        // open, and the next edit doesn't merge with it.
+        asOneUndoStep(() =>
+          set((s) => ({
+            ...s,
+            source,
+            layout,
+            gridSize: layout.gridSize,
+            selectedNodeIds: [],
+            selectedAreaIds: [],
+            selectedEdgeIds: [],
+          })),
+        )
+      },
+
+      formatSource: () => {
+        const { source } = get()
+        const result = formatD2(source)
+        if (!result.ok || result.text === source) return false
+        // The plain source path (reparse, reroute and the bridge's outbound
+        // write all follow, like any edit), as ONE undo step of its own.
+        asOneUndoStep(() => set((s) => ({ ...s, source: result.text })))
+        return true
       },
 
       applyRemote: (patch) => {
@@ -772,18 +776,8 @@ export const useDiagramStore = create<DiagramStore>()(
       // record the state before the first change of a burst, then suppress
       // further snapshots until ~350ms of quiet. Without this, undo steps
       // through every keystroke and every intermediate drag position.
-      handleSet: (handleSet) => {
-        return (pastState, replace) => {
-          if (!burstState.active) {
-            burstState.active = true
-            handleSet(pastState, replace)
-          }
-          if (burstState.timeout) clearTimeout(burstState.timeout)
-          burstState.timeout = setTimeout(() => {
-            burstState.active = false
-          }, 350)
-        }
-      },
+      handleSet: (handleSet) => (pastState, replace) =>
+        recordInBurst(() => handleSet(pastState, replace)),
     },
   ),
 )

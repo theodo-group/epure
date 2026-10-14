@@ -8,9 +8,27 @@ interface EditorTabBarProps {
   activeTabId: string
   onSelectTab: (id: string) => void
   onSearch?: () => void
+  /** Soft line wrapping is on (the Wrap button shows pressed). */
+  wrap?: boolean
+  onToggleWrap?: () => void
+  onFormat?: () => void
+  /** Why Format can't run right now (the text doesn't parse): disables the
+   *  button and becomes its tooltip. */
+  formatDisabledReason?: string
 }
 
-export const EditorTabBar = ({ tabs, activeTabId, onSelectTab, onSearch }: EditorTabBarProps) => (
+export const FORMAT_SHORTCUT = '⇧⌥F'
+
+export const EditorTabBar = ({
+  tabs,
+  activeTabId,
+  onSelectTab,
+  onSearch,
+  wrap = false,
+  onToggleWrap,
+  onFormat,
+  formatDisabledReason,
+}: EditorTabBarProps) => (
   <div className="ep-tabbar" role="tablist">
     {tabs.map((tab) => {
       const active = tab.id === activeTabId
@@ -37,7 +55,14 @@ export const EditorTabBar = ({ tabs, activeTabId, onSelectTab, onSearch }: Edito
       )
     })}
     <div className="ep-tab-actions">
-      <button className="ep-tab-action" title="Wrap" type="button">
+      <button
+        className="ep-tab-action"
+        title="Wrap long lines"
+        aria-label="Wrap"
+        aria-pressed={wrap}
+        type="button"
+        onClick={onToggleWrap}
+      >
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path
             d="M2 4 H14 M2 8 H11 a2 2 0 0 1 0 4 H8 M10 10 L8 12 L10 14"
@@ -48,7 +73,14 @@ export const EditorTabBar = ({ tabs, activeTabId, onSelectTab, onSearch }: Edito
           />
         </svg>
       </button>
-      <button className="ep-tab-action" title="Format" type="button">
+      <button
+        className="ep-tab-action"
+        title={formatDisabledReason ?? `Format (${FORMAT_SHORTCUT})`}
+        aria-label="Format"
+        type="button"
+        disabled={!onFormat || formatDisabledReason !== undefined}
+        onClick={onFormat}
+      >
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path
             d="M3 3 H13 M3 8 H13 M3 13 H9"
@@ -58,7 +90,13 @@ export const EditorTabBar = ({ tabs, activeTabId, onSelectTab, onSearch }: Edito
           />
         </svg>
       </button>
-      <button className="ep-tab-action" title="Search (⌘F)" type="button" onClick={onSearch}>
+      <button
+        className="ep-tab-action"
+        title="Search (⌘F)"
+        aria-label="Search"
+        type="button"
+        onClick={onSearch}
+      >
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
           <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
           <path
