@@ -38,6 +38,9 @@ export interface PngSidecarOptions {
   wasmPath?: string
   /** Resolution multiplier; defaults to 2 (matches `epure export`). */
   scale?: number
+  /** Quiet period (ms) that coalesces a burst of applies into one render;
+   *  defaults to PNG_DEBOUNCE_MS. Tests shorten it. */
+  debounceMs?: number
 }
 
 export interface BridgeCoreOptions {
@@ -55,7 +58,40 @@ export interface BridgeCoreOptions {
 // OUTBOUND_DEBOUNCE_MS), so steady typing with short pauses is still a stream of
 // writes; this only has to outlast the watcher's coalescing + read latency, not
 // a whole session.
-const ECHO_HISTORY = 64
+export const ECHO_HISTORY = 64
+
+/** The content-keys a core has written, per kind, oldest→newest and capped at
+ *  `cap` (ECHO_HISTORY). An incoming watch event whose key matches ANY of these
+ *  is our own write and is dropped. Remembering only the *latest* write is not
+ *  enough: typing sends a stream of writes, chokidar coalesces those writes on
+ *  its side, and an `awaitWriteFinish` event can surface an EARLIER write's
+ *  content (read async, after `applyInbound` has already recorded a newer
+ *  key). Matching just the newest key lets that stale self-write look like an
+ *  external "disk changed" and clobber the editor mid-type. */
+export class EchoHistory {
+  private readonly keys = new Map<FileKind, string[]>()
+
+  constructor(private readonly cap: number = ECHO_HISTORY) {}
+
+  /** Remember a key we just wrote, keeping only the most-recent `cap`. */
+  record(kind: FileKind, key: string): void {
+    const keys = this.keys.get(kind) ?? []
+    keys.push(key)
+    if (keys.length > this.cap) keys.splice(0, keys.length - this.cap)
+    this.keys.set(kind, keys)
+  }
+
+  /** True when a disk event's key matches one of our recent writes (an echo). */
+  has(kind: FileKind, key: string): boolean {
+    return this.keys.get(kind)?.includes(key) ?? false
+  }
+
+  /** Drop a kind's history (its file was deleted: a later re-add of
+   *  previously-written content is a genuine external event). */
+  forget(kind: FileKind): void {
+    this.keys.delete(kind)
+  }
+}
 
 // Coalesce a typing burst (a stream of client writes) into a single PNG render:
 // long enough to outlast a typing burst, short enough that the image feels live
@@ -95,15 +131,8 @@ export class BridgeCore {
   private readonly onFileChanged: BridgeCoreOptions['onFileChanged']
   private watcher: FSWatcher | null = null
   private readonly pathToKind = new Map<string, FileKind>()
-  /** Content-keys we've written per kind, oldest→newest (capped at
-   *  ECHO_HISTORY). An incoming watch event whose key matches ANY of these is
-   *  our own write and is dropped. Remembering only the *latest* write is not
-   *  enough: typing sends a stream of writes, chokidar coalesces those
-   *  writes on its side, and an `awaitWriteFinish` event can surface an EARLIER
-   *  write's content (read async, after `applyInbound` has already recorded a
-   *  newer key). Matching just the newest key lets that stale self-write look
-   *  like an external "disk changed" and clobber the editor mid-type. */
-  private readonly writtenKeys = new Map<FileKind, string[]>()
+  /** Content-keys we've written, for echo suppression (see EchoHistory). */
+  private readonly written = new EchoHistory()
   /** PNG-sidecar rendering state; all inert when `png` is undefined. */
   private readonly png?: PngSidecarOptions
   private pngTimer: ReturnType<typeof setTimeout> | null = null
@@ -127,19 +156,6 @@ export class BridgeCore {
     return this.pair.stem
   }
 
-  /** Remember a key we just wrote, capped to the most-recent ECHO_HISTORY. */
-  private recordWrite(kind: FileKind, key: string): void {
-    const keys = this.writtenKeys.get(kind) ?? []
-    keys.push(key)
-    if (keys.length > ECHO_HISTORY) keys.splice(0, keys.length - ECHO_HISTORY)
-    this.writtenKeys.set(kind, keys)
-  }
-
-  /** True when a disk event's key matches one of our recent writes (an echo). */
-  private isOwnEcho(kind: FileKind, key: string): boolean {
-    return this.writtenKeys.get(kind)?.includes(key) ?? false
-  }
-
   /** Begin watching the pair. `awaitWriteFinish` coalesces editors' temp-write
    *  + rename sequences so we never read a half-written file. */
   async start(): Promise<void> {
@@ -158,7 +174,7 @@ export class BridgeCore {
       if (!kind) return
       // A delete is a genuine external event; forget our write history for this
       // kind so a later re-add of previously-written content isn't suppressed.
-      this.writtenKeys.delete(kind)
+      this.written.forget(kind)
       this.onFileChanged({
         type: 'fileChanged',
         doc: this.doc,
@@ -192,7 +208,7 @@ export class BridgeCore {
     // formatting differences don't masquerade as a change.
     if (frame.valid && frame.content !== null) {
       const key = contentVerdict(kind, frame.content).key
-      if (key !== null && this.isOwnEcho(kind, key)) return
+      if (key !== null && this.written.has(kind, key)) return
     }
 
     this.onFileChanged({
@@ -223,7 +239,7 @@ export class BridgeCore {
     //    already recognised as ours by the time they arrive.
     for (const p of planned) {
       const key = contentVerdict(p.kind, p.bytes).key
-      if (key !== null) this.recordWrite(p.kind, key)
+      if (key !== null) this.written.record(p.kind, key)
     }
 
     // 3. Coherent write: all temps first, then rename back-to-back. True
@@ -249,7 +265,7 @@ export class BridgeCore {
     this.pngTimer = setTimeout(() => {
       this.pngTimer = null
       void this.renderPngSidecar()
-    }, PNG_DEBOUNCE_MS)
+    }, this.png?.debounceMs ?? PNG_DEBOUNCE_MS)
   }
 
   /** Render the current on-disk pair to `<stem>.png`. Serialized: a render
