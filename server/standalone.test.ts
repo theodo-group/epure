@@ -24,6 +24,12 @@ const nextMessage = (socket: WebSocket): Promise<ServerMsg> =>
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 /** Poll until `check()` is truthy; throw if `timeout` ms pass first. */
+// Rasterizing a PNG is CPU-bound: on a loaded machine it can take seconds.
+// These deadlines only bound a failure; a passing run returns as soon as the
+// file lands.
+const PNG_DEADLINE_MS = 15_000
+const PNG_TEST_TIMEOUT_MS = 20_000
+
 const waitFor = async (check: () => Promise<boolean>, timeout = 3000) => {
   const deadline = Date.now() + timeout
   while (!(await check())) {
@@ -110,60 +116,67 @@ describe('standalone server', () => {
     socket.close()
   })
 
-  it('writes a PNG sidecar next to the pair after a WS apply', async () => {
-    // Render as soon as an apply lands, not after the 400 ms typing-burst quiet
-    // period (which only matters to a human typing). Only here: elsewhere the
-    // default debounce means an apply's render never starts before teardown.
-    await handle.close()
-    handle = await start({ pngDebounceMs: 0 })
-    const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
-    await new Promise((r) => socket.once('open', r))
-    socket.send(
-      JSON.stringify({
-        type: 'hello',
-        protocol: PROTOCOL_VERSION,
-        token: 'secret-token',
-        doc: 'sys',
-      }),
-    )
-    await nextMessage(socket) // hydrate
+  it(
+    'writes a PNG sidecar next to the pair after a WS apply',
+    async () => {
+      // Render as soon as an apply lands, not after the 400 ms typing-burst quiet
+      // period (which only matters to a human typing). Only here: elsewhere the
+      // default debounce means an apply's render never starts before teardown.
+      await handle.close()
+      handle = await start({ pngDebounceMs: 0 })
+      const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)
+      await new Promise((r) => socket.once('open', r))
+      socket.send(
+        JSON.stringify({
+          type: 'hello',
+          protocol: PROTOCOL_VERSION,
+          token: 'secret-token',
+          doc: 'sys',
+        }),
+      )
+      await nextMessage(socket) // hydrate
 
-    const layout =
-      '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2},"b":{"cx":8,"cy":2,"w":4,"h":2}}, "edges":{} }'
-    socket.send(
-      JSON.stringify({
-        type: 'apply',
-        doc: 'sys',
-        files: [
-          { kind: 'd2', content: 'a\nb\na -> b\n' },
-          { kind: 'layout', content: layout },
-        ],
-      }),
-    )
-    await nextMessage(socket) // applied
+      const layout =
+        '{ "gridSize":40, "nodes":{"a":{"cx":2,"cy":2,"w":4,"h":2},"b":{"cx":8,"cy":2,"w":4,"h":2}}, "edges":{} }'
+      socket.send(
+        JSON.stringify({
+          type: 'apply',
+          doc: 'sys',
+          files: [
+            { kind: 'd2', content: 'a\nb\na -> b\n' },
+            { kind: 'layout', content: layout },
+          ],
+        }),
+      )
+      await nextMessage(socket) // applied
 
-    const dest = join(dir, 'sys.png')
-    // Rendered off the apply path — poll for the finished file.
-    await waitFor(async () => (await readFile(dest).catch(() => null)) !== null)
-    const first = await readFile(dest)
-    expect(first.subarray(0, 8)).toEqual(PNG_MAGIC)
+      const dest = join(dir, 'sys.png')
+      // Rendered off the apply path — poll for the finished file.
+      await waitFor(async () => (await readFile(dest).catch(() => null)) !== null, PNG_DEADLINE_MS)
+      const first = await readFile(dest)
+      expect(first.subarray(0, 8)).toEqual(PNG_MAGIC)
 
-    // Regression: a SECOND edit must re-render the PNG too (the initial bug
-    // updated it once then went stale / crashed the host on the next render).
-    const firstMtime = (await stat(dest)).mtimeMs
-    await new Promise((r) => setTimeout(r, 20)) // ensure a distinct mtime
-    socket.send(
-      JSON.stringify({
-        type: 'apply',
-        doc: 'sys',
-        files: [{ kind: 'd2', content: 'a\nb\nc\na -> b\nb -> c\n' }],
-      }),
-    )
-    await nextMessage(socket) // applied
-    await waitFor(async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime)
-    expect((await stat(dest)).mtimeMs).not.toBe(firstMtime)
-    socket.close()
-  })
+      // Regression: a SECOND edit must re-render the PNG too (the initial bug
+      // updated it once then went stale / crashed the host on the next render).
+      const firstMtime = (await stat(dest)).mtimeMs
+      await new Promise((r) => setTimeout(r, 20)) // ensure a distinct mtime
+      socket.send(
+        JSON.stringify({
+          type: 'apply',
+          doc: 'sys',
+          files: [{ kind: 'd2', content: 'a\nb\nc\na -> b\nb -> c\n' }],
+        }),
+      )
+      await nextMessage(socket) // applied
+      await waitFor(
+        async () => (await stat(dest).catch(() => null))?.mtimeMs !== firstMtime,
+        PNG_DEADLINE_MS,
+      )
+      expect((await stat(dest)).mtimeMs).not.toBe(firstMtime)
+      socket.close()
+    },
+    PNG_TEST_TIMEOUT_MS,
+  )
 
   it('rejects a WS hello with the wrong token', async () => {
     const socket = new WebSocket(`ws://127.0.0.1:${handle.port}/__epure/ws`)

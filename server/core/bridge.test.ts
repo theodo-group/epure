@@ -52,6 +52,12 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
+// Rasterizing a PNG is CPU-bound: on a loaded machine it can take seconds.
+// These deadlines only bound a failure; a passing run returns as soon as the
+// file lands.
+const PNG_DEADLINE_MS = 15_000
+const PNG_TEST_TIMEOUT_MS = 20_000
+
 /** Poll until `check()` is truthy; throw if `timeout` ms pass first. */
 const waitFor = async (check: () => Promise<boolean> | boolean, timeout = 3000) => {
   const deadline = Date.now() + timeout
@@ -249,38 +255,42 @@ describe('BridgeCore', () => {
     })
   })
 
-  it('renders a PNG sidecar next to the pair after an apply (png enabled)', async () => {
-    const pair = resolvePair(join(dir, 'system.epr.d2'))
-    // scale:1 keeps the raster small; real wasm path so routing runs (not the
-    // stub fallback); iconsDir omitted (plain a/b nodes need no icons); no
-    // debounce, so the render starts at once.
-    const wasmPath = join(process.cwd(), 'public', 'libavoid.wasm')
-    const pngCore = new BridgeCore({
-      pair,
-      onFileChanged: () => {},
-      png: { scale: 1, wasmPath, debounceMs: 0 },
-    })
-    try {
-      await pngCore.applyInbound([
-        { kind: 'd2', content: D2 },
-        { kind: 'layout', content: LAYOUT_MESSY },
-      ])
-      const dest = join(dir, 'system.png')
-      // Rasterized off the apply path — poll for the finished file.
-      await waitFor(async () => {
-        const buf = await readFile(dest).catch(() => null)
-        return buf !== null && buf.length > 100
+  it(
+    'renders a PNG sidecar next to the pair after an apply (png enabled)',
+    async () => {
+      const pair = resolvePair(join(dir, 'system.epr.d2'))
+      // scale:1 keeps the raster small; real wasm path so routing runs (not the
+      // stub fallback); iconsDir omitted (plain a/b nodes need no icons); no
+      // debounce, so the render starts at once.
+      const wasmPath = join(process.cwd(), 'public', 'libavoid.wasm')
+      const pngCore = new BridgeCore({
+        pair,
+        onFileChanged: () => {},
+        png: { scale: 1, wasmPath, debounceMs: 0 },
       })
-      const buf = await readFile(dest)
-      expect(buf.subarray(0, 8)).toEqual(PNG_MAGIC)
-      // No stray temp file left behind by the atomic write.
-      await expect(readFile(`${dest}.epure.tmp`)).rejects.toMatchObject({
-        code: 'ENOENT',
-      })
-    } finally {
-      await pngCore.stop()
-    }
-  })
+      try {
+        await pngCore.applyInbound([
+          { kind: 'd2', content: D2 },
+          { kind: 'layout', content: LAYOUT_MESSY },
+        ])
+        const dest = join(dir, 'system.png')
+        // Rasterized off the apply path — poll for the finished file.
+        await waitFor(async () => {
+          const buf = await readFile(dest).catch(() => null)
+          return buf !== null && buf.length > 100
+        }, PNG_DEADLINE_MS)
+        const buf = await readFile(dest)
+        expect(buf.subarray(0, 8)).toEqual(PNG_MAGIC)
+        // No stray temp file left behind by the atomic write.
+        await expect(readFile(`${dest}.epure.tmp`)).rejects.toMatchObject({
+          code: 'ENOENT',
+        })
+      } finally {
+        await pngCore.stop()
+      }
+    },
+    PNG_TEST_TIMEOUT_MS,
+  )
 
   it('leaves no PNG sidecar when png is not configured', async () => {
     // A render is only ever started from the debounce timer; on a fake clock,
