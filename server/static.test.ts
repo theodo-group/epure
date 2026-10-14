@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, request, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,12 +12,15 @@ let server: Server
 let base: string
 
 beforeAll(async () => {
-  // dist/ sits next to a secret file that must never be reachable.
+  // dist/ sits next to a secret file, and next to a sibling directory sharing
+  // its name as a prefix (dist-secret/): neither must ever be reachable.
   parent = await mkdtemp(join(tmpdir(), 'epure-static-'))
   const dist = join(parent, 'dist')
   await mkdir(join(dist, 'assets'), { recursive: true })
   await mkdir(join(dist, 'icons'), { recursive: true })
+  await mkdir(join(parent, 'dist-secret'), { recursive: true })
   await writeFile(join(parent, 'secret.txt'), 'nope')
+  await writeFile(join(parent, 'dist-secret', 'key.txt'), 'nope')
   await writeFile(join(dist, 'assets', 'app.js'), 'console.log(1)')
   await writeFile(join(dist, 'libavoid.wasm'), Buffer.from([0, 0x61, 0x73, 0x6d]))
   await writeFile(join(dist, 'icons', 'a b.svg'), '<svg/>')
@@ -80,6 +83,22 @@ describe('serveStatic', () => {
     expect(again.body).toBe('')
   })
 
+  it('changes the ETag when the size changes, even within the same mtime', async () => {
+    // A rebuild can rewrite a file within the mtime's resolution (or restore its
+    // mtime): the size must still tell the two contents apart.
+    const file = join(parent, 'dist', 'assets', 'swap.js')
+    const pinned = new Date('2026-01-01T00:00:00Z')
+    await writeFile(file, 'a')
+    await utimes(file, pinned, pinned)
+    const first = (await get('/assets/swap.js')).headers.etag as string
+    await writeFile(file, 'abc')
+    await utimes(file, pinned, pinned)
+    const second = await get('/assets/swap.js', { headers: { 'if-none-match': first } })
+    expect(second.status).toBe(200)
+    expect(second.body).toBe('abc')
+    expect(second.headers.etag).not.toBe(first)
+  })
+
   it('answers HEAD without a body, and leaves other methods to the host', async () => {
     const head = await get('/assets/app.js', { method: 'HEAD' })
     expect(head.status).toBe(200)
@@ -95,6 +114,9 @@ describe('serveStatic', () => {
       '/assets/..%2f..%2fsecret.txt',
       '/assets/%2e%2e%2f%2e%2e%2fsecret.txt',
       '/..%5csecret.txt',
+      // Resolves to <parent>/dist-secret/key.txt, which merely starts with the root's path.
+      '/../dist-secret/key.txt',
+      '/%2e%2e/dist-secret/key.txt',
     ]) {
       const res = await get(path)
       expect(res.body, path).not.toBe('nope')
