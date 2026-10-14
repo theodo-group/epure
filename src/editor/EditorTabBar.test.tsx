@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // The code pane's tab-bar actions: Wrap toggles soft wrapping in the editor and
 // remembers it across reloads; Format dispatches, or explains why it can't.
 
