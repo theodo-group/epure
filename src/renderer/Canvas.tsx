@@ -638,10 +638,10 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             <span>pan</span>
             {onMoveVia && (selectedEdgeIds?.length ?? 0) > 0 ? (
               <>
-                <span className="ep-kbd">○</span>
-                <span>drag to add a waypoint</span>
+                <span className="ep-kbd">drag line</span>
+                <span>bend it</span>
                 <span className="ep-kbd">●</span>
-                <span>double-click to remove</span>
+                <span>drag · double-click removes</span>
               </>
             ) : null}
           </div>

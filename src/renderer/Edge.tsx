@@ -21,11 +21,11 @@ interface EdgeProps {
   /** Drag the label to a new offset (grid units). Absent → label is static
    *  (e.g. the headless export). */
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
-  /** Waypoint editing, shown on the selected edge: drag a waypoint handle
-   *  (`onMoveVia`), drag a segment's midpoint handle to insert one there
-   *  (`onInsertVia`, then it is dragged like any other), double-click a
-   *  waypoint to remove it (`onRemoveVia`). All in integer grid units. Absent
-   *  → no handles (the headless export). */
+  /** Waypoint editing. On the selected edge each waypoint is a handle: drag
+   *  it (`onMoveVia`), double-click it to remove it (`onRemoveVia`). Dragging
+   *  the edge's stroke itself inserts a waypoint where it was grabbed and
+   *  drags it (`onInsertVia`, then `onMoveVia`); a plain click only selects.
+   *  All in integer grid units. Absent → no handles (the headless export). */
   onMoveVia?: (id: string, index: number, x: number, y: number) => void
   onInsertVia?: (id: string, index: number, x: number, y: number) => void
   onRemoveVia?: (id: string, index: number) => void
@@ -101,15 +101,10 @@ const arcParamOf = (points: Pt[], p: Pt): number => {
   return best.t
 }
 
-// Insertion handles are offered on segments long enough to hold one. Each
-// sits at the segment's midpoint unless that is under the label pill or a
-// waypoint handle, in which case it slides along the segment to the first
-// clear spot (30 % / 70 %, then 15 % / 85 %), and is dropped if none is clear.
-const MIDPOINT_MIN_SEGMENT = 28
-const MIDPOINT_CLEARANCE = 14
-const MIDPOINT_SLOTS = [0.5, 0.3, 0.7, 0.15, 0.85]
 const HANDLE_R = 7
-const HANDLE_MID_R = 6
+// A mousedown on the stroke becomes an insert-and-drag once the pointer has
+// travelled this far (screen px); under it, it is a click that only selects.
+const INSERT_DRAG_THRESHOLD = 4
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
   points.length === 0 ? '' : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
@@ -254,22 +249,41 @@ export const Edge: FC<EdgeProps> = ({
     [edge.id, edge.via, gridSize, onSelect, startViaDrag],
   )
 
-  const handleMidpointDown = useCallback(
-    (event: MouseEvent<SVGElement>, mid: Pt) => {
-      if (!onInsertVia) return
+  // Mousedown on the stroke: select, and if the pointer then moves, insert a
+  // waypoint at the grab point (after every waypoint the route reaches first)
+  // and drag it. The insert waits for real movement so a click stays a click.
+  const handleStrokeDown = useCallback(
+    (event: MouseEvent<SVGElement>) => {
       event.stopPropagation()
-      onSelect?.(edge.id, false)
+      onSelect?.(edge.id, event.shiftKey)
+      if (!onInsertVia || !onMoveVia || event.shiftKey) return
+      const svg = (event.target as SVGElement).ownerSVGElement
+      if (!svg) return
+      const grab = svgPointOf(svg, event.clientX, event.clientY)
+      if (!grab) return
+      const origin = { x: event.clientX, y: event.clientY }
       const grid = gridSize || 40
-      const gx = Math.round(mid.x / grid)
-      const gy = Math.round(mid.y / grid)
-      // Insert where the midpoint sits along the route: after every waypoint
-      // the route reaches first.
-      const t = arcParamOf(edge.points, mid)
-      const index = (edge.via ?? []).filter((v) => arcParamOf(edge.points, v) < t).length
-      onInsertVia(edge.id, index, gx, gy)
-      startViaDrag(event, index, { x: gx, y: gy })
+      const onPointerMove = (e: globalThis.MouseEvent) => {
+        if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < INSERT_DRAG_THRESHOLD) return
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+        const gx = Math.round(grab.x / grid)
+        const gy = Math.round(grab.y / grid)
+        const t = arcParamOf(edge.points, grab)
+        const index = (edge.via ?? []).filter((v) => arcParamOf(edge.points, v) < t).length
+        onInsertVia(edge.id, index, gx, gy)
+        startViaDrag(event, index, { x: gx, y: gy })
+        // Replay this move so the new waypoint follows the pointer at once.
+        window.dispatchEvent(new globalThis.MouseEvent('mousemove', e))
+      }
+      const onPointerUp = () => {
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+      }
+      window.addEventListener('mousemove', onPointerMove)
+      window.addEventListener('mouseup', onPointerUp)
     },
-    [edge.id, edge.points, edge.via, gridSize, onInsertVia, onSelect, startViaDrag],
+    [edge.id, edge.points, edge.via, gridSize, onInsertVia, onMoveVia, onSelect, startViaDrag],
   )
 
   // Cumulative-from-origin label drag: capture the committed offset and the
@@ -428,11 +442,8 @@ export const Edge: FC<EdgeProps> = ({
           strokeLinecap="round"
           strokeLinejoin="round"
           pointerEvents="stroke"
-          style={{ cursor: 'pointer' }}
-          onMouseDown={(event) => {
-            event.stopPropagation()
-            onSelect(edge.id, event.shiftKey)
-          }}
+          style={{ cursor: selected && onInsertVia ? 'move' : 'pointer' }}
+          onMouseDown={handleStrokeDown}
         />
       ) : null}
       {label && edge.labelAnchor
@@ -470,79 +481,29 @@ export const Edge: FC<EdgeProps> = ({
             )
           })()
         : null}
-      {selected && onMoveVia
-        ? (() => {
-            const via = edge.via ?? []
-            // The label pill's rect (padded), which no handle may sit under.
-            let pill: { x0: number; y0: number; x1: number; y1: number } | undefined
-            if (label && edge.labelAnchor) {
-              const { w, h } = labelPillSize(label, textScale)
-              const pad = HANDLE_MID_R + 2
-              pill = {
-                x0: edge.labelAnchor.x - w / 2 - pad,
-                y0: edge.labelAnchor.y - h / 2 - pad,
-                x1: edge.labelAnchor.x + w / 2 + pad,
-                y1: edge.labelAnchor.y + h / 2 + pad,
-              }
-            }
-            const clear = (p: Pt): boolean =>
-              !(pill && p.x > pill.x0 && p.x < pill.x1 && p.y > pill.y0 && p.y < pill.y1) &&
-              !via.some((v) => Math.hypot(v.x - p.x, v.y - p.y) < MIDPOINT_CLEARANCE)
-            const mids: Pt[] = []
-            for (let i = 1; i < edge.points.length; i += 1) {
-              const a = edge.points[i - 1]!
-              const b = edge.points[i]!
-              if (Math.hypot(b.x - a.x, b.y - a.y) < MIDPOINT_MIN_SEGMENT) continue
-              for (const t of MIDPOINT_SLOTS) {
-                const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
-                if (clear(p)) {
-                  mids.push(p)
-                  break
-                }
-              }
-            }
-            return (
-              <g data-edge-handles={edge.id}>
-                {onInsertVia
-                  ? mids.map((m, i) => (
-                      <circle
-                        key={`mid-${i}`}
-                        className="ep-handle ep-handle-mid"
-                        cx={m.x}
-                        cy={m.y}
-                        r={HANDLE_MID_R}
-                        fill="#ffffff"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        onMouseDown={(e) => handleMidpointDown(e, m)}
-                      >
-                        <title>Drag to add a waypoint</title>
-                      </circle>
-                    ))
-                  : null}
-                {via.map((v, i) => (
-                  <circle
-                    key={`via-${i}`}
-                    className="ep-handle ep-handle-via"
-                    cx={v.x}
-                    cy={v.y}
-                    r={HANDLE_R}
-                    fill="#2563eb"
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                    onMouseDown={(e) => handleViaDown(e, i)}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation()
-                      onRemoveVia?.(edge.id, i)
-                    }}
-                  >
-                    <title>Waypoint — drag to move, double-click to remove</title>
-                  </circle>
-                ))}
-              </g>
-            )
-          })()
-        : null}
+      {selected && onMoveVia ? (
+        <g data-edge-handles={edge.id}>
+          {(edge.via ?? []).map((v, i) => (
+            <circle
+              key={`via-${i}`}
+              className="ep-handle ep-handle-via"
+              cx={v.x}
+              cy={v.y}
+              r={HANDLE_R}
+              fill="#2563eb"
+              stroke="#ffffff"
+              strokeWidth={2}
+              onMouseDown={(e) => handleViaDown(e, i)}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                onRemoveVia?.(edge.id, i)
+              }}
+            >
+              <title>Waypoint — drag to move, double-click to remove</title>
+            </circle>
+          ))}
+        </g>
+      ) : null}
     </g>
   )
 }

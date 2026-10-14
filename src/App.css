@@ -671,11 +671,6 @@ body {
     stroke-width 0.1s;
 }
 
-.ep-handle-mid:hover {
-  r: 8;
-  stroke-width: 2.5;
-}
-
 .ep-handle-via:hover {
   r: 9;
 }
