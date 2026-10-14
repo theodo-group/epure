@@ -13,12 +13,14 @@ export function parse(source: string): ParseResult {
   const errors: ParseError[] = lexResult.errors.map(lexErrorToParseError)
 
   const program = parseTokens(lexResult.tokens)
-  if (program.error) errors.push(syntaxIssueToParseError(program.error, eofPos(source)))
+  if (program.kind !== 'complete') {
+    errors.push(syntaxIssueToParseError(program.error, eofPos(source)))
+  }
 
   // A syntax error stops the parse; leftover input after the last statement
   // still yields the statements before it, so their semantic errors surface
   // in the same pass.
-  if (!program.statements) return { ok: false, errors }
+  if (program.kind === 'failed') return { ok: false, errors }
   const { diagram, errors: semanticErrors } = buildDiagram(program.statements)
   errors.push(...semanticErrors)
 
