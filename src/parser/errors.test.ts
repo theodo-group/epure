@@ -193,14 +193,18 @@ table('semantic checks', [
   ],
 ])
 
-// CRLF line breaks: the `\r` (skipped as whitespace) and the `\n` (a Newline
-// token) each count as a line break, so every CRLF moves the line by two —
-// while the end-of-input position counts `\n` only.
-table('CRLF line counting', [
-  ['a\r\nb\r\n}', 'Unexpected `}` — no block is open @ 5:1-5:2'],
-  ['a\r\n  @', 'Unexpected character `@` @ 3:3-3:4'],
-  ['a:\r\nb', 'Expected a label after `a:` @ 2:1-2:2'],
+// Line breaks count as an editor shows them: `\n`, `\r\n` and a lone `\r`
+// are one line each. The `\r` of a CRLF is whitespace, so it takes a column
+// at the end of its line.
+table('line breaks', [
+  ['a\r\nb\r\n}', 'Unexpected `}` — no block is open @ 3:1-3:2'],
+  ['a\r\n\r\n\r\n  @', 'Unexpected character `@` @ 4:3-4:4'],
+  ['a:\r\nb', 'Expected a label after `a:` @ 1:4-1:5'],
   ['a\r\nb {', 'Expected `}` to close the `b` block @ 2:4-2:5'],
+  ['a {\r\n', 'Expected `}` to close the `a` block @ 2:1-2:2'],
+  ['a\r  @', 'Unexpected character `@` @ 2:3-2:4'],
+  ['a\r{', 'Expected `}` to close the `a` block @ 2:2-2:3'],
+  ['a\n\n\n}', 'Unexpected `}` — no block is open @ 4:1-4:2'],
 ])
 
 describe('messages', () => {

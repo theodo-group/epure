@@ -14,7 +14,7 @@ export function parse(source: string): ParseResult {
 
   const program = parseTokens(lexResult.tokens)
   if (program.kind !== 'complete') {
-    errors.push(syntaxIssueToParseError(program.error, eofPos(source)))
+    errors.push(syntaxIssueToParseError(program.error, lexResult.end))
   }
 
   // A syntax error stops the parse; leftover input after the last statement
@@ -57,16 +57,5 @@ function syntaxIssueToParseError(e: SyntaxIssue, eof: SourcePos): ParseError {
       start: { line: tok.startLine, column: tok.startColumn, offset: tok.startOffset },
       end: { line: tok.endLine, column: tok.endColumn + 1, offset: tok.endOffset + 1 },
     },
-  }
-}
-
-/** Position just past the last character of the source (1-based line/column,
- *  0-based offset), where an "expecting more input" error is anchored. */
-function eofPos(source: string): SourcePos {
-  const nl = source.split('\n')
-  return {
-    line: nl.length,
-    column: (nl[nl.length - 1]?.length ?? 0) + 1,
-    offset: source.length,
   }
 }
