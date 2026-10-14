@@ -3,7 +3,7 @@
 //
 // Used by three call sites that MUST agree byte-for-byte:
 //   1. the bridge write path (server/core) when applying UI edits,
-//   2. the UI outbound write (Phase 2),
+//   2. the UI outbound write (`layoutToText` in src/bridge/sync.ts),
 //   3. `epure fmt` (CLI).
 //
 // It is also load-bearing for echo suppression: the bridge compares

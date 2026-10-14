@@ -1,17 +1,22 @@
-// Browser twin of `server/render/pngText.ts`. The editor's "Export PNG" button
-// rasterizes via canvas, which strips metadata — so we splice the diagram's own
-// source (and a self-describing "made with Épure" marker) back into the PNG
-// bytes here. The result is the same self-contained, agent-readable record the
-// headless `epure export` writes: hand the image to Claude Code and it can
-// recover the editable pair with `epure source <file.png>`.
+// Embed (and read back) UTF-8 text metadata in a PNG via `iTXt` chunks — this
+// is how an exported/rendered image carries the diagram's own source, so a
+// `.png` is a self-contained, round-trippable record of the pair (the way
+// draw.io embeds its `mxfile` source). Neither the canvas rasterizer (browser
+// "Export PNG") nor resvg (`epure export`) emits metadata, so we splice the
+// chunks in ourselves, and Open / `epure source` read them back.
 //
-// Small and dependency-free on purpose; the chunk format (iTXt, UTF-8) matches
-// the server byte-for-byte so `readPngText` / `epure source` round-trip it.
-// Keep `epureMetaEntries` in sync with its server twin.
+// PNG layout: 8-byte signature, then a sequence of chunks, each
+//   length(4, BE) | type(4) | data(length) | crc(4, BE over type+data).
+// The first chunk is always IHDR; text chunks may appear anywhere after it and
+// before IEND, so we insert right after IHDR. Unknown-to-viewers text chunks are
+// ignored by every renderer, so this never affects how the image displays.
+//
+// The one implementation for both sides: plain Uint8Array + TextDecoder, so it
+// runs in the browser and in Node (server/render/pngText.ts adapts it to Buffer).
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
-// CRC-32/ISO-HDLC (the PNG/zlib variant), same table as the server.
+// CRC-32/ISO-HDLC (the PNG/zlib variant).
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
   for (let n = 0; n < 256; n += 1) {
@@ -70,8 +75,7 @@ const isPng = (png: Uint8Array): boolean =>
   latin1('IHDR').every((b, i) => png[12 + i] === b)
 
 /** Return `png` with an `iTXt` chunk per entry spliced in after IHDR. A non-PNG
- *  (or empty-entries) input is returned untouched. Mirror of the server's
- *  `embedPngText`. */
+ *  (or empty-entries) input is returned untouched. */
 export const embedPngText = (
   png: Uint8Array,
   entries: { keyword: string; text: string }[],
@@ -84,8 +88,7 @@ export const embedPngText = (
 }
 
 /** Read every `iTXt`/`tEXt` chunk back into a keyword→text map. Inverse of
- *  `embedPngText`; mirror of the server's `readPngText`. Used by Open to
- *  recover the editable pair from an exported PNG. */
+ *  `embedPngText`; Open and `epure source` recover the editable pair with it. */
 export const readPngText = (png: Uint8Array): Record<string, string> => {
   const out: Record<string, string> = {}
   if (!isPng(png)) return out
@@ -119,15 +122,27 @@ export const readPngText = (png: Uint8Array): Record<string, string> => {
   return out
 }
 
-/** Keywords under which the diagram source is stored — mirror of the server's
- *  `PNG_SOURCE_KEYS`. */
+/** Keywords under which the diagram source is stored in rendered PNGs. */
 export const PNG_SOURCE_KEYS = {
   d2: 'epure.d2',
   layout: 'epure.layout.json',
 } as const
 
+/** Standard PNG text keywords that announce — to any viewer, `exiftool`, or an
+ *  agent like Claude Code that reads the image's metadata — that this is an
+ *  Épure diagram carrying its own editable source. Using the registered
+ *  `Software`/`Description` keywords means generic tools surface them too. */
+export const PNG_MARKER_KEYS = {
+  software: 'Software',
+  description: 'Description',
+} as const
+
 const EPURE_SOFTWARE = 'Épure — @theodo-group/epure'
 
+/** Plain-language note embedded in every rendered PNG so a reader handed only
+ *  the image (a human, or an agent like Claude Code) knows it is an Épure
+ *  diagram, that its editable source travels inside the file, and how to get it
+ *  back — without needing to have seen the source repo or this skill first. */
 const epureDescription = (hasLayout: boolean): string =>
   [
     'Architecture diagram made with Épure, a grid-snapped, git-reviewable diagram editor.',
@@ -140,14 +155,16 @@ const epureDescription = (hasLayout: boolean): string =>
     '`npx -y @theodo-group/epure <name>.epr.d2`.',
   ].join(' ')
 
-/** The marker + source chunks embedded in an exported PNG. Kept in sync with
- *  `epureMetaEntries` in `server/render/pngText.ts`. */
+/** The complete set of text chunks embedded in every rendered PNG: a
+ *  self-describing marker (so the image announces "made with Épure, source
+ *  inside, here's how to edit it") followed by the exact `.epr.d2` /
+ *  `.epr.layout.json` bytes for a lossless round-trip back to the editable pair. */
 export const epureMetaEntries = (
   d2: string,
   layoutText: string | null,
 ): { keyword: string; text: string }[] => [
-  { keyword: 'Software', text: EPURE_SOFTWARE },
-  { keyword: 'Description', text: epureDescription(layoutText !== null) },
+  { keyword: PNG_MARKER_KEYS.software, text: EPURE_SOFTWARE },
+  { keyword: PNG_MARKER_KEYS.description, text: epureDescription(layoutText !== null) },
   { keyword: PNG_SOURCE_KEYS.d2, text: d2 },
   ...(layoutText !== null ? [{ keyword: PNG_SOURCE_KEYS.layout, text: layoutText }] : []),
 ]

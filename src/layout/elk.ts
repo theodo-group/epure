@@ -12,6 +12,8 @@ import {
 import type { Diagram } from '@/parser/ast'
 
 import { buildAreaTree } from './areaTree'
+import { DEFAULT_NODE_H, DEFAULT_NODE_W } from './defaults'
+import { edgeKey, makeEdgeId } from './ids'
 import type { EdgeRoute, LayoutNode, LayoutSidecar, RoutedDiagram, Side } from './types'
 
 // Where libavoid loads its wasm from. In the browser it's served at the app
@@ -99,8 +101,6 @@ const routeOptions = (gridSize: number): LibavoidRoutingOptions => ({
   nudgeOrthogonalSegmentsConnectedToShapes: true,
   nudgeSharedPathsWithCommonEndPoint: true,
 })
-
-export const edgeKey = (sourceId: string, targetId: string) => `${sourceId}->${targetId}`
 
 const snap = (v: number, gridSize: number) => Math.round(v / gridSize) * gridSize
 
@@ -195,11 +195,6 @@ const chooseLabelAnchor = (points: Pt[], nodes: Record<string, Rect>): Pt | unde
   return best
 }
 
-// The parser AST doesn't give edges a stable id (multiple edges may share the
-// same source/target pair), so we derive one from the pair plus the ordinal.
-export const makeEdgeId = (source: string, target: string, index: number) =>
-  `${source}->${target}#${index}`
-
 const toPixelRect = (node: LayoutNode, gridSize: number): Rect => ({
   x: (node.cx - node.w / 2) * gridSize,
   y: (node.cy - node.h / 2) * gridSize,
@@ -258,7 +253,7 @@ export const route = async (
   // canvas. The fallback rect lands in the same coordinate space as the rest.
   const ensureRect = (id: string) => {
     if (!pixelNodes[id]) {
-      pixelNodes[id] = toPixelRect({ cx: 0, cy: 0, w: 4, h: 2 }, gridSize)
+      pixelNodes[id] = toPixelRect({ cx: 0, cy: 0, w: DEFAULT_NODE_W, h: DEFAULT_NODE_H }, gridSize)
     }
   }
   for (const n of diagram.nodes) ensureRect(n.id)

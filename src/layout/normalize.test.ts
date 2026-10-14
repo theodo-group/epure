@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { parse } from '@/parser'
 
 import { route } from './elk'
-import { DEFAULT_NODE_H, DEFAULT_NODE_W, normalizeForRoute } from './normalize'
+import { normalizeForRoute } from './normalize'
+import { DEFAULT_NODE_H, DEFAULT_NODE_W } from './defaults'
 import type { LayoutSidecar } from './types'
 
 function diagramOf(source: string) {

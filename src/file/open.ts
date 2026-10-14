@@ -6,6 +6,7 @@
 
 import { PNG_SOURCE_KEYS, readPngText } from '@/export/pngText'
 import { validateLayoutJson } from '@/file/layoutSchema'
+import { emptyLayout } from '@/layout/defaults'
 import type { LayoutSidecar } from '@/layout/types'
 
 export interface LoadedDocument {
@@ -17,8 +18,6 @@ export interface LoadedDocument {
 
 /** A user-facing reason the picked files can't be opened. */
 export class OpenError extends Error {}
-
-const emptyLayout = (): LayoutSidecar => ({ gridSize: 40, nodes: {}, edges: {} })
 
 const isPngFile = (f: File): boolean => /\.png$/i.test(f.name) || f.type === 'image/png'
 const isD2File = (f: File): boolean => /\.d2$/i.test(f.name)

@@ -5,7 +5,7 @@ import { fireEvent, render, screen, cleanup } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
-import { makeEdgeId } from '@/layout/elk'
+import { makeEdgeId } from '@/layout/ids'
 import { useDiagramStore } from '@/store/diagramStore'
 
 import { StylePanel } from './StylePanel'

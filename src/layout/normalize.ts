@@ -1,12 +1,7 @@
 import type { Diagram } from '@/parser/ast'
 
+import { DEFAULT_NODE_H, DEFAULT_NODE_W } from './defaults'
 import type { LayoutNode, LayoutSidecar } from './types'
-
-// Canonical default size for a node that has no layout entry yet. The store
-// uses these same numbers when a drag first materialises a node
-// (`moveNode` in diagramStore.ts), so SKILL/docs and this fallback all agree.
-export const DEFAULT_NODE_W = 4
-export const DEFAULT_NODE_H = 2
 
 // Auto-placement geometry, all in grid units (never pixels):
 //  - unplaced nodes start two grid units below the placed bounding box,

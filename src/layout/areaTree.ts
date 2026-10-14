@@ -3,11 +3,11 @@
 // membership as a hierarchy.
 //
 // Nesting is BY REFERENCE: an area's member list may name another area's id
-// (the grammar still rejects a literal nested block). The parser's visitor
-// rejects self-membership and membership cycles, so on a clean parse the
-// member graph is a DAG — but every walk here still carries an in-stack guard
-// so a cycle that slips through (e.g. a hand-built AST in tests) terminates
-// instead of recursing forever.
+// (the grammar still rejects a literal nested block). The parser's AST builder
+// (src/parser/build.ts) rejects self-membership and membership cycles, so on a
+// clean parse the member graph is a DAG — but every walk here still carries an
+// in-stack guard so a cycle that slips through (e.g. a hand-built AST in tests)
+// terminates instead of recursing forever.
 
 import type { AreaDecl } from '@/parser/ast'
 
