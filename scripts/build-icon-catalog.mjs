@@ -17,11 +17,16 @@
 // To refresh:
 //   git clone --depth 1 https://github.com/mingrammer/diagrams /tmp/diagrams
 //   node scripts/build-icon-catalog.mjs
+//
+// The npm icon sets are pinned in NPM_SOURCES below, not in package.json: they
+// are only needed to regenerate the committed icons (~70 MB), so the script
+// fetches them into ICON_CACHE (default: /tmp/epure-icon-sources) on demand.
+// To move to a newer release: bump its version here, regenerate, commit.
 
 import { execFile } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
 const execFileP = promisify(execFile)
@@ -30,6 +35,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
 const SRC = process.env.ICON_SRC || '/tmp/diagrams/resources'
+const CACHE = process.env.ICON_CACHE || '/tmp/epure-icon-sources'
+const NPM_SOURCES = {
+  'simple-icons': '16.35.0',
+  '@lobehub/icons-static-svg': '1.95.1',
+  '@fortawesome/fontawesome-free': '7.3.1',
+}
 const OUT_DIR = path.join(ROOT, 'public', 'icons')
 const OUT_TS = path.join(ROOT, 'src', 'icons', 'catalog.generated.ts')
 const MAX_PX = 96
@@ -105,12 +116,38 @@ async function pool(items, worker, concurrency) {
   await Promise.all(runners)
 }
 
+// The extracted package for one of NPM_SOURCES, downloaded with `npm pack` on
+// first use and reused from the cache after that.
+async function npmSource(name) {
+  const version = NPM_SOURCES[name]
+  const dir = path.join(CACHE, `${name.replace('/', '+')}@${version}`)
+  const ready = path.join(dir, 'package', 'package.json')
+  const have = await fs.readFile(ready, 'utf8').then(JSON.parse, () => null)
+  if (have?.version === version) return path.join(dir, 'package')
+
+  await fs.rm(dir, { recursive: true, force: true })
+  await fs.mkdir(dir, { recursive: true })
+  console.log(`Fetching ${name}@${version} → ${dir}`)
+  const { stdout } = await execFileP('npm', [
+    'pack',
+    `${name}@${version}`,
+    '--json',
+    '--pack-destination',
+    dir,
+  ])
+  const [{ filename }] = JSON.parse(stdout)
+  await execFileP('tar', ['-xzf', path.join(dir, filename), '-C', dir])
+  return path.join(dir, 'package')
+}
+
 // Generate brand SVGs from the `simple-icons` npm package. Each icon ships as
 // a single `<path>` plus a brand hex; we wrap them in a self-contained <svg>
 // with the hex baked into `fill=` so the file renders coloured by default
 // (matching the existing mingrammer aesthetic of full-colour logos).
 async function buildSimpleIcons(meta) {
-  const siModule = await import('simple-icons')
+  const siModule = await import(
+    pathToFileURL(path.join(await npmSource('simple-icons'), 'index.mjs')).href
+  )
   const all = siModule.default ?? siModule
   const provider = 'simpleicons'
   const category = 'brand'
@@ -148,7 +185,7 @@ async function buildSimpleIcons(meta) {
 async function buildLobeIcons(meta) {
   const provider = 'lobe'
   const category = 'ai'
-  const srcDir = path.join(ROOT, 'node_modules', '@lobehub', 'icons-static-svg', 'icons')
+  const srcDir = path.join(await npmSource('@lobehub/icons-static-svg'), 'icons')
   const destDir = path.join(OUT_DIR, provider, category)
   await fs.mkdir(destDir, { recursive: true })
 
@@ -198,7 +235,7 @@ async function buildLobeIcons(meta) {
 async function buildFontAwesome(meta) {
   const provider = 'fontawesome'
   const styles = ['solid', 'regular', 'brands']
-  const srcRoot = path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs')
+  const srcRoot = path.join(await npmSource('@fortawesome/fontawesome-free'), 'svgs')
 
   let count = 0
   for (const style of styles) {
