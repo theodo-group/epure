@@ -21,6 +21,8 @@ export interface StandaloneOptions {
   /** Directory holding the built SPA (index.html + assets). */
   distDir: string
   version: string
+  /** PNG-sidecar quiet period (ms); defaults to the core's. Tests shorten it. */
+  pngDebounceMs?: number
 }
 
 export interface StandaloneHandle {
@@ -110,6 +112,7 @@ export const startStandalone = async (opts: StandaloneOptions): Promise<Standalo
     png: {
       iconsDir: join(opts.distDir, 'icons'),
       wasmPath: join(opts.distDir, 'libavoid.wasm'),
+      debounceMs: opts.pngDebounceMs,
     },
   })
   await core.start()
