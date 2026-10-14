@@ -45,15 +45,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.14
         version: 6.43.14
-      '@fortawesome/fontawesome-free':
-        specifier: ^7.3.1
-        version: 7.3.1
       '@lezer/highlight':
         specifier: ^1.2.5
         version: 1.2.5
-      '@lobehub/icons-static-svg':
-        specifier: ^1.95.1
-        version: 1.95.1
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -84,9 +78,6 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
-      simple-icons:
-        specifier: ^16.35.0
-        version: 16.35.0
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.29)(typescript@6.0.3)
@@ -582,10 +573,6 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fortawesome/fontawesome-free@7.3.1':
-    resolution: {integrity: sha512-wmglKKPDIkgV3aWlZzWECCPoGIkYCulzBwxG9+w7rc5BGapZ6cPMpoPOT8k36J0Ni7PPX6c/rsoMWfS4d1MUMg==}
-    engines: {node: '>=6'}
-
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
@@ -610,9 +597,6 @@ packages:
 
   '@lezer/lr@1.4.11':
     resolution: {integrity: sha512-UwgZcl1R66H2hDzBrA7kWyYmX6s8p5TQ+e/t7CuvgCtBEPxbEPaHYHu+pJBvTvDotEJpuQkJjbXuHiw5Cixxgw==}
-
-  '@lobehub/icons-static-svg@1.95.1':
-    resolution: {integrity: sha512-Hw7EPPgVnC4NZLXBfTNJG6hyQgqECfUPC11VVXodPSr1aebKcFxDZlSpxhWwYNdCc6bhxps/x5TtXoPmfKH2ag==}
 
   '@marijn/find-cluster-break@1.0.4':
     resolution: {integrity: sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==}
@@ -1414,10 +1398,6 @@ packages:
   scheduler@0.28.0:
     resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
 
-  simple-icons@16.35.0:
-    resolution: {integrity: sha512-TCfl/2+GTrx0nCo4pEWGvxhOb8c6NsqOU1OpwjtF4lwJAthB8IYVD0fuIMjLMg6JFuG1YBO0t1iETQqJLqkoJA==}
-    engines: {node: '>=0.12.18'}
-
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
@@ -1969,8 +1949,6 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@fortawesome/fontawesome-free@7.3.1': {}
-
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -2000,8 +1978,6 @@ snapshots:
   '@lezer/lr@1.4.11':
     dependencies:
       '@lezer/common': 1.5.3
-
-  '@lobehub/icons-static-svg@1.95.1': {}
 
   '@marijn/find-cluster-break@1.0.4': {}
 
@@ -2651,8 +2627,6 @@ snapshots:
       xmlchars: 2.2.0
 
   scheduler@0.28.0: {}
-
-  simple-icons@16.35.0: {}
 
   source-map-js@1.2.2: {}
 
