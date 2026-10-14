@@ -100,6 +100,21 @@ describe('openFiles', () => {
     expect(doc.layout.nodes).toEqual({})
   })
 
+  it('recognises an exported PNG by its name or by its type alone', async () => {
+    const png = embedPngText(tinyPng(), epureMetaEntries('a -> b', null))
+    // Some pickers / drag sources report no type, or a generic one, for a .png…
+    for (const type of ['', 'application/octet-stream']) {
+      const doc = await openFiles([file(png, 'Flow.PNG', type)])
+      expect(doc).toMatchObject({ source: 'a -> b', filename: 'Flow' })
+    }
+    // …and an image dragged out of a browser may carry the type without the extension.
+    expect((await openFiles([file(png, 'download', 'image/png')])).source).toBe('a -> b')
+  })
+
+  it('refuses a file named .png that is not a PNG, with the reason', async () => {
+    await expect(openFiles([file('a -> b', 'x.png')])).rejects.toThrow(/x\.png has no Épure source/)
+  })
+
   it('explains when a PNG has no Épure source (re-compressed)', async () => {
     const stripped = file(fixture('conversation-architecture.png'), 'pasted.png', 'image/png')
     await expect(openFiles([stripped])).rejects.toThrow(OpenError)
