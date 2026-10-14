@@ -32,20 +32,32 @@ npm publish         # publishConfig already sets access: public
 
 The bin name stays `epure`. `prepack` builds `dist/` + `dist-server/` +
 `dist-lib/` automatically and the `files` field ships only those plus `skills/`.
-Inspect the tarball first with `npm pack --dry-run` (note: it's ~7 MB — the
+Inspect the tarball first with `npm pack --dry-run` (note: it's ~8 MB — the
 bundled icon catalog dominates).
 
 ## Live editor demo
 
 The static editor is deployed to GitHub Pages from the `gh-pages` branch:
-<https://theodo-group.github.io/epure/>. To redeploy after SPA changes:
+<https://theodo-group.github.io/epure/>. Host pages embed it (slides does), so
+redeploy after every release that changes the SPA. Each deploy is a commit on
+top of `gh-pages`, so the history says what is live and a bad deploy can be
+reverted:
 
 ```sh
-npx vite build --base=/epure/ && touch dist/.nojekyll
-( cd dist && git init -q && git checkout -qb gh-pages && git add -A \
-  && git commit -qm deploy && git push -qf <repo-url> gh-pages:gh-pages && rm -rf .git )
-npm run build   # restore dist/ to the default base for the CLI
+VERSION=$(node -p "require('./package.json').version")
+pnpm exec vite build --base=/epure/ --outDir /tmp/epure-pages --emptyOutDir
+touch /tmp/epure-pages/.nojekyll
+git fetch origin gh-pages
+git worktree add --detach /tmp/epure-gh-pages origin/gh-pages
+rsync -a --delete --exclude .git /tmp/epure-pages/ /tmp/epure-gh-pages/
+( cd /tmp/epure-gh-pages && git add -A \
+  && git commit -m "Deploy: $VERSION" \
+  && git push origin HEAD:gh-pages )
+git worktree remove /tmp/epure-gh-pages
 ```
+
+Building into `/tmp` leaves `dist/` (the CLI's copy, default base) untouched.
+Pages publishes within a minute; check the live bundle name in the page source.
 
 ## Cutting a version
 
