@@ -72,6 +72,26 @@ describe('canonicalizeLayout', () => {
     expect(canonicalizeLayout(parse(out))).toBe(out)
   })
 
+  it('emits via waypoints after the sides, with a fixed x/y key order', () => {
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: {},
+      edges: {
+        'a->b': {
+          color: 'teal',
+          // Written y-first on purpose: the serializer must not care.
+          via: [{ y: 2, x: -1 } as { x: number; y: number }, { x: 10, y: 12 }],
+          targetSide: 'S',
+        },
+      },
+    }
+    const text = canonicalizeLayout(layout)
+    expect(text).toContain(
+      '"a->b": { "targetSide": "S", "via": [{ "x": -1, "y": 2 }, { "x": 10, "y": 12 }], "color": "teal" }',
+    )
+    expect(canonicalizeLayout(JSON.parse(text) as LayoutSidecar)).toBe(text)
+  })
+
   it('sorts record ids deterministically, including numeric-looking ids', () => {
     const a = canonicalizeLayout({
       gridSize: 10,

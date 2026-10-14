@@ -1,0 +1,82 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index acd113c72f452bbeef6db0ca2a4ccb99141036c3..51a096f3f79f0241d93304bad9b2bf0b84225e81 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -80,6 +80,20 @@ function registerPortPins(ports, node, shapeRef, Avoid, pinClassCounters, portPi
+ 		new Avoid.ShapeConnectionPin(shapeRef, current, proportionX, proportionY, true, 0, visDirs).setExclusive(false);
+ 	}
+ }
++// Épure patch — libavoid routing checkpoints. An edge whose ELK JSON carries
++// `properties.checkpoints: [{x, y}]` (absolute coordinates, in order) gets them
++// as mandatory waypoints on its connector: libavoid then routes through each
++// point in sequence instead of taking the shortest obstacle-free path.
++function applyRoutingCheckpoints(Avoid, connRef, properties) {
++	const checkpoints = properties && properties.checkpoints;
++	if (!Array.isArray(checkpoints) || checkpoints.length === 0) return;
++	const vector = new Avoid.CheckpointVector();
++	for (const p of checkpoints) {
++		if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
++		vector.push_back(new Avoid.Checkpoint(new Avoid.Point(p.x, p.y)));
++	}
++	connRef.setRoutingCheckpoints(vector);
++}
+ function registerEdgeConnectors(parsed, Avoid, router, shapes, portPinClassIds) {
+ 	const connectors = /* @__PURE__ */ new Map();
+ 	for (const edge of parsed.edges) {
+@@ -94,6 +108,7 @@ function registerEdgeConnectors(parsed, Avoid, router, shapes, portPinClassIds)
+ 		const srcEnd = new Avoid.ConnEnd(srcShape.shapeRef, srcPinClass);
+ 		const tgtEnd = new Avoid.ConnEnd(tgtShape.shapeRef, tgtPinClass);
+ 		const connRef = new Avoid.ConnRef(router, srcEnd, tgtEnd);
++		applyRoutingCheckpoints(Avoid, connRef, edge.elkEdgeRef && edge.elkEdgeRef.properties);
+ 		connectors.set(edge.id, {
+ 			connRef,
+ 			edge
+@@ -624,6 +639,7 @@ var RoutingSession = class {
+ 		const srcEnd = new this.avoid.ConnEnd(srcShape.shapeRef, srcPinClass);
+ 		const tgtEnd = new this.avoid.ConnEnd(tgtShape.shapeRef, tgtPinClass);
+ 		const connRef = new this.avoid.ConnRef(this.session.router, srcEnd, tgtEnd);
++		applyRoutingCheckpoints(this.avoid, connRef, edge.properties);
+ 		this.session.connectors.set(edge.id, {
+ 			connRef,
+ 			edge: { id: edge.id }
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 0126ceb80edadba440df6298ad7b108ab3856ea4..51ff456fc48955cdc551a206e70f03781b73be7c 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -79,6 +79,20 @@ function registerPortPins(ports, node, shapeRef, Avoid, pinClassCounters, portPi
+ 		new Avoid.ShapeConnectionPin(shapeRef, current, proportionX, proportionY, true, 0, visDirs).setExclusive(false);
+ 	}
+ }
++// Épure patch — libavoid routing checkpoints. An edge whose ELK JSON carries
++// `properties.checkpoints: [{x, y}]` (absolute coordinates, in order) gets them
++// as mandatory waypoints on its connector: libavoid then routes through each
++// point in sequence instead of taking the shortest obstacle-free path.
++function applyRoutingCheckpoints(Avoid, connRef, properties) {
++	const checkpoints = properties && properties.checkpoints;
++	if (!Array.isArray(checkpoints) || checkpoints.length === 0) return;
++	const vector = new Avoid.CheckpointVector();
++	for (const p of checkpoints) {
++		if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
++		vector.push_back(new Avoid.Checkpoint(new Avoid.Point(p.x, p.y)));
++	}
++	connRef.setRoutingCheckpoints(vector);
++}
+ function registerEdgeConnectors(parsed, Avoid, router, shapes, portPinClassIds) {
+ 	const connectors = /* @__PURE__ */ new Map();
+ 	for (const edge of parsed.edges) {
+@@ -93,6 +107,7 @@ function registerEdgeConnectors(parsed, Avoid, router, shapes, portPinClassIds)
+ 		const srcEnd = new Avoid.ConnEnd(srcShape.shapeRef, srcPinClass);
+ 		const tgtEnd = new Avoid.ConnEnd(tgtShape.shapeRef, tgtPinClass);
+ 		const connRef = new Avoid.ConnRef(router, srcEnd, tgtEnd);
++		applyRoutingCheckpoints(Avoid, connRef, edge.elkEdgeRef && edge.elkEdgeRef.properties);
+ 		connectors.set(edge.id, {
+ 			connRef,
+ 			edge
+@@ -623,6 +638,7 @@ var RoutingSession = class {
+ 		const srcEnd = new this.avoid.ConnEnd(srcShape.shapeRef, srcPinClass);
+ 		const tgtEnd = new this.avoid.ConnEnd(tgtShape.shapeRef, tgtPinClass);
+ 		const connRef = new this.avoid.ConnRef(this.session.router, srcEnd, tgtEnd);
++		applyRoutingCheckpoints(this.avoid, connRef, edge.properties);
+ 		this.session.connectors.set(edge.id, {
+ 			connRef,
+ 			edge: { id: edge.id }

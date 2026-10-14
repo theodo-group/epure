@@ -10,7 +10,7 @@ import type { ConnectionSide, RouteResult } from '@mr_mint/elkjs-libavoid'
 
 import type { EdgeRoutingHints } from './anchors'
 import type { EdgeMeta } from './faces'
-import { faceRange, isHorizontalSide, type Pt, type Rect } from './geometry'
+import { cleanPolyline, faceRange, isHorizontalSide, type Pt, type Rect } from './geometry'
 import { snap } from './snap'
 import type { Side } from './types'
 
@@ -102,6 +102,50 @@ export const buildOrthogonalPath = (
   return deduped
 }
 
+// Synthesize an orthogonal polyline from anchor A through every waypoint to
+// anchor C. The first leg leaves perpendicular to the source face and the last
+// arrives perpendicular to the target face; in between, each L-turn continues
+// in the direction the previous leg was travelling, so the path reads as a
+// single line threading the points rather than a staircase.
+export const buildViaPath = (A: Pt, C: Pt, sourceSide: Side, targetSide: Side, via: Pt[]): Pt[] => {
+  const stops = [...via, C]
+  const out: Pt[] = [{ x: A.x, y: A.y }]
+  let horizontalFirst = isHorizontalSide(sourceSide)
+  stops.forEach((q, i) => {
+    const p = out[out.length - 1]!
+    const last = i === stops.length - 1
+    if (p.x !== q.x && p.y !== q.y) {
+      // Arriving on an E/W face means the final leg is horizontal, so the
+      // corner of the last L sits on the target's row (vertical leg first).
+      const hf = last ? !isHorizontalSide(targetSide) : horizontalFirst
+      out.push(hf ? { x: q.x, y: p.y } : { x: p.x, y: q.y })
+      horizontalFirst = !hf
+    } else {
+      horizontalFirst = p.y === q.y
+    }
+    out.push({ x: q.x, y: q.y })
+  })
+  return cleanPolyline(out)
+}
+
+// The synthetic polyline for an edge: through its waypoints when it has any,
+// otherwise the plain anchor-to-anchor path (with its Z-jog).
+export const syntheticPath = (
+  hints: EdgeRoutingHints,
+  m: { sourceSide: Side; targetSide: Side; via: Pt[] },
+  gridSize: number,
+): Pt[] =>
+  m.via.length > 0
+    ? buildViaPath(hints.sourceAnchor, hints.targetAnchor, m.sourceSide, m.targetSide, m.via)
+    : buildOrthogonalPath(
+        hints.sourceAnchor,
+        hints.targetAnchor,
+        m.sourceSide,
+        m.targetSide,
+        gridSize,
+        hints.bendCoord,
+      )
+
 // After per-edge anchors are computed, look across edges for axis-aligned
 // segments that share a coordinate and intersect. Two unrelated edges whose
 // endpoints happen to land at the same face-center coordinate (common when
@@ -119,17 +163,10 @@ interface AxisSegment {
 
 const segmentsFor = (
   hints: EdgeRoutingHints,
-  m: { sourceSide: Side; targetSide: Side },
+  m: { sourceSide: Side; targetSide: Side; via: Pt[] },
   gridSize: number,
 ): AxisSegment[] => {
-  const path = buildOrthogonalPath(
-    hints.sourceAnchor,
-    hints.targetAnchor,
-    m.sourceSide,
-    m.targetSide,
-    gridSize,
-    hints.bendCoord,
-  )
+  const path = syntheticPath(hints, m, gridSize)
   const segs: AxisSegment[] = []
   for (let i = 1; i < path.length; i += 1) {
     const a = path[i - 1]!

@@ -97,6 +97,31 @@ export const cleanPolyline = (pts: Pt[]): Pt[] => {
   return out
 }
 
+// Does the polyline pass through every point, in order? A point counts as
+// passed when it lies on a segment (axis-aligned, within `tol` px); each must
+// land on the same or a later segment than the one before. Used to check that
+// a route still honours its `via` waypoints after it has been re-snapped.
+export const polylinePasses = (poly: Pt[], points: Pt[], tol = 0.75): boolean => {
+  let seg = 1
+  for (const p of points) {
+    let found = false
+    for (; seg < poly.length; seg += 1) {
+      const a = poly[seg - 1]!
+      const b = poly[seg]!
+      const onX = p.x >= Math.min(a.x, b.x) - tol && p.x <= Math.max(a.x, b.x) + tol
+      const onY = p.y >= Math.min(a.y, b.y) - tol && p.y <= Math.max(a.y, b.y) + tol
+      const alignedH = Math.abs(a.y - b.y) <= tol && Math.abs(p.y - a.y) <= tol && onX
+      const alignedV = Math.abs(a.x - b.x) <= tol && Math.abs(p.x - a.x) <= tol && onY
+      if (alignedH || alignedV) {
+        found = true
+        break
+      }
+    }
+    if (!found) return false
+  }
+  return true
+}
+
 // Every segment must be axis-aligned. Used to reject degenerate (diagonal)
 // libavoid routes before they reach the canvas.
 export const isOrthogonalPath = (pts: Pt[]): boolean => {

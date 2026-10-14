@@ -21,6 +21,16 @@ interface EdgeProps {
   /** Drag the label to a new offset (grid units). Absent → label is static
    *  (e.g. the headless export). */
   onMoveLabel?: (id: string, labelDx: number, labelDy: number) => void
+  /** Waypoint editing on the selected edge. Dragging a SEGMENT of the route
+   *  shifts it sideways (grid-snapped): its two ends become waypoints — or the
+   *  waypoints already there move — so the route keeps that lane
+   *  (`onSetVia` with the whole list). Each waypoint is a handle: drag it
+   *  (`onMoveVia`), double-click it to remove it (`onRemoveVia`). A plain
+   *  click on the stroke only selects. All in integer grid units. Absent → no
+   *  handles (the headless export). */
+  onSetVia?: (id: string, via: { x: number; y: number }[]) => void
+  onMoveVia?: (id: string, index: number, x: number, y: number) => void
+  onRemoveVia?: (id: string, index: number) => void
   /** Points where this edge passes UNDER another edge. A soft transparent gap
    *  is faded into the stroke at each, so crossings read clearly. Computed once
    *  per diagram by `computeCrossings` and shared by the canvas and the export
@@ -57,6 +67,64 @@ export const EdgeDefs: FC = () => (
     </radialGradient>
   </defs>
 )
+
+type Pt = { x: number; y: number }
+
+// A mouse position in the SVG's user space (the canvas coordinate system).
+const svgPointOf = (svg: SVGSVGElement, clientX: number, clientY: number): Pt | null => {
+  const inv = svg.getScreenCTM()?.inverse()
+  if (!inv) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX
+  pt.y = clientY
+  const sp = pt.matrixTransform(inv)
+  return { x: sp.x, y: sp.y }
+}
+
+// Arc-length position along the polyline of the point nearest `p`. Orders
+// waypoints and insertion spots along the route, whatever the route's shape.
+const arcParamOf = (points: Pt[], p: Pt): number => {
+  let acc = 0
+  let best = { d: Infinity, t: 0 }
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    const vx = b.x - a.x
+    const vy = b.y - a.y
+    const len2 = vx * vx + vy * vy
+    const len = Math.sqrt(len2)
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2))
+    const q = { x: a.x + vx * t, y: a.y + vy * t }
+    const d = Math.hypot(p.x - q.x, p.y - q.y)
+    if (d < best.d) best = { d, t: acc + t * len }
+    acc += len
+  }
+  return best.t
+}
+
+const HANDLE_R = 7
+
+// The index (1-based, like `points[i-1]→points[i]`) of the segment nearest `p`.
+const nearestSegment = (points: Pt[], p: Pt): number => {
+  let best = 1
+  let bestD = Infinity
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1]!
+    const b = points[i]!
+    const vx = b.x - a.x
+    const vy = b.y - a.y
+    const len2 = vx * vx + vy * vy
+    const t =
+      len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2))
+    const d = Math.hypot(p.x - (a.x + vx * t), p.y - (a.y + vy * t))
+    if (d < bestD) {
+      bestD = d
+      best = i
+    }
+  }
+  return best
+}
 
 const pointsToPath = (points: { x: number; y: number }[]) =>
   points.length === 0 ? '' : points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
@@ -152,8 +220,135 @@ export const Edge: FC<EdgeProps> = ({
   fontFamily = 'Inter, system-ui, sans-serif',
   gridSize = 40,
   onMoveLabel,
+  onSetVia,
+  onMoveVia,
+  onRemoveVia,
   crossings,
 }) => {
+  // Waypoint drag: every pointer move snaps to the grid and commits the
+  // waypoint when its cell changes; the store re-routes and the handle follows
+  // the new route. Shared by "move an existing waypoint" and "drag a midpoint
+  // handle into a new one" (the insert happens first, then this drags it).
+  const startViaDrag = useCallback(
+    (event: MouseEvent<SVGElement>, index: number, start: Pt) => {
+      if (!onMoveVia) return
+      const svg = (event.target as SVGElement).ownerSVGElement
+      if (!svg) return
+      const grid = gridSize || 40
+      let last = { x: start.x, y: start.y }
+      beginDrag()
+      const onPointerMove = (e: globalThis.MouseEvent) => {
+        const cur = svgPointOf(svg, e.clientX, e.clientY)
+        if (!cur) return
+        const gx = Math.round(cur.x / grid)
+        const gy = Math.round(cur.y / grid)
+        if (gx === last.x && gy === last.y) return
+        last = { x: gx, y: gy }
+        onMoveVia(edge.id, index, gx, gy)
+      }
+      const onPointerUp = () => {
+        endDrag()
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+      }
+      window.addEventListener('mousemove', onPointerMove)
+      window.addEventListener('mouseup', onPointerUp)
+    },
+    [edge.id, gridSize, onMoveVia],
+  )
+
+  const handleViaDown = useCallback(
+    (event: MouseEvent<SVGElement>, index: number) => {
+      event.stopPropagation()
+      onSelect?.(edge.id, false)
+      const grid = gridSize || 40
+      const p = edge.via?.[index]
+      if (!p) return
+      startViaDrag(event, index, { x: Math.round(p.x / grid), y: Math.round(p.y / grid) })
+    },
+    [edge.id, edge.via, gridSize, onSelect, startViaDrag],
+  )
+
+  // Mousedown on the stroke: select, and if the pointer then moves ACROSS the
+  // segment under it, shift that segment sideways. The segment's two ends
+  // become waypoints at the new lane (an end that already is a waypoint just
+  // moves; one that is the edge's own anchor is left alone, the route bends to
+  // reach the lane); waypoints that sat on the segment are replaced. Every
+  // move rebuilds the whole list from what was there at mousedown, so a drag
+  // that comes back to the start leaves the edge exactly as it was, and a
+  // drag along the segment (or a click) changes nothing at all.
+  const handleStrokeDown = useCallback(
+    (event: MouseEvent<SVGElement>) => {
+      event.stopPropagation()
+      onSelect?.(edge.id, event.shiftKey)
+      if (!onSetVia || event.shiftKey) return
+      const svg = (event.target as SVGElement).ownerSVGElement
+      if (!svg) return
+      const grab = svgPointOf(svg, event.clientX, event.clientY)
+      if (!grab) return
+      const grid = gridSize || 40
+      const points = edge.points
+      if (points.length < 2) return
+      const seg = nearestSegment(points, grab)
+      const P = points[seg - 1]!
+      const Q = points[seg]!
+      const horizontal = Math.abs(P.y - Q.y) <= Math.abs(P.x - Q.x)
+      const perp = (pt: Pt) => (horizontal ? pt.y : pt.x)
+      const along = (pt: Pt) => (horizontal ? pt.x : pt.y)
+      const lo = Math.min(along(P), along(Q)) - 0.5
+      const hi = Math.max(along(P), along(Q)) + 0.5
+      const toGrid = (pt: Pt) => ({ x: Math.round(pt.x / grid), y: Math.round(pt.y / grid) })
+      const originalVia = (edge.via ?? []).map(toGrid)
+      // Waypoints off this segment are kept, split by where the segment sits
+      // along the route; the ones on it are replaced by the shifted ends.
+      const onSegment = (v: Pt) =>
+        Math.abs(perp(v) - perp(P)) < 0.5 && along(v) >= lo && along(v) <= hi
+      const tP = arcParamOf(points, P)
+      const kept = (edge.via ?? [])
+        .map((v, i) => ({ v, g: originalVia[i]! }))
+        .filter((x) => !onSegment(x.v))
+      const before = kept.filter((x) => arcParamOf(points, x.v) < tP).map((x) => x.g)
+      const after = kept.filter((x) => arcParamOf(points, x.v) >= tP).map((x) => x.g)
+      const isFirst = seg === 1
+      const isLast = seg === points.length - 1
+      const laneAt = (shiftedPerp: number): Pt[] => {
+        const at = (pt: Pt): Pt =>
+          horizontal ? { x: pt.x, y: shiftedPerp } : { x: shiftedPerp, y: pt.y }
+        const ends: Pt[] = []
+        if (!isFirst) ends.push(at(P))
+        if (!isLast) ends.push(at(Q))
+        // A single straight edge has no free end: bend it at the grab point.
+        if (ends.length === 0) ends.push(at(grab))
+        return ends.map(toGrid)
+      }
+      const basePerp = Math.round(perp(P) / grid)
+      let lastDelta = 0
+      let dragging = false
+      const onPointerMove = (e: globalThis.MouseEvent) => {
+        const cur = svgPointOf(svg, e.clientX, e.clientY)
+        if (!cur) return
+        const delta = Math.round((perp(cur) - perp(grab)) / grid)
+        if (delta === lastDelta) return
+        lastDelta = delta
+        if (!dragging) {
+          dragging = true
+          beginDrag()
+        }
+        const via =
+          delta === 0 ? originalVia : [...before, ...laneAt((basePerp + delta) * grid), ...after]
+        onSetVia(edge.id, via)
+      }
+      const onPointerUp = () => {
+        if (dragging) endDrag()
+        window.removeEventListener('mousemove', onPointerMove)
+        window.removeEventListener('mouseup', onPointerUp)
+      }
+      window.addEventListener('mousemove', onPointerMove)
+      window.addEventListener('mouseup', onPointerUp)
+    },
+    [edge.id, edge.points, edge.via, gridSize, onSetVia, onSelect],
+  )
+
   // Cumulative-from-origin label drag: capture the committed offset and the
   // starting pointer once, then add the snapped pointer delta on every move.
   // Each move commits to the store, which re-routes and shifts labelAnchor —
@@ -310,11 +505,8 @@ export const Edge: FC<EdgeProps> = ({
           strokeLinecap="round"
           strokeLinejoin="round"
           pointerEvents="stroke"
-          style={{ cursor: 'pointer' }}
-          onMouseDown={(event) => {
-            event.stopPropagation()
-            onSelect(edge.id, event.shiftKey)
-          }}
+          style={{ cursor: selected && onSetVia ? 'move' : 'pointer' }}
+          onMouseDown={handleStrokeDown}
         />
       ) : null}
       {label && edge.labelAnchor
@@ -352,6 +544,29 @@ export const Edge: FC<EdgeProps> = ({
             )
           })()
         : null}
+      {selected && onMoveVia ? (
+        <g data-edge-handles={edge.id}>
+          {(edge.via ?? []).map((v, i) => (
+            <circle
+              key={`via-${i}`}
+              className="ep-handle ep-handle-via"
+              cx={v.x}
+              cy={v.y}
+              r={HANDLE_R}
+              fill="#2563eb"
+              stroke="#ffffff"
+              strokeWidth={2}
+              onMouseDown={(e) => handleViaDown(e, i)}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                onRemoveVia?.(edge.id, i)
+              }}
+            >
+              <title>Waypoint — drag to move, double-click to remove</title>
+            </circle>
+          ))}
+        </g>
+      ) : null}
     </g>
   )
 }

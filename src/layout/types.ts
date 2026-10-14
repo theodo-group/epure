@@ -69,6 +69,9 @@ export interface EdgeRoute extends EdgeStyleSpec {
   target: EdgeEndpoint
   points: { x: number; y: number }[]
   labelAnchor?: { x: number; y: number }
+  /** The sidecar's `via` waypoints in canvas pixels, in order (absent when the
+   *  edge has none). The editor draws a handle at each. */
+  via?: { x: number; y: number }[]
 }
 
 export interface LayoutNode extends NodeStyle {
@@ -78,9 +81,19 @@ export interface LayoutNode extends NodeStyle {
   h: number
 }
 
+/** A point in grid units (absolute diagram coordinates). */
+export interface GridPoint {
+  x: number
+  y: number
+}
+
 export interface LayoutEdge extends EdgeStyleSpec {
   sourceSide?: Side
   targetSide?: Side
+  /** Mandatory waypoints, in order, in absolute grid units. The route passes
+   *  through each one (libavoid routing checkpoints); between them it still
+   *  avoids obstacles. Shared by every parallel edge of the same pair. */
+  via?: GridPoint[]
 }
 
 export interface LayoutSidecar {

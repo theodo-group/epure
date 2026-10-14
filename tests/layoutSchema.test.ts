@@ -77,6 +77,29 @@ describe('validateLayoutJson', () => {
     expect(r.errors.some((e) => /labelDx must be an integer/.test(e.message))).toBe(true)
   })
 
+  it('accepts via waypoints as integer grid points, negatives included', () => {
+    const r = validateLayoutJson(
+      '{"gridSize":40,"nodes":{},"edges":{"a->b":{"via":[{"x":-3,"y":2},{"x":10,"y":10}]}}}',
+    )
+    expect(r.errors).toEqual([])
+    expect(r.value?.edges['a->b']?.via).toEqual([
+      { x: -3, y: 2 },
+      { x: 10, y: 10 },
+    ])
+  })
+
+  it('rejects malformed via waypoints', () => {
+    const bad = (via: string) =>
+      validateLayoutJson(`{"gridSize":40,"nodes":{},"edges":{"a->b":{"via":${via}}}}`).errors.map(
+        (e) => e.message,
+      )
+    expect(bad('[]')).toEqual(['via must list at least one point'])
+    expect(bad('{"x":1,"y":2}')).toEqual(['via must be an array of { x, y } points'])
+    expect(bad('[{"x":1.5,"y":2}]')).toEqual(['via[0].x must be an integer'])
+    expect(bad('[{"x":1}]')).toEqual(['via[0] is missing "y"'])
+    expect(bad('[{"x":1,"y":2,"z":3}]')).toEqual(['Unknown via point field "z"'])
+  })
+
   it('flags wrong types', () => {
     const text = `{"gridSize":"forty","nodes":{},"edges":{}}`
     const r = validateLayoutJson(text)
