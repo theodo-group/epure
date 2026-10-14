@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest'
 
 import { parse } from '@/parser'
 
-import { areaTitleRect, NESTED_AREA_PAD, route } from './elk'
+import { areaTitleRect, NESTED_AREA_PAD } from './areaGeometry'
+import { FaceCache, route } from './elk'
 import { normalizeForRoute } from './normalize'
 import type { LayoutSidecar, RoutedDiagram } from './types'
 
@@ -504,8 +505,9 @@ describe('edge obstacle avoidance', () => {
       edges: {},
     }
     const norm = normalizeForRoute(parsed.diagram, layout)
-    const full = await route(parsed.diagram, norm) // warms the face cache
-    const quick = await route(parsed.diagram, norm, { quick: true })
+    const faceCache = new FaceCache()
+    const full = await route(parsed.diagram, norm, { faceCache }) // warms the face cache
+    const quick = await route(parsed.diagram, norm, { quick: true, faceCache })
     // Quick routes are orthogonal and connect.
     for (const e of quick.edges) {
       expect(e.points.length).toBeGreaterThanOrEqual(2)

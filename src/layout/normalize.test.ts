@@ -84,7 +84,7 @@ describe('route() with a missing/empty layout (Phase 0 blocker)', () => {
 
   it('does not throw even when route is called with a raw empty layout', async () => {
     const diagram = diagramOf('lonely\n')
-    // Exercises the defensive fallback in elk.ts directly (no normalization).
+    // Exercises the defensive fallback in geometry.ts (nodeRects) directly (no normalization).
     await expect(route(diagram, emptyLayout())).resolves.toBeTruthy()
   })
 
