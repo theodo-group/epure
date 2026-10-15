@@ -528,6 +528,35 @@ describe('edge obstacle avoidance', () => {
   })
 })
 
+describe('an edge to an undeclared node', () => {
+  it('does not stop libavoid from routing the other edges', async () => {
+    // `a -> ghost` names a node that is never declared. It gets a placeholder
+    // box; the rest of the diagram must still be routed around obstacles. Here
+    // a→b is pinned to enter b from below: libavoid detours around b, while
+    // the straight fallback would cut through it.
+    const parsed = parse('a\nb\na -> b\na -> ghost\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    const layout: LayoutSidecar = {
+      gridSize: 40,
+      nodes: { a: { cx: 10, cy: 3, w: 4, h: 2 }, b: { cx: 10, cy: 10, w: 4, h: 2 } },
+      edges: { 'a->b': { targetSide: 'S' } },
+    }
+    const routed = await route(parsed.diagram, normalizeForRoute(parsed.diagram, layout))
+    const ab = routed.edges.find((e) => e.id.startsWith('a->b'))!
+    expect(ab.target.side).toBe('S')
+    const b = routed.nodes.find((n) => n.id === 'b')!
+    const insideB = (p: { x: number; y: number }) =>
+      p.x > b.x + 1 && p.x < b.x + b.w - 1 && p.y > b.y + 1 && p.y < b.y + b.h - 1
+    for (let i = 1; i < ab.points.length; i += 1) {
+      const p = ab.points[i - 1]!
+      const q = ab.points[i]!
+      for (let t = 0.05; t < 1; t += 0.05) {
+        expect(insideB({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t })).toBe(false)
+      }
+    }
+  })
+})
+
 describe('via waypoints', () => {
   // On a polyline, the index of the first segment passing through `p` (−1 when
   // none does) — "in order" means these indices never decrease.
@@ -576,6 +605,35 @@ describe('via waypoints', () => {
     // Faces follow the waypoints: a leaves upward (N), b is entered from below (S).
     expect(edge.source.side).toBe('N')
     expect(edge.target.side).toBe('S')
+  })
+
+  it('treats a waypoint repeated back to back as one', async () => {
+    const parsed = parse('a\nb\na -> b\n')
+    if (!parsed.ok) throw new Error('parse failed')
+    const nodes = { a: { cx: 3, cy: 10, w: 4, h: 2 }, b: { cx: 21, cy: 10, w: 4, h: 2 } }
+    const once: LayoutSidecar = {
+      gridSize: 40,
+      nodes,
+      edges: { 'a->b': { via: [{ x: 12, y: 4 }] } },
+    }
+    const twice: LayoutSidecar = {
+      gridSize: 40,
+      nodes,
+      edges: {
+        'a->b': {
+          via: [
+            { x: 12, y: 4 },
+            { x: 12, y: 4 },
+          ],
+        },
+      },
+    }
+    const r1 = await route(parsed.diagram, normalizeForRoute(parsed.diagram, once))
+    const r2 = await route(parsed.diagram, normalizeForRoute(parsed.diagram, twice))
+    const e1 = r1.edges.find((e) => e.id.startsWith('a->b'))!
+    const e2 = r2.edges.find((e) => e.id.startsWith('a->b'))!
+    expect(e2.points).toEqual(e1.points)
+    expect(e2.via).toEqual([{ x: 12 * 40, y: 4 * 40 }])
   })
 
   it('keeps honouring pinned faces alongside the waypoints', async () => {

@@ -107,7 +107,7 @@ const srcPortId = (id: string) => `${id}::s`
 const tgtPortId = (id: string) => `${id}::t`
 
 const buildGraph = (scene: LibavoidScene, anchors: Map<string, EdgeRoutingHints>) => {
-  const { diagram, nodes, edgeIds, edgeMeta } = scene
+  const { nodes, edgeIds, edgeMeta } = scene
   const portsByNode = new Map<string, ElkPort[]>()
   const addPort = (nodeId: string, pid: string, abs: Pt) => {
     const node = nodes[nodeId]!
@@ -121,17 +121,18 @@ const buildGraph = (scene: LibavoidScene, anchors: Map<string, EdgeRoutingHints>
     addPort(m.source, srcPortId(id), h.sourceAnchor)
     addPort(m.target, tgtPortId(id), h.targetAnchor)
   }
-  const elkNodes: ElkNode[] = diagram.nodes.map((n) => {
-    const pos = nodes[n.id]!
-    return {
-      id: n.id,
-      x: pos.x,
-      y: pos.y,
-      width: pos.w,
-      height: pos.h,
-      ports: portsByNode.get(n.id) ?? [],
-    }
-  })
+  // Every rect, not just the declared nodes: an edge whose end is not declared
+  // gets a placeholder rect (see `nodeRects`), and libavoid must know it too,
+  // or it rejects the whole graph and every edge falls back to the straight
+  // synthetic path.
+  const elkNodes: ElkNode[] = Object.entries(nodes).map(([id, pos]) => ({
+    id,
+    x: pos.x,
+    y: pos.y,
+    width: pos.w,
+    height: pos.h,
+    ports: portsByNode.get(id) ?? [],
+  }))
   const elkEdges: ElkEdge[] = edgeIds.map((id) => {
     const m = edgeMeta.get(id)!
     return {

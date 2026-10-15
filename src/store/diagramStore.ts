@@ -369,8 +369,12 @@ export const useDiagramStore = create<DiagramStore>()(
           const key = edgeKeyOfId(edgeId)
           const edges = { ...s.layout.edges }
           const next = { ...edges[key] }
-          if (via.length === 0) delete next.via
-          else next.via = via.map((p) => ({ x: p.x, y: p.y }))
+          // Drop a waypoint repeated back to back; the router treats it as one.
+          const cleaned = via.filter(
+            (p, i) => i === 0 || p.x !== via[i - 1]!.x || p.y !== via[i - 1]!.y,
+          )
+          if (cleaned.length === 0) delete next.via
+          else next.via = cleaned.map((p) => ({ x: p.x, y: p.y }))
           if (Object.keys(next).length === 0) delete edges[key]
           else edges[key] = next
           return { ...s, layout: { ...s.layout, edges } }

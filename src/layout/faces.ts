@@ -66,7 +66,14 @@ export const guessFaces = (
     const srcC: Pt = { x: src.x + src.w / 2, y: src.y + src.h / 2 }
     const tgtC: Pt = { x: tgt.x + tgt.w / 2, y: tgt.y + tgt.h / 2 }
     const stored = layout.edges[edgeKey(e.source, e.target)]
-    const via: Pt[] = (stored?.via ?? []).map((p) => ({ x: p.x * gridSize, y: p.y * gridSize }))
+    // A waypoint repeated back to back is one waypoint: libavoid loses its
+    // way on a doubled checkpoint, and older editor builds could write them.
+    const via: Pt[] = []
+    for (const p of stored?.via ?? []) {
+      const last = via[via.length - 1]
+      if (last && last.x === p.x * gridSize && last.y === p.y * gridSize) continue
+      via.push({ x: p.x * gridSize, y: p.y * gridSize })
+    }
     let sourceSide: Side
     let targetSide: Side
     if (via.length > 0) {
@@ -179,10 +186,15 @@ export const settleFaces = async (
   }
   try {
     await initLibavoid()
-    const plainNodes: ElkNode[] = diagram.nodes.map((n) => {
-      const pos = nodes[n.id]!
-      return { id: n.id, x: pos.x, y: pos.y, width: pos.w, height: pos.h }
-    })
+    // Every rect, placeholders for undeclared edge ends included (see
+    // `buildGraph` in libavoidGraph.ts).
+    const plainNodes: ElkNode[] = Object.entries(nodes).map(([id, pos]) => ({
+      id,
+      x: pos.x,
+      y: pos.y,
+      width: pos.w,
+      height: pos.h,
+    }))
     const centerEdges: ElkEdge[] = edgeIds.map((id) => {
       const m = edgeMeta.get(id)!
       return { id, source: m.source, target: m.target, properties: checkpointProperties(m) }
