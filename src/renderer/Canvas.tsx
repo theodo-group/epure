@@ -639,7 +639,7 @@ export const Canvas = forwardRef<SVGSVGElement, CanvasProps>(
             <span>pan</span>
             {onSetVia && (selectedEdgeIds?.length ?? 0) > 0 ? (
               <>
-                <span className="ep-kbd">○</span>
+                <span className="ep-kbd">▬</span>
                 <span>drag: shift segment · double-click: auto</span>
               </>
             ) : null}

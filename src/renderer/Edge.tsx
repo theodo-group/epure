@@ -108,7 +108,10 @@ const arcParamOf = (points: Pt[], p: Pt): number => {
   return best.t
 }
 
-const HANDLE_R = 7
+// The segment handle: a short bar lying along the segment, the shape most
+// diagram tools use for "slide this segment".
+const HANDLE_LEN = 18
+const HANDLE_THICK = 6
 
 // The index (1-based, like `points[i-1]→points[i]`) of the segment nearest `p`.
 const nearestSegment = (points: Pt[], p: Pt): number => {
@@ -575,23 +578,32 @@ export const Edge: FC<EdgeProps> = ({
             const P = edge.points[i]!
             const horizontal = Math.abs(P.y - Q.y) <= Math.abs(P.x - Q.x)
             // Too short a segment has no room for a handle under the arrow caps.
-            if (Math.hypot(Q.x - P.x, Q.y - P.y) < HANDLE_R * 3) return null
+            if (Math.hypot(Q.x - P.x, Q.y - P.y) < HANDLE_LEN * 2) return null
+            const cx = (P.x + Q.x) / 2
+            const cy = (P.y + Q.y) / 2
+            const w = horizontal ? HANDLE_LEN : HANDLE_THICK
+            const h = horizontal ? HANDLE_THICK : HANDLE_LEN
             return (
-              <circle
+              <rect
                 key={`seg-${i + 1}`}
                 className="ep-handle ep-handle-seg"
-                cx={(P.x + Q.x) / 2}
-                cy={(P.y + Q.y) / 2}
-                r={HANDLE_R - 1}
+                data-cx={cx}
+                data-cy={cy}
+                x={cx - w / 2}
+                y={cy - h / 2}
+                width={w}
+                height={h}
+                rx={HANDLE_THICK / 2}
+                ry={HANDLE_THICK / 2}
                 fill="#ffffff"
                 stroke="#2563eb"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 style={{ cursor: horizontal ? 'ns-resize' : 'ew-resize' }}
                 onMouseDown={(e) => handleSegmentDown(e, i + 1)}
                 onDoubleClick={(e) => handleSegmentRelease(e, i + 1)}
               >
                 <title>Segment — drag to shift it, double-click to let the router place it</title>
-              </circle>
+              </rect>
             )
           })}
         </g>
