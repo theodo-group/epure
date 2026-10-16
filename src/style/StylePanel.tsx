@@ -305,12 +305,19 @@ const SIDE_LABEL: Record<Side, string> = {
   S: 'Bottom',
   W: 'Left',
 }
-// Compass order (clockwise from top) for a tidy strip.
-const faceOptions = (['N', 'E', 'S', 'W'] as Side[]).map((s) => ({
-  value: s,
-  label: <FaceIcon side={s} />,
-  title: SIDE_LABEL[s],
-}))
+// "Auto" (the router picks the face) then compass order, clockwise from top.
+type FaceChoice = Side | 'auto'
+const faceOptions: { value: FaceChoice; label: React.ReactNode; title: string }[] = [
+  { value: 'auto', label: <span className="ep-seg-text">Auto</span>, title: 'Auto (router picks)' },
+  ...(['N', 'E', 'S', 'W'] as Side[]).map((s) => ({
+    value: s as FaceChoice,
+    label: <FaceIcon side={s} />,
+    title: SIDE_LABEL[s],
+  })),
+]
+// A face edit from the strip: "Auto" (or re-clicking the set face) clears it.
+const faceValue = (v: FaceChoice | undefined): Side | undefined =>
+  v === undefined || v === 'auto' ? undefined : v
 
 const sizeOptions = SIZES.map((s) => ({ value: s, label: s, title: s }))
 const lineOptions = LINE_STYLES.map((s) => ({
@@ -371,6 +378,7 @@ export const StylePanel = () => {
   const parseResult = useDiagramStore((s) => s.parseResult)
   const setNodeStyle = useDiagramStore((s) => s.setNodeStyle)
   const setEdgeStyle = useDiagramStore((s) => s.setEdgeStyle)
+  const resetEdgeRoutes = useDiagramStore((s) => s.resetEdgeRoutes)
   const setAreaStyle = useDiagramStore((s) => s.setAreaStyle)
   const panelPos = useDiagramStore((s) => s.stylePanelPosition)
   const setPanelPos = useDiagramStore((s) => s.setStylePanelPosition)
@@ -609,15 +617,28 @@ export const StylePanel = () => {
             <Segmented
               options={faceOptions}
               value={common(edgeStyles.map((e) => e.sourceSide))}
-              onChange={(v) => setEdgeStyle({ sourceSide: v })}
+              defaultValue="auto"
+              onChange={(v) => setEdgeStyle({ sourceSide: faceValue(v) })}
             />
           </Row>
           <Row label="Target face">
             <Segmented
               options={faceOptions}
               value={common(edgeStyles.map((e) => e.targetSide))}
-              onChange={(v) => setEdgeStyle({ targetSide: v })}
+              defaultValue="auto"
+              onChange={(v) => setEdgeStyle({ targetSide: faceValue(v) })}
             />
+          </Row>
+          <Row label="Route">
+            <button
+              type="button"
+              className="ep-style-btn"
+              title="Forget the pinned faces and waypoints of the selected edges; the router picks their path again"
+              disabled={!edgeStyles.some((e) => e.sourceSide || e.targetSide || e.via)}
+              onClick={resetEdgeRoutes}
+            >
+              Reset route
+            </button>
           </Row>
         </section>
       ) : null}

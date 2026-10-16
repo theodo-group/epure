@@ -114,7 +114,7 @@ All geometry is in **grid units, integers** — never pixels.
              "borderColor": "purple", "icon": "programming/framework/fastapi" }
   },
   "edges": {
-    "api->db": { "color": "teal", "lineStyle": "dashed", "sourceSide": "E", "targetSide": "W" }
+    "api->db": { "color": "teal", "lineStyle": "dashed" }
   },
   "areas": {
     "Backend": { "borderColor": "purple", "fillColor": "purple" }
@@ -141,9 +141,11 @@ Field reference (exact — keep in sync with `src/file/layoutSchema.ts`):
   non-empty list of `{ "x": int, "y": int }` waypoints in **absolute grid units**, in order — the
   route is forced through each point and still avoids obstacles between them; use it only when the
   auto-route takes a corridor you don't want, e.g. `"via": [{ "x": 90, "y": -16 }, { "x": 10, "y": 52 }]`
-  to send an edge around the outside of the diagram; in the editor, select the edge and drag a segment, or the handle at its middle, sideways to shift it; double-click the handle to hand the segment back to the router). Edge geometry is auto-routed; a pinned side is
-  honored as-is (it is not re-evaluated when a node moves), so prefer leaving sides unset unless the
-  auto-picked face is wrong.
+  to send an edge around the outside of the diagram; in the editor, select the edge and drag a segment, or the handle at its middle, sideways to shift it; double-click the handle to hand the segment back to the router). Edge geometry is auto-routed. **Leave `sourceSide`/`targetSide`/`via` unset by default**: the
+  router picks good faces on its own, and a pinned side or waypoint is kept as-is when a node later
+  moves (it is a user intention, never re-evaluated), so a diagram pinned everywhere turns ugly at the
+  first drag. Set them only when the user asks for a specific attachment or path, or when the
+  auto-route is clearly wrong; the user can drop them at any time with the edge's "Reset route" button.
 - **`areas`** — keyed by area id from the `.epr.d2`. **Style only**: `borderColor`, `borderStyle`,
   `fillColor`. The area's box is computed from its members' positions — do NOT put `x/y/w/h/members`
   here (membership lives in the `.d2`).
