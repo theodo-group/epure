@@ -5,6 +5,7 @@
 
 import type { Diagram } from '@/parser/ast'
 
+import { areaMinWidth, areaTitleRect } from './areaTitle'
 import type { AreaTree } from './areaTree'
 import type { Rect } from './geometry'
 import type { AreaLayout, LayoutSidecar } from './types'
@@ -22,32 +23,17 @@ const AREA_PAD = 24
 // Exported for tests.
 export const NESTED_AREA_PAD = 48
 
-// Geometry of the area title "chip" — the rounded tab AreaLabel (renderer/Area.tsx)
-// draws straddling an area's top border, inset from the top-LEFT corner. These
-// mirror AreaLabel's on-screen defaults at text scale 1. The chip pokes ABOVE the
-// area's obstacle rect, so unless routing knows about it an edge skimming the top
-// border draws straight over the title text — and "inside" edges skip the area
-// rects entirely, so they cross it even more freely.
+// The area title chip pokes ABOVE the area's obstacle rect, so unless routing
+// knows about it an edge skimming the top border draws straight over the title
+// text — and "inside" edges skip the area rects entirely, so they cross it even
+// more freely. Its geometry lives in ./areaTitle, shared with the renderer.
 //
 // Known limitation: the router has no textScale (it produces the canonical,
 // scale-1 geometry the whole pipeline is built on — like edge-label and node-text
 // avoidance, which are also scale-unaware). AreaLabel scales the chip by the live
-// text zoom, so at a zoom other than 100% this obstacle no longer matches the
-// rendered chip exactly. Acceptable: the committed/exported geometry is at scale 1.
-const TITLE_INSET_X = 14 // chip left inset from the area's left edge
-const TITLE_HEIGHT = 22 // LABEL_HEIGHT
-const TITLE_CHAR_PX = 7 // LABEL_CHAR_PX (approx glyph advance)
-const TITLE_PAD_X = 10 // LABEL_PAD_X
-const TITLE_MIN_W = 40 // chip minimum width
-
-// The title chip's rect for an area, given the area's (padded) obstacle rect and
-// label. Exported so tests assert against the exact geometry routing avoids.
-export const areaTitleRect = (areaRect: Rect, label: string): Rect => ({
-  x: areaRect.x + TITLE_INSET_X,
-  y: areaRect.y - TITLE_HEIGHT / 2,
-  w: Math.max(TITLE_MIN_W, label.length * TITLE_CHAR_PX + TITLE_PAD_X * 2),
-  h: TITLE_HEIGHT,
-})
+// text zoom (only while it still fits its frame), so at a zoom other than 100%
+// this obstacle no longer matches the rendered chip exactly. Acceptable: the
+// committed/exported geometry is at scale 1.
 
 // An area treated as a routing obstacle: the padded bounding box of its members
 // plus the membership set. `members` holds the TRANSITIVE leaf-node ids —
@@ -83,11 +69,46 @@ export const computeAreaGeometry = (
   diagram: Diagram,
   areaTree: AreaTree,
   nodes: Record<string, Rect>,
+  layout: Pick<LayoutSidecar, 'areas'> = {},
 ): AreaGeometry => {
   const areaRectById = new Map<string, Rect>()
   // Extra inflation for a member area's rect before unioning: the AREA_PAD
   // applied to the union below then puts the borders NESTED_AREA_PAD apart.
   const NEST_EXTRA = NESTED_AREA_PAD - AREA_PAD
+  const alignOf = (aid: string) => layout.areas?.[aid]?.labelAlign
+  // Widen `rect` in place toward `minW`, but never over a node that is not a
+  // member or over an unrelated area placed before it: the growth stops a
+  // clearance short of the first such neighbour on each side within the area's
+  // vertical span. Short of room, the chip overhangs (centered, see areaTitle).
+  const widenForTitle = (aid: string, rect: Rect, minW: number): void => {
+    const members = areaTree.leafNodesOf.get(aid) ?? new Set<string>()
+    const ancestors = areaTree.ancestorsOf.get(aid) ?? new Set<string>()
+    const right = rect.x + rect.w
+    let lo = -Infinity
+    let hi = Infinity
+    const fence = (r: Rect, clearance: number) => {
+      if (r.y >= rect.y + rect.h || r.y + r.h <= rect.y) return
+      if (r.x + r.w <= rect.x) lo = Math.max(lo, r.x + r.w + clearance)
+      else if (r.x >= right) hi = Math.min(hi, r.x - clearance)
+    }
+    // A node keeps the room its own frame would need plus a gap; an area just
+    // the gap.
+    for (const [id, r] of Object.entries(nodes)) {
+      if (!members.has(id)) fence(r, AREA_PAD * 2)
+    }
+    for (const [id, r] of areaRectById) {
+      if (ancestors.has(id) || areaTree.ancestorsOf.get(id)?.has(aid)) continue
+      fence(r, AREA_PAD)
+    }
+    lo = Math.min(lo, rect.x)
+    hi = Math.max(hi, right)
+    const w = Math.min(minW, hi - lo)
+    const align = alignOf(aid) ?? 'center'
+    const want =
+      align === 'left' ? rect.x : align === 'right' ? right - w : rect.x - (w - rect.w) / 2
+    rect.x = Math.min(Math.max(want, lo, right - w), rect.x, hi - w)
+    rect.w = w
+  }
   const computeAreaRect = (aid: string, stack: Set<string>): Rect | null => {
     const hit = areaRectById.get(aid)
     if (hit) return hit
@@ -125,6 +146,12 @@ export const computeAreaGeometry = (
       w: maxX - minX + AREA_PAD * 2,
       h: maxY - minY + AREA_PAD * 2,
     }
+    // A long title must never overhang the frame: widen the area until the chip
+    // fits with an inset on both sides, growing AWAY from the title's alignment
+    // (left keeps the left border, right keeps the right one, center grows both
+    // ways) so the chosen alignment stays visible over the members.
+    const minW = area.label ? areaMinWidth(area.label) : 0
+    if (rect.w < minW) widenForTitle(aid, rect, minW)
     areaRectById.set(aid, rect)
     return rect
   }
@@ -148,7 +175,7 @@ export const computeAreaGeometry = (
     if (!rect) continue
     titleObstacles.push({
       id: a.id,
-      rect: areaTitleRect(rect, a.label),
+      rect: areaTitleRect(rect, a.label, alignOf(a.id)),
       members: new Set(),
     })
   }
@@ -191,5 +218,6 @@ export const layoutAreas = (
         borderColor: style?.borderColor,
         borderStyle: style?.borderStyle,
         fillColor: style?.fillColor,
+        labelAlign: style?.labelAlign,
       }
     })

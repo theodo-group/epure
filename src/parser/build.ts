@@ -138,7 +138,7 @@ function nodeOrAreaDecl(stmt: NodeOrAreaSyntax, errors: ParseError[]): NodeDecl 
   if (members.length > 0) {
     // Members + attrs in the same block aren't part of the subset.
     if (attrs.length > 0) errors.push({ message: mixedBlock(id), range })
-    return buildArea(id, label, members, range, errors)
+    return buildArea(id, label, members, range, idRange, labelRange, errors)
   }
 
   return buildNode(id, label, attrs, range, idRange, labelRange, errors)
@@ -179,6 +179,8 @@ function buildArea(
   label: string | undefined,
   items: MemberSyntax[],
   range: SourceRange,
+  idRange: SourceRange,
+  labelRange: SourceRange | undefined,
   errors: ParseError[],
 ): AreaDecl {
   const members: string[] = []
@@ -193,7 +195,16 @@ function buildArea(
     members.push(memberId)
     memberRanges.push(memberRange)
   }
-  return { kind: 'area', id, label, members, memberRanges, range }
+  return {
+    kind: 'area',
+    id,
+    label,
+    idRange,
+    ...(labelRange ? { labelRange } : {}),
+    members,
+    memberRanges,
+    range,
+  }
 }
 
 // -- edge -------------------------------------------------------------------
