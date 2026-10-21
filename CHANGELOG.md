@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- **Edit and align group titles.** Double-click a group's title (or its frame) to edit it in place;
+  Enter saves, Escape cancels, and an empty title removes it. The style panel's Title row puts the
+  title on the left, center or right (`labelAlign` in the layout file).
+
+### Improved
+
+- **Group titles stay inside their frame.** A group whose title is wider than its contents grows to
+  fit it, without growing over nearby boxes.
+- **Titles are centered by default.** Existing diagrams show their group titles centered, and a few
+  edges route differently. Set `labelAlign: "left"` on an area to keep the old placement.
+
 ## 0.7.0 — 2026-10-14
 
 ### New

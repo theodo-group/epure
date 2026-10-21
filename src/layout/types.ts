@@ -34,10 +34,14 @@ export interface EdgeStyleSpec {
   labelDy?: number
 }
 
+export const AREA_LABEL_ALIGNS = ['left', 'center', 'right'] as const
+export type AreaLabelAlign = (typeof AREA_LABEL_ALIGNS)[number]
+
 export interface AreaStyleSpec {
   borderColor?: PaletteColor
   borderStyle?: LineStyle
   fillColor?: FillColor
+  labelAlign?: AreaLabelAlign
 }
 
 export interface NodeLayout extends NodeStyle {

@@ -27,7 +27,7 @@ import {
   type StoredDoc,
 } from '@/file/localStore'
 import { locateLayoutKeyRanges } from '@/file/layoutSchema'
-import { editorHtmlToLabel, labelToEditorHtml, quoteD2 } from '@/editor/labelMarkup'
+import { editorHtmlToLabel, labelToEditorHtml, setDeclLabel } from '@/editor/labelMarkup'
 import { exportPng, type ExportFrame } from '@/export/png'
 import { embedSourceInPngBlob } from '@/export/pngText'
 import { exportStandaloneHtml } from '@/export/standalone-html'
@@ -502,20 +502,33 @@ export const App = () => {
       const probe = document.createElement('div')
       probe.innerHTML = labelToEditorHtml(node.label ?? '')
       if (markup === editorHtmlToLabel(probe)) return
-      let next: string
-      if (node.labelRange) {
-        next =
-          src.slice(0, node.labelRange.start.offset) +
-          quoteD2(markup) +
-          src.slice(node.labelRange.end.offset)
-      } else {
-        // No label declared yet; nothing to write if it's still empty.
-        if (markup === '') return
-        const at = node.idRange.end.offset
-        next = `${src.slice(0, at)}: ${quoteD2(markup)}${src.slice(at)}`
-      }
+      // A cleared node label stays as `""`: dropping it would show the node's
+      // (often machine-minted) id instead of an empty box.
+      const next = setDeclLabel(src, node, markup)
+      if (!next) return
       interaction.noteActivity()
       setSource(next)
+    },
+    [setSource],
+  )
+
+  // Commit an inline group-title edit through setSource, like
+  // handleCommitNodeLabel. A cleared title is dropped from the .d2 (an area has
+  // no chip without one). Returns false when nothing could be written because
+  // the source doesn't parse, so the canvas keeps the editor open.
+  const handleCommitAreaLabel = useCallback(
+    (id: string, label: string): boolean => {
+      const { source: src, parseResult: parsed } = useDiagramStore.getState()
+      if (!parsed.ok) return false
+      const area = parsed.diagram.areas.find((a) => a.id === id)
+      if (!area) return true
+      if (label === (area.label ?? '')) return true
+      const next = setDeclLabel(src, area, label || null)
+      if (next) {
+        interaction.noteActivity()
+        setSource(next)
+      }
+      return true
     },
     [setSource],
   )
@@ -696,6 +709,7 @@ export const App = () => {
         onResizeNode={(id, side, x, y) => resizeNode(id, side, x, y)}
         onMoveLabel={(id, dx, dy) => setEdgeLabelOffset(id, dx, dy)}
         onCommitNodeLabel={handleCommitNodeLabel}
+        onCommitAreaLabel={handleCommitAreaLabel}
         onCreateNode={handleCreateNode}
         onConnectSelection={handleConnectSelection}
         onDeleteSelection={handleDeleteSelection}

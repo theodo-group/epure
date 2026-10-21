@@ -57,7 +57,7 @@ export const route = async (
 
   const nodes = nodeRects(diagram, layout)
   const areaTree = buildAreaTree(diagram.areas)
-  const areas = computeAreaGeometry(diagram, areaTree, nodes)
+  const areas = computeAreaGeometry(diagram, areaTree, nodes, layout)
   const { edgeIds, edgeMeta } = guessFaces(diagram, layout, nodes)
   const scene = libavoidScene(
     {
