@@ -9,6 +9,7 @@
 import type { ConnectionSide, RouteResult } from '@mr_mint/elkjs-libavoid'
 
 import type { EdgeRoutingHints } from './anchors'
+import { OVERLAP_MIN } from './constants'
 import type { EdgeMeta } from './faces'
 import { faceRange, isHorizontalSide, type Pt, type Rect } from './geometry'
 import { snap } from './snap'
@@ -212,7 +213,6 @@ export const resolveSegmentOverlaps = (
   // keeps the overlap check from chasing phantom segments.
   skip: Map<string, Pt[]>,
 ): void => {
-  const OVERLAP_TOLERANCE = 4 // segments closer than this are considered identical
   const nudgeAmount = Math.max(gridSize / 2, 16)
   const NUDGE_ATTEMPTS = [nudgeAmount, -nudgeAmount, nudgeAmount * 2, -nudgeAmount * 2]
   // Two parallel BEND legs that merely run close (e.g. a counter-directional
@@ -279,7 +279,7 @@ export const resolveSegmentOverlaps = (
     const otherSegs: AxisSegment[] = [...fixedSegments]
     for (const [oid, osegs] of segs) if (oid !== edgeId) otherSegs.push(...osegs)
     const blockers = otherSegs
-      .filter((os) => os.axis === axis && spanOverlap(os, leg) > OVERLAP_TOLERANCE)
+      .filter((os) => os.axis === axis && spanOverlap(os, leg) > OVERLAP_MIN)
       .map((os) => os.coord)
     const clear = (c: number): boolean =>
       c >= lo && c <= hi && blockers.every((b) => Math.abs(c - b) >= BEND_MIN_GAP - 1)
@@ -338,13 +338,13 @@ export const resolveSegmentOverlaps = (
       for (const s1 of segs1) {
         for (const s2 of rest) {
           if (s1.axis !== s2.axis) continue
-          if (spanOverlap(s1, s2) <= OVERLAP_TOLERANCE) continue // no shared span
+          if (spanOverlap(s1, s2) <= OVERLAP_MIN) continue // no shared span
           const coordGap = Math.abs(s1.coord - s2.coord)
           // Only (near-)coincident legs count as overlapping — legs that merely
           // run close are left alone so existing tight bundles aren't spread
           // apart. A flagged bend leg is then relocated to a clear GAP, not just
           // off the shared coordinate, so the fix is unambiguously visible.
-          if (coordGap > OVERLAP_TOLERANCE) continue
+          if (coordGap > OVERLAP_MIN) continue
           // s2 may be a fixed (immovable) leg, so only s1 — always movable — is a
           // candidate; the other edge's conflicts surface when it is scanned.
           if (s1.endpoint) {

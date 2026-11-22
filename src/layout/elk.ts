@@ -109,13 +109,13 @@ export const route = async (
   const snapObstacles = [...areas.areaObstacles, ...areas.titleObstacles]
   if (libavoidOk) {
     for (const id of edgeIds) {
-      const poly = adoptLibavoidRoute(
-        routes.get(id),
-        edgeMeta.get(id)!,
+      const poly = adoptLibavoidRoute(routes.get(id), {
+        meta: edgeMeta.get(id)!,
         gridSize,
         nodes,
-        snapObstacles,
-      )
+        obstacles: snapObstacles,
+        taken: [...libPolys.values()],
+      })
       if (poly) libPolys.set(id, poly)
     }
   }

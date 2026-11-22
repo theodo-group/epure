@@ -54,6 +54,14 @@ export const nodeRects = (diagram: Diagram, layout: LayoutSidecar): Record<strin
   return pixelNodes
 }
 
+/** The rect grown by `by` px on every side. */
+export const inflateRect = (r: Rect, by: number): Rect => ({
+  x: r.x - by,
+  y: r.y - by,
+  w: r.w + 2 * by,
+  h: r.h + 2 * by,
+})
+
 export const rectContains = (outer: Rect, inner: Rect): boolean =>
   inner.x >= outer.x &&
   inner.y >= outer.y &&

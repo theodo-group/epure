@@ -3,7 +3,8 @@
 // crossing penalty minimizing edge-edge crossings globally — none of which the
 // synthetic builder reasons about. This module decides WHETHER a route is
 // adopted (it must be orthogonal and honor pinned faces) and puts an adopted
-// one back on the grid without sliding it into an obstacle.
+// one back on the grid without sliding it into an obstacle or onto a route
+// adopted before it.
 //
 // Pixel space; `gridSize` is the pixel pitch of the grid. A rejected route
 // (undefined) falls through to the synthetic path, which is always orthogonal
@@ -13,8 +14,16 @@ import type { RouteResult } from '@mr_mint/elkjs-libavoid'
 
 import { type AreaObstacle, areaBlocksEdge } from './areaGeometry'
 import type { EdgeMeta } from './faces'
-import { cleanPolyline, isOrthogonalPath, type Pt, type Rect, sideFromSegment } from './geometry'
-import { polyOf } from './libavoidGraph'
+import {
+  cleanPolyline,
+  inflateRect,
+  isOrthogonalPath,
+  type Pt,
+  type Rect,
+  sideFromSegment,
+} from './geometry'
+import { type Leg, legOf, legRules, legsOf } from './legs'
+import { polyOf, shapeBuffer } from './libavoidGraph'
 
 export const snap = (v: number, gridSize: number) => Math.round(v / gridSize) * gridSize
 
@@ -68,64 +77,129 @@ const pathCrossesForeignNode = (
 // coordinate to the grid; because adjacent segments alternate H/V and share a
 // corner, this keeps the whole polyline orthogonal. If snapping pushes the route
 // into an obstacle it didn't touch before, the original (unsnapped) route is
-// kept — grid tidiness never trumps obstacle avoidance. Exported for tests.
-export const snapPolylineToGrid = (
-  poly: Pt[],
-  gridSize: number,
-  nodes: Record<string, Rect>,
-  areaObstacles: AreaObstacle[],
-  srcId: string,
-  tgtId: string,
-): Pt[] => {
+// kept — grid tidiness never trumps obstacle avoidance.
+//
+// Rounding must also never merge two routes: libavoid often packs parallel
+// legs closer than a grid cell, and rounding both to the nearest line would
+// stack them. When an already-adopted route (`taken`) runs along a leg's
+// nearest grid line, the leg takes the nearest free neighbour line instead.
+// A neighbour line is up to 1.5 cells from libavoid's coordinate, so it must
+// also keep libavoid's clearance (`shapeBuffer`) from every node (the edge's
+// own end nodes included) and blocking shape; when neither neighbour line
+// does, the leg keeps libavoid's coordinate. Routes that fall back to the
+// synthetic path are not in `taken`: they dodge the adopted routes later
+// (resolveSegmentOverlaps).
+
+/** What the grid snap of one edge's route needs to know. */
+export interface SnapContext {
+  gridSize: number
+  nodes: Record<string, Rect>
+  /** Area rects and title chips the snap must not slide the route onto. */
+  obstacles: AreaObstacle[]
+  source: string
+  target: string
+  /** Routes adopted so far, which this one must not be rounded onto. */
+  taken?: Pt[][]
+}
+
+/**
+ * The polyline `poly` with its interior legs on grid lines. Exported for tests.
+ * Returns `poly` unchanged (cleaned) when it has no interior leg, or when the
+ * snapped route would cross a foreign node or blocking shape.
+ */
+export const snapPolylineToGrid = (poly: Pt[], ctx: SnapContext): Pt[] => {
+  const { gridSize, nodes, obstacles, source, target } = ctx
   if (poly.length < 4) return cleanPolyline(poly) // straight or single-corner: nothing interior to move
+  const rules = legRules(gridSize)
+  const takenLegs = (ctx.taken ?? []).flatMap(legsOf)
+  const isTaken = (leg: Leg): boolean => takenLegs.some((t) => rules.shareRun(leg, t))
+  const clearance = shapeBuffer(gridSize)
+  const blocking = obstacles.filter((o) => areaBlocksEdge(o, source, target))
+  // Only interior legs move, so the edge's own end nodes count too: a leg
+  // moved toward them must not run along or through them.
+  const shapes = [...Object.values(nodes), ...blocking.map((o) => o.rect)].map((r) =>
+    inflateRect(r, clearance),
+  )
+  const keepsClearance = (leg: Leg): boolean => {
+    const [a, b] =
+      leg.axis === 'V'
+        ? [
+            { x: leg.coord, y: leg.lo },
+            { x: leg.coord, y: leg.hi },
+          ]
+        : [
+            { x: leg.lo, y: leg.coord },
+            { x: leg.hi, y: leg.coord },
+          ]
+    return !shapes.some((r) => segCrossesRect(a, b, r))
+  }
+  // The grid line `leg` moves to: its nearest line, or, only when that line is
+  // taken, the nearest free neighbour line that keeps libavoid's clearance.
+  // The line must stay strictly between the far ends of the leg's neighbour
+  // legs (`bounds`), or a neighbour leg would collapse or flip; otherwise the
+  // leg keeps its coordinate.
+  const gridLine = (leg: Leg, bounds: { min: number; max: number }): number => {
+    const fits = (c: number) => c > bounds.min && c < bounds.max
+    const at = (coord: number): Leg => ({ ...leg, coord })
+    const nearest = snap(leg.coord, gridSize)
+    if (!fits(nearest)) return leg.coord
+    if (!isTaken(at(nearest))) return nearest
+    const neighbours = [nearest - gridSize, nearest + gridSize].sort(
+      (u, v) => Math.abs(u - leg.coord) - Math.abs(v - leg.coord),
+    )
+    const free = neighbours.find((c) => fits(c) && !isTaken(at(c)) && keepsClearance(at(c)))
+    return free ?? leg.coord
+  }
   const out = poly.map((p) => ({ x: p.x, y: p.y }))
   for (let i = 1; i < out.length - 2; i += 1) {
     const a = out[i]!
     const b = out[i + 1]!
+    const leg = legOf(a, b)
+    if (!leg) continue
     // Snap a segment's shared coordinate ONLY when the snapped value stays
     // strictly between its two neighbour legs' far ends. Otherwise the snap would
     // collapse (or flip) an adjacent leg — e.g. pulling the middle leg of a Z
     // onto the target face turns a perpendicular arrival into a sideways one.
     const before = out[i - 1]!
     const after = out[i + 2]!
-    if (Math.abs(a.x - b.x) < 0.5) {
-      const sx = snap(a.x, gridSize) // vertical leg → snap shared x
-      const lo = Math.min(before.x, after.x)
-      const hi = Math.max(before.x, after.x)
-      if (sx > lo && sx < hi) {
-        a.x = sx
-        b.x = sx
-      }
-    } else if (Math.abs(a.y - b.y) < 0.5) {
-      const sy = snap(a.y, gridSize) // horizontal leg → snap shared y
-      const lo = Math.min(before.y, after.y)
-      const hi = Math.max(before.y, after.y)
-      if (sy > lo && sy < hi) {
-        a.y = sy
-        b.y = sy
-      }
+    const [u, v] = leg.axis === 'V' ? [before.x, after.x] : [before.y, after.y]
+    const coord = gridLine(leg, { min: Math.min(u, v), max: Math.max(u, v) })
+    if (leg.axis === 'V') {
+      a.x = coord
+      b.x = coord
+    } else {
+      a.y = coord
+      b.y = coord
     }
   }
   const snapped = cleanPolyline(out)
-  if (pathCrossesForeignNode(snapped, nodes, srcId, tgtId, areaObstacles)) {
+  if (pathCrossesForeignNode(snapped, nodes, source, target, obstacles)) {
     return cleanPolyline(poly)
   }
   return snapped
 }
 
+/** What adopting one edge's libavoid route needs to know. */
+export interface AdoptContext {
+  meta: EdgeMeta
+  gridSize: number
+  nodes: Record<string, Rect>
+  /** Area rects AND title chips: a half-cell snap could otherwise nudge a
+   *  segment off its buffer clearance into a title. */
+  obstacles: AreaObstacle[]
+  /** Routes adopted so far, which the snap must not round this one onto. */
+  taken?: Pt[][]
+}
+
 /**
  * The polyline to draw for an edge libavoid routed, or undefined to fall back
- * to the synthetic path. `obstacles` are the rects the grid snap must not slide
- * the route onto — area rects AND title chips (a half-cell snap could otherwise
- * nudge a segment off its buffer clearance into a title).
+ * to the synthetic path.
  */
 export const adoptLibavoidRoute = (
   result: RouteResult | undefined,
-  meta: EdgeMeta,
-  gridSize: number,
-  nodes: Record<string, Rect>,
-  obstacles: AreaObstacle[],
+  ctx: AdoptContext,
 ): Pt[] | undefined => {
+  const { meta } = ctx
   if (!result) return undefined
   const poly = polyOf(result)
   if (poly.length < 2) return undefined
@@ -145,5 +219,12 @@ export const adoptLibavoidRoute = (
   ) {
     return undefined
   }
-  return snapPolylineToGrid(poly, gridSize, nodes, obstacles, meta.source, meta.target)
+  return snapPolylineToGrid(poly, {
+    gridSize: ctx.gridSize,
+    nodes: ctx.nodes,
+    obstacles: ctx.obstacles,
+    source: meta.source,
+    target: meta.target,
+    taken: ctx.taken,
+  })
 }

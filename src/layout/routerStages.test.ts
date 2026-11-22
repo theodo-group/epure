@@ -49,7 +49,15 @@ describe('grid snapping (snap.ts)', () => {
       { x: 53, y: 91 },
       { x: 100, y: 91 },
     ]
-    expect(snapPolylineToGrid(poly, 20, {}, [], 'a', 'b')).toEqual([
+    expect(
+      snapPolylineToGrid(poly, {
+        gridSize: 20,
+        nodes: {},
+        obstacles: [],
+        source: 'a',
+        target: 'b',
+      }),
+    ).toEqual([
       { x: 0, y: 13 },
       { x: 60, y: 13 },
       { x: 60, y: 91 },
@@ -65,7 +73,15 @@ describe('grid snapping (snap.ts)', () => {
       { x: 93, y: 90 },
       { x: 100, y: 90 },
     ]
-    expect(snapPolylineToGrid(poly, 20, {}, [], 'a', 'b')).toEqual(poly)
+    expect(
+      snapPolylineToGrid(poly, {
+        gridSize: 20,
+        nodes: {},
+        obstacles: [],
+        source: 'a',
+        target: 'b',
+      }),
+    ).toEqual(poly)
   })
 
   it('keeps the unsnapped route when snapping would push it into a foreign node', () => {
@@ -76,7 +92,102 @@ describe('grid snapping (snap.ts)', () => {
       { x: 100, y: 91 },
     ]
     const blocker = { x: 56, y: 30, w: 30, h: 40 } // clear of x=53, hit by x=60
-    expect(snapPolylineToGrid(poly, 20, { c: blocker }, [], 'a', 'b')).toEqual(poly)
+    expect(
+      snapPolylineToGrid(poly, {
+        gridSize: 20,
+        nodes: { c: blocker },
+        obstacles: [],
+        source: 'a',
+        target: 'b',
+      }),
+    ).toEqual(poly)
+  })
+})
+
+describe('grid snapping next to adopted routes (snap.ts)', () => {
+  // A Z whose vertical leg libavoid put at x=95: its nearest grid line is 80,
+  // its neighbour lines 120 (25 px away) and 40 (55 px away).
+  const zAt = (startX: number, endX: number): Pt[] => [
+    { x: startX, y: 20 },
+    { x: 95, y: 20 },
+    { x: 95, y: 180 },
+    { x: endX, y: 180 },
+  ]
+  const vertical = (x: number, y0 = 0, y1 = 200): Pt[] => [
+    { x, y: y0 },
+    { x, y: y1 },
+  ]
+  const legX = (poly: Pt[]) => poly[1]!.x
+  const ctx = (taken: Pt[][], nodes = {}) => ({
+    gridSize: 40,
+    nodes,
+    obstacles: [],
+    source: 'a',
+    target: 'b',
+    taken,
+  })
+
+  it('takes the nearest grid line when no adopted route runs along it', () => {
+    expect(legX(snapPolylineToGrid(zAt(0, 400), ctx([vertical(120)])))).toBe(80)
+  })
+
+  it('takes the nearer neighbour line when an adopted route runs along the nearest one', () => {
+    expect(legX(snapPolylineToGrid(zAt(0, 400), ctx([vertical(80)])))).toBe(120)
+  })
+
+  it('keeps the libavoid coordinate when the nearest and both neighbour lines are taken', () => {
+    const taken = [vertical(40), vertical(80), vertical(120)]
+    expect(legX(snapPolylineToGrid(zAt(0, 400), ctx(taken)))).toBe(95)
+  })
+
+  it('keeps the libavoid coordinate when the free neighbour lines are out of the leg’s bounds', () => {
+    // The neighbour legs end at x=60 and x=110: 40 and 120 would flip one.
+    expect(legX(snapPolylineToGrid(zAt(60, 110), ctx([vertical(80)])))).toBe(95)
+  })
+
+  it('skips a neighbour line that would run closer than the clearance to a foreign node', () => {
+    // x=120 would run 5 px from node c (clearance 20 at grid 40), so 40 is used.
+    const c = { x: 125, y: 60, w: 75, h: 60 }
+    expect(legX(snapPolylineToGrid(zAt(0, 400), ctx([vertical(80)], { c })))).toBe(40)
+  })
+
+  it('skips a neighbour line that would run through the edge’s own end node', () => {
+    // The leg at x=160 runs 20 px right of its own source s (x 20..140); its
+    // line is taken. Both neighbour lines are 40 px away; x=120, tried first,
+    // is inside s, so x=200 wins.
+    const s = { x: 20, y: 100, w: 120, h: 80 }
+    const poly = [
+      { x: 80, y: 100 },
+      { x: 80, y: 60 },
+      { x: 160, y: 60 },
+      { x: 160, y: 300 },
+      { x: 400, y: 300 },
+    ]
+    const snapped = snapPolylineToGrid(poly, { ...ctx([vertical(160)], { a: s }), source: 'a' })
+    expect(snapped[2]!.x).toBe(200)
+  })
+
+  it('skips a neighbour line that would run along the edge’s own end node', () => {
+    // The leg at y=100 runs 20 px under its own source a (y 0..80); its line
+    // y=120 is taken, and the neighbour y=80 is a's bottom border.
+    const a = { x: 0, y: 0, w: 200, h: 80 }
+    const poly = [
+      { x: 200, y: 40 },
+      { x: 240, y: 40 },
+      { x: 240, y: 100 },
+      { x: -200, y: 100 },
+      { x: -200, y: 400 },
+    ]
+    const horizontal = [
+      { x: -400, y: 120 },
+      { x: 400, y: 120 },
+    ]
+    const snapped = snapPolylineToGrid(poly, ctx([horizontal], { a }))
+    expect(snapped[2]!.y).not.toBe(80)
+  })
+
+  it('ignores an adopted route that runs along the line for only a few pixels', () => {
+    expect(legX(snapPolylineToGrid(zAt(0, 400), ctx([vertical(80, 178, 181)])))).toBe(80)
   })
 })
 
@@ -90,7 +201,14 @@ describe('adopting a libavoid route (snap.ts)', () => {
       { x: 0, y: 0 },
       { x: 100, y: 60 },
     ])
-    expect(adoptLibavoidRoute(diagonal, meta('a', 'b', 'E', 'W'), 20, nodes, [])).toBeUndefined()
+    expect(
+      adoptLibavoidRoute(diagonal, {
+        meta: meta('a', 'b', 'E', 'W'),
+        gridSize: 20,
+        nodes,
+        obstacles: [],
+      }),
+    ).toBeUndefined()
   })
 
   it('accepts a sub-pixel wobble as orthogonal', () => {
@@ -98,9 +216,14 @@ describe('adopting a libavoid route (snap.ts)', () => {
       { x: 0, y: 0 },
       { x: 100, y: 0.4 },
     ])
-    expect(adoptLibavoidRoute(wobble, meta('a', 'b', 'E', 'W'), 20, nodes, [])).toEqual(
-      pointsOf(wobble),
-    )
+    expect(
+      adoptLibavoidRoute(wobble, {
+        meta: meta('a', 'b', 'E', 'W'),
+        gridSize: 20,
+        nodes,
+        obstacles: [],
+      }),
+    ).toEqual(pointsOf(wobble))
   })
 
   it('falls back when libavoid leaves a PINNED face from another face', () => {
@@ -112,10 +235,14 @@ describe('adopting a libavoid route (snap.ts)', () => {
       { x: 100, y: 0 },
     ])
     const pinned = meta('a', 'b', 'E', 'S', { source: true })
-    expect(adoptLibavoidRoute(viaNorth, pinned, 20, nodes, [])).toBeUndefined()
+    expect(
+      adoptLibavoidRoute(viaNorth, { meta: pinned, gridSize: 20, nodes, obstacles: [] }),
+    ).toBeUndefined()
     // The same route is adopted when that end is not pinned (a learned face may differ).
     const free = meta('a', 'b', 'E', 'S')
-    expect(adoptLibavoidRoute(viaNorth, free, 20, nodes, [])).toEqual(pointsOf(viaNorth))
+    expect(
+      adoptLibavoidRoute(viaNorth, { meta: free, gridSize: 20, nodes, obstacles: [] }),
+    ).toEqual(pointsOf(viaNorth))
   })
 
   it('falls back when libavoid arrives at a pinned TARGET face from another face', () => {
@@ -125,9 +252,13 @@ describe('adopting a libavoid route (snap.ts)', () => {
       { x: 100, y: 40 },
     ])
     const pinned = meta('a', 'b', 'E', 'W', { target: true })
-    expect(adoptLibavoidRoute(intoNorth, pinned, 20, nodes, [])).toBeUndefined()
+    expect(
+      adoptLibavoidRoute(intoNorth, { meta: pinned, gridSize: 20, nodes, obstacles: [] }),
+    ).toBeUndefined()
     const honoured = meta('a', 'b', 'E', 'N', { target: true })
-    expect(adoptLibavoidRoute(intoNorth, honoured, 20, nodes, [])).toEqual(pointsOf(intoNorth))
+    expect(
+      adoptLibavoidRoute(intoNorth, { meta: honoured, gridSize: 20, nodes, obstacles: [] }),
+    ).toEqual(pointsOf(intoNorth))
   })
 })
 
