@@ -27,6 +27,7 @@ import { edgeKey } from './ids'
 import { labelAnchorFor } from './labels'
 import { libavoidScene, routeWithAnchors, shapeBuffer } from './libavoidGraph'
 import { refinePortSwaps } from './refine'
+import { separateSharedRuns } from './separate'
 import { adoptLibavoidRoute } from './snap'
 import { buildOrthogonalPath, resolveSegmentOverlaps, stubRoutes } from './synthetic'
 import { chipReach, unshadowFaces } from './titleShadow'
@@ -117,6 +118,20 @@ export const route = async (
         taken: [...libPolys.values()],
       })
       if (poly) libPolys.set(id, poly)
+    }
+    // Edges from different blocking-area groups were routed in separate
+    // libavoid calls, so nothing kept them off each other's lanes. A quick
+    // route (a drag) skips this pass: edges that share a lane during the drag
+    // move apart when the full route follows the release.
+    if (!quick) {
+      separateSharedRuns({
+        polys: libPolys,
+        edgeMeta,
+        nodes,
+        obstacles: snapObstacles,
+        gridSize,
+        clearance: shapeBuffer(gridSize),
+      })
     }
   }
 

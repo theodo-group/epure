@@ -73,4 +73,34 @@ describe('edges never share a line', () => {
     const routed = await routeSource(source, layout)
     expect(sharedRuns(routed.edges, 40)).toEqual([])
   })
+
+  // Two edges of different area groups whose routes the grid snap cannot keep
+  // apart: only the separation pass slides one of them to its own lane.
+  const crossGroupSource = [
+    'n0',
+    'n1',
+    'n2',
+    'n3',
+    'n1 -> n0',
+    'n2 -> n3',
+    'A0: "A0" { n0; n3 }',
+    'A1: "A1" { n1 }',
+    'A2: "A2" { n2 }',
+    '',
+  ].join('\n')
+  const crossGroupLayout: LayoutSidecar = {
+    gridSize: 40,
+    nodes: {
+      n0: { cx: 12, cy: 6, w: 2, h: 4 },
+      n1: { cx: 4, cy: 10, w: 2, h: 4 },
+      n2: { cx: 8, cy: 10, w: 2, h: 4 },
+      n3: { cx: 2, cy: 2, w: 6, h: 4 },
+    },
+    edges: {},
+  }
+
+  it('slides apart two edges of different area groups after a full route', async () => {
+    const routed = await routeSource(crossGroupSource, crossGroupLayout)
+    expect(sharedRuns(routed.edges, 40)).toEqual([])
+  })
 })

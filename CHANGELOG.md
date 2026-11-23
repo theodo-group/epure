@@ -14,6 +14,10 @@
   fit it, without growing over nearby boxes.
 - **Titles are centered by default.** Existing diagrams show their group titles centered, and a few
   edges route differently. Set `labelAlign: "left"` on an area to keep the old placement.
+- **Far fewer edges draw on top of each other.** Two edges that took the same corridor, often the
+  gap between two groups, could land on the same line and read as one. They now run side by side,
+  or cross cleanly away from a corner. Some edges in existing diagrams move: up to three grid cells
+  per slide, further on dense diagrams, and some legs sit between grid lines.
 
 ## 0.7.0 — 2026-10-14
 

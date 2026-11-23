@@ -1,10 +1,10 @@
-// The axis-aligned legs of an orthogonal polyline, and the relation between
+// The axis-aligned legs of an orthogonal polyline, and the relations between
 // two legs that the post-routing stages judge routes by: sharing a run (two
-// legs drawn as one line).
+// legs drawn as one line) and crossing (near a corner or not).
 //
 // Pixel space; `gridSize` is the grid pitch in px.
 
-import { AXIS_TOLERANCE, laneWidth, OVERLAP_MIN } from './constants'
+import { AXIS_TOLERANCE, CROSSING_MARGIN, laneWidth, OVERLAP_MIN } from './constants'
 import type { Pt } from './geometry'
 
 export type Axis = 'H' | 'V'
@@ -48,6 +48,11 @@ export interface LegRules {
   /** True when the two legs draw as one line: same axis, closer than half a
    *  cell, side by side over more than OVERLAP_MIN px. */
   shareRun: (a: Leg, b: Leg) => boolean
+  /** True when the two legs cross away from both legs' ends. */
+  cross: (a: Leg, b: Leg) => boolean
+  /** True when the two legs cross less than a grid cell from a corner or end:
+   *  the crossing gap then reads as a broken stub. */
+  crossNearCorner: (a: Leg, b: Leg) => boolean
 }
 
 /** The leg relations for a grid of pitch `gridSize`. */
@@ -57,5 +62,23 @@ export const legRules = (gridSize: number): LegRules => {
     a.axis === b.axis &&
     Math.abs(a.coord - b.coord) < lane - AXIS_TOLERANCE &&
     sideBySideLength(a, b) > OVERLAP_MIN
-  return { shareRun }
+  const cross = (a: Leg, b: Leg): boolean => {
+    if (a.axis === b.axis) return false
+    const v = a.axis === 'V' ? a : b
+    const h = a.axis === 'V' ? b : a
+    return (
+      v.coord > h.lo + CROSSING_MARGIN &&
+      v.coord < h.hi - CROSSING_MARGIN &&
+      h.coord > v.lo + CROSSING_MARGIN &&
+      h.coord < v.hi - CROSSING_MARGIN
+    )
+  }
+  const crossNearCorner = (a: Leg, b: Leg): boolean => {
+    if (!cross(a, b)) return false
+    const v = a.axis === 'V' ? a : b
+    const h = a.axis === 'V' ? b : a
+    const nearest = Math.min(h.coord - v.lo, v.hi - h.coord, v.coord - h.lo, h.hi - v.coord)
+    return nearest < gridSize - CROSSING_MARGIN
+  }
+  return { shareRun, cross, crossNearCorner }
 }
